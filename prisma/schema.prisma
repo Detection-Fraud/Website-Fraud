@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  REGION
+  BRANCH
+  DIVISION
+}
+
+enum ReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// --- MASTER DATA WILAYAH ---
+model Region {
+  id       String        @id @default(uuid())
+  nama     String
+  kode     String     @unique
+  users User[]
+  branches Branch[]
+  activityReports ActivityReport[]
+}
+
+model Branch {
+  id String @id @default(uuid())
+  name String
+
+  regionId String
+  region Region @relation(fields: [regionId], references: [id])
+
+  activityReports ActivityReport[]
+
+  users User[]
+}
+
+model Division {
+  id String @id @default(uuid())
+  name String
+
+  activityReports ActivityReport[]
+
+  users User[]
+}
+
+model User {
+  id String @id @default(uuid())
+  username String? @unique
+  password String?
+  
+  authProvider String @default("LOCAL")
+  samlNameId String? @unique
+
+  name String
+  
+  role Role @default(REGION)
+
+  regionId String?
+  region Region? @relation(fields: [regionId], references: [id])
+
+  branchId String?
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  divisionId String?
+  division Division? @relation(fields: [divisionId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityReport {
+  id String @id @default(uuid())
+
+  regionId String?
+  region Region? @relation(fields: [regionId], references: [id])
+
+  branchId String?
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  divisionId String?
+  division Division? @relation(fields: [divisionId], references: [id])
+
+  activityName String
+  quarterPeriod String
+  year String
+
+  claimedCount Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  status ReportStatus @default(PENDING)
+
+  photos ActivityPhoto[]
+
+  @@index([regionId])
+  @@index([branchId])
+  @@index([divisionId])
+}
+
+model ActivityPhoto {
+  id Int @id @default(autoincrement())
+
+  reportId String
+  report ActivityReport @relation(fields: [reportId], references: [id])
+
+  originalName String
+
+  imageUrl String
+}
+

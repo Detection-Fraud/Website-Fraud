@@ -1,0 +1,35 @@
+"use server";
+
+import { signIn } from "@/auth";
+import { errorResponse, successResponse } from "@/lib/response";
+import { LoginSchema } from "@/schemas/auth";
+import { AuthError } from "next-auth";
+import { z } from "zod";
+
+export async function loginAction(values: z.infer<typeof LoginSchema>) {
+  const validatedFields = LoginSchema.safeParse(values);
+
+  if (!validatedFields.success) {
+    return errorResponse("Invalid fields", 400);
+  }
+
+  const { username, password } = validatedFields.data;
+
+  try {
+    await signIn("credentials", {
+      username,
+      password,
+      redirectTo: "/dashboard",
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case "CredentialsSignin":
+          return errorResponse("Invalid credentials", 401);
+        default:
+          return errorResponse("Something went wrong", 500);
+      }
+    }
+    throw error;
+  }
+}
