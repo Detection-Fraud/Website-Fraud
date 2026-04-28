@@ -19,6 +19,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { username: credentials.username as string },
+          include: {
+            region: true,
+            branch: true,
+            division: true,
+          },
         });
 
         if (!user || !user.password) return null;
@@ -38,6 +43,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           regionId: user.regionId || null,
           branchId: user.branchId || null,
           divisionId: user.divisionId || null,
+          regionName: user.region?.name || null,
+          branchName: user.branch?.name || null,
+          divisionName: user.division?.name || null,
         };
       },
     }),

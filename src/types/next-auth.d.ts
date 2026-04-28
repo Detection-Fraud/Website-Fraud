@@ -11,6 +11,9 @@ declare module "next-auth" {
       regionId: string | null;
       branchId: string | null;
       divisionId: string | null;
+      regionName: string | null;
+      branchName: string | null;
+      divisionName: string | null;
     } & DefaultSession["user"];
   }
 
@@ -20,6 +23,9 @@ declare module "next-auth" {
     regionId: string | null;
     branchId: string | null;
     divisionId: string | null;
+    regionName: string | null;
+    branchName: string | null;
+    divisionName: string | null;
   }
 }
 
@@ -32,5 +38,8 @@ declare module "next-auth/jwt" {
     regionId: string | null;
     branchId: string | null;
     divisionId: string | null;
+    regionName: string | null;
+    branchName: string | null;
+    divisionName: string | null;
   }
 }

@@ -18,7 +18,7 @@ export default function DataTable<T>({
   renderCell,
 }: DataTableProps<T>) {
   return (
-    <Table >
+    <Table>
       <Table.ScrollContainer>
         <Table.Content aria-label={ariaLabel || "Tabel Data"}>
           <Table.Header>

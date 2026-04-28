@@ -16,9 +16,8 @@ datasource db {
 
 enum Role {
   ADMIN
-  REGION
-  BRANCH
-  DIVISION
+  PIC
+  VIEWER
 }
 
 enum ReportStatus {
@@ -30,7 +29,7 @@ enum ReportStatus {
 // --- MASTER DATA WILAYAH ---
 model Region {
   id       String        @id @default(uuid())
-  nama     String
+  name     String
   kode     String     @unique
   users User[]
   branches Branch[]
@@ -68,7 +67,7 @@ model User {
 
   name String
   
-  role Role @default(REGION)
+  role Role @default(VIEWER)
 
   regionId String?
   region Region? @relation(fields: [regionId], references: [id])
@@ -83,6 +82,21 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+model ProgramBudaya {
+  id String @id @default(uuid())
+
+  name String
+
+  description String
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activityReports ActivityReport[]
+}
+
 model ActivityReport {
   id String @id @default(uuid())
 
@@ -95,16 +109,26 @@ model ActivityReport {
   divisionId String?
   division Division? @relation(fields: [divisionId], references: [id])
 
-  activityName String
-  quarterPeriod String
-  year String
+  programId String?
+  program ProgramBudaya? @relation(fields: [programId], references: [id])
 
-  claimedCount Int
+  activityName String
+  
+  tanggalKegiatan DateTime
+
+  lokasi String
+  description String
+
+  picKegiatan String
+
+  status ReportStatus @default(PENDING)
+
+
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  status ReportStatus @default(PENDING)
+  notes String?
 
   photos ActivityPhoto[]
 

@@ -27,15 +27,19 @@ export async function POST(request: Request) {
 
     switch (user.role) {
       case "ADMIN":
+        // Admin bisa cek fraud terhadap semua foto
         break;
-      case "REGION":
-        reportWhereClause = { regionId: user.regionId };
+      case "PIC":
+        // PIC hanya cek fraud dari foto di level penempatannya
+        if (user.branchId) {
+          reportWhereClause = { branchId: user.branchId };
+        } else if (user.regionId) {
+          reportWhereClause = { regionId: user.regionId, branchId: null };
+        } else if (user.divisionId) {
+          reportWhereClause = { divisionId: user.divisionId };
+        }
         break;
-      case "BRANCH":
-        reportWhereClause = { branchId: user.branchId };
-        break;
-      case "DIVISION":
-        reportWhereClause = { divisionId: user.divisionId };
+      case "VIEWER":
         break;
       default:
         return NextResponse.json(

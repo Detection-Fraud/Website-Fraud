@@ -18,21 +18,27 @@ export async function GET() {
 
     switch (user.role) {
       case "ADMIN":
+        // Admin bisa lihat semua laporan
         break;
-      case "REGION":
-        whereClause = {
-          regionId: user.regionId,
-        };
+      case "PIC":
+        // PIC filter berdasarkan branchId (jika ada), jika tidak, regionId
+        if (user.branchId) {
+          whereClause = { branchId: user.branchId };
+        } else if (user.regionId) {
+          whereClause = { regionId: user.regionId, branchId: null };
+        } else if (user.divisionId) {
+          whereClause = { divisionId: user.divisionId };
+        }
         break;
-      case "BRANCH":
-        whereClause = {
-          branchId: user.branchId,
-        };
-        break;
-      case "DIVISION":
-        whereClause = {
-          divisionId: user.divisionId,
-        };
+      case "VIEWER":
+        // Viewer hanya bisa lihat laporan sesuai level penempatannya
+        if (user.branchId) {
+          whereClause = { branchId: user.branchId };
+        } else if (user.regionId) {
+          whereClause = { regionId: user.regionId, branchId: null };
+        } else if (user.divisionId) {
+          whereClause = { divisionId: user.divisionId };
+        }
         break;
       default:
         return NextResponse.json(
@@ -47,9 +53,10 @@ export async function GET() {
         createdAt: "desc",
       },
       include: {
-        region: { select: { nama: true } },
+        region: { select: { name: true } },
         branch: { select: { name: true } },
         division: { select: { name: true } },
+        program: { select: { name: true } },
       },
     });
 
@@ -76,25 +83,36 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { activityName, quarterPeriod, year, claimedCount, uploadedPhotos } =
-      body;
+    console.log("DEBUG POST /api/reports body:", JSON.stringify(body, null, 2));
+    const {
+      activityName,
+      tanggalKegiatan,
+      lokasi,
+      description,
+      picKegiatan,
+      programId,
+      uploadedPhotos,
+    } = body;
 
     const result = await prisma.$transaction(async (tx) => {
       const newReport = await tx.activityReport.create({
         data: {
           activityName,
-          quarterPeriod,
-          year,
-          claimedCount,
-          regionId: user.regionId,
-          branchId: user.branchId,
-          divisionId: user.divisionId,
+          tanggalKegiatan: new Date(tanggalKegiatan),
+          lokasi,
+          description,
+          picKegiatan,
+          programId: programId || null,
+          regionId: user.regionId || null,
+          branchId: user.branchId || null,
+          divisionId: user.divisionId || null,
 
           photos: {
-            create: uploadedPhotos.map((photo: any) => ({
-              originalName: photo.originalName,
-              imageUrl: photo.imageUrl,
-            })),
+            create:
+              uploadedPhotos?.map((photo: any) => ({
+                originalName: photo.originalName,
+                imageUrl: photo.imageUrl,
+              })) || [],
           },
         },
         include: {
@@ -109,9 +127,10 @@ export async function POST(request: Request) {
       successResponse(result, "Laporan berhasil dibuat"),
       { status: 200 },
     );
-  } catch (error) {
-    console.log(error);
-    return NextResponse.json(errorResponse("Internal Server Error", 500), {
+  } catch (error: any) {
+    console.error("ERROR POST /api/reports:", error);
+    const message = error?.message || "Internal Server Error";
+    return NextResponse.json(errorResponse(message, 500), {
       status: 500,
     });
   }

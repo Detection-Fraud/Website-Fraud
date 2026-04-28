@@ -2,22 +2,29 @@
 
 import { Button, Chip } from "@heroui/react";
 import { FaEye } from "react-icons/fa";
-import AppBar from "../AppBar";
-import DataTable, { TableColumn } from "../DataTable";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import DataTable, { TableColumn } from "@/components/layout/DataTable";
+import AppBar from "@/components/layout/Appbar";
+
 export interface ActivityReportItem {
   id: string;
   activityName: string;
-  quarterPeriod: string;
-  year: string;
-  claimedCount: number;
+  tanggalKegiatan: string;
+  lokasi: string;
+  picKegiatan: string;
+  description: string;
+  status: string;
   createdAt: string;
-  user?: { name: string };
-  branch?: { name: string };
-  status?: string;
+  notes?: string | null;
+  region?: { name: string } | null;
+  branch?: { name: string } | null;
+  division?: { name: string } | null;
+  program?: { name: string } | null;
+  photos?: { id: number; originalName: string; imageUrl: string }[];
 }
-export default function RegionView() {
+
+export default function PicView() {
   const [reports, setReports] = useState<ActivityReportItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,10 +52,11 @@ export default function RegionView() {
   }, []);
 
   const columns: TableColumn[] = [
-    { key: "activityName", label: "Nama Aktivitas" },
-    { key: "quarterPeriod", label: "Periode" },
-    { key: "year", label: "Tahun" },
-    { key: "claimedCount", label: "Jumlah Kegiatan" },
+    { key: "activityName", label: "Nama Kegiatan" },
+    { key: "tanggalKegiatan", label: "Tanggal Kegiatan" },
+    { key: "lokasi", label: "Lokasi" },
+    { key: "picKegiatan", label: "PIC" },
+    { key: "program", label: "Program" },
     { key: "status", label: "Status" },
     { key: "createdAt", label: "Tanggal Dibuat" },
     { key: "aksi", label: "Aksi" },
@@ -56,19 +64,21 @@ export default function RegionView() {
 
   const renderCell = (item: ActivityReportItem, columnKey: string) => {
     switch (columnKey) {
+      case "tanggalKegiatan":
+        return new Date(item.tanggalKegiatan).toLocaleDateString("id-ID", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
       case "createdAt":
         return new Date(item.createdAt).toLocaleDateString("id-ID", {
           year: "numeric",
           month: "long",
           day: "numeric",
         });
-      case "claimedCount":
-        return (
-          <Chip variant="soft" size="md" color="success" className="rounded-md">
-            {`${item.claimedCount} `}
-          </Chip>
-        );
-      case "status":
+      case "program":
+        return item.program?.name || "-";
+      case "status": {
         const color =
           item.status === "APPROVED"
             ? "success"
@@ -80,6 +90,7 @@ export default function RegionView() {
             {item.status}
           </Chip>
         );
+      }
       case "aksi":
         return (
           <Button
@@ -87,6 +98,7 @@ export default function RegionView() {
             size="sm"
             variant="tertiary"
             className={"rounded-full"}
+            onPress={() => router.push(`/pic/detection/${item.id}`)}
           >
             <FaEye />
           </Button>
@@ -95,11 +107,12 @@ export default function RegionView() {
         return (item as any)[columnKey];
     }
   };
+
   return (
     <div className="space-y-8 mb-10">
       <AppBar
         onAdd={() => {
-          router.push("/dashboard/detection");
+          router.push("/pic/detection");
         }}
       />
 

@@ -5,26 +5,21 @@ import { signOut } from "next-auth/react";
 import { FaArrowRightToBracket } from "react-icons/fa6";
 
 interface UserData {
-  id?: string;
   name?: string | null;
-  username?: string | null;
   role?: string;
-
-  region?: {
-    nama: string;
-  } | null;
-  branch?: {
-    name: string;
-  } | null;
-  division?: {
-    name: string;
-  } | null;
+  regionName?: string | null;
+  branchName?: string | null;
+  divisionName?: string | null;
 }
-export default function DropdownUser({ user }: { user: UserData | null }) {
+
+export default function DropdownUser({ user }: { user: UserData }) {
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/login" });
   };
-  if (!user) return null;
+
+  // Tampilkan nama wilayah/cabang/divisi (mana yang ada)
+  const unitName = user.regionName || user.branchName || user.divisionName;
+
   return (
     <Dropdown>
       <Dropdown.Trigger>
@@ -37,11 +32,9 @@ export default function DropdownUser({ user }: { user: UserData | null }) {
           </Avatar>
           <div className="md:flex flex-col gap-0 text-end hidden">
             <p className="text-sm leading-5 font-medium">{user?.name}</p>
-            <p className="text-xs leading-none text-muted">
-              {user?.role === "REGION"
-                ? user?.region?.nama
-                : user?.branch?.name || user?.division?.name}
-            </p>
+            {unitName && (
+              <p className="text-xs leading-none text-muted">{unitName}</p>
+            )}
           </div>
         </div>
       </Dropdown.Trigger>
@@ -56,11 +49,9 @@ export default function DropdownUser({ user }: { user: UserData | null }) {
             </Avatar>
             <div className="flex flex-col gap-0">
               <p className="text-sm leading-5 font-medium">{user?.name}</p>
-              <p className="text-xs leading-none text-muted">
-                {user?.role === "REGION"
-                  ? user?.region?.nama
-                  : user?.branch?.name || user?.division?.name}
-              </p>
+              {unitName && (
+                <p className="text-xs leading-none text-muted">{unitName}</p>
+              )}
             </div>
           </div>
         </div>

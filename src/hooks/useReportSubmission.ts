@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useReportStore } from "@/store/useReportStore";
+import { toast } from "@heroui/react";
 
 export interface ReportFormData {
   activityName: string;
-  quarterPeriod: string;
-  year: string;
-  claimedCount: string;
+  programId: string;
+  lokasi: string;
+  tanggalKegiatan: string;
+  picKegiatan: string;
+  description: string;
 }
 
 export function useReportSubmission() {
@@ -59,7 +62,7 @@ export function useReportSubmission() {
       });
     } catch (error) {
       console.error(error);
-      alert("Terjadi kesalahan saat mengecek fraud. Silakan coba lagi.");
+      toast.danger("Terjadi kesalahan saat mengecek fraud. Silakan coba lagi.");
       imageNotCheck.forEach((img) => updateImageStatus(img.id, "IDLE"));
     } finally {
       setLoadingText("");
@@ -67,13 +70,16 @@ export function useReportSubmission() {
   };
 
   const tanganiSubmitFinal = async (dataForm: ReportFormData) => {
+    console.log("DEBUG dataForm:", dataForm);
     if (
       !dataForm.activityName ||
-      !dataForm.quarterPeriod ||
-      !dataForm.year ||
-      !dataForm.claimedCount
+      !dataForm.programId ||
+      !dataForm.lokasi ||
+      !dataForm.tanggalKegiatan ||
+      !dataForm.picKegiatan ||
+      !dataForm.description
     ) {
-      alert("Data belum lengkap! Harap isi semua informasi laporan.");
+      toast.danger("Data belum lengkap! Harap isi semua informasi laporan.");
       return;
     }
 
@@ -107,20 +113,27 @@ export function useReportSubmission() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           activityName: dataForm.activityName,
-          quarterPeriod: dataForm.quarterPeriod,
-          year: dataForm.year as string,
-          claimedCount: Number(dataForm.claimedCount),
+          programId: dataForm.programId,
+          lokasi: dataForm.lokasi,
+          tanggalKegiatan: dataForm.tanggalKegiatan,
+          picKegiatan: dataForm.picKegiatan,
+          description: dataForm.description,
           uploadedPhotos: fotoBerhasilUpload,
         }),
       });
 
-      if (!responDatabase.ok) throw new Error("Gagal menyimpan ke database");
+      const hasilDatabase = await responDatabase.json();
 
-      alert("Laporan berhasil dikirim dan tersimpan aman!");
+      if (!responDatabase.ok) {
+        console.error("Server error response:", hasilDatabase);
+        throw new Error(hasilDatabase.message || "Gagal menyimpan ke database");
+      }
+
+      toast.success("Laporan berhasil dikirim dan tersimpan aman!");
       resetStore();
     } catch (error) {
       console.error(error);
-      alert("Proses submit gagal. Cek koneksi internetmu.");
+      toast.danger("Proses submit gagal. Cek koneksi internetmu.");
     } finally {
       setLoadingText("");
     }

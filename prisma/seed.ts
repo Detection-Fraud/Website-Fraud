@@ -1,101 +1,117 @@
-import bcrypt from "bcryptjs";
 import { PrismaClient } from "../generated/prisma";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Memulai Proses Seeding data...");
-
+  console.log("🧹 Menghapus data lama...");
+  // Hapus berurutan dari tabel "Anak" ke tabel "Bapak" agar tidak error Foreign Key
+  await prisma.activityPhoto.deleteMany();
   await prisma.activityReport.deleteMany();
+  await prisma.programBudaya.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.branch.deleteMany();
+  await prisma.division.deleteMany();
+  await prisma.region.deleteMany();
 
-  const haikalUser = await prisma.user.findUnique({
-    where: {
-      username: "haikal_admin",
+  console.log("🏗️ Membuat Master Data Wilayah...");
+
+  // 1. Buat Region (Kanwil)
+  const regionDKI = await prisma.region.create({
+    data: { name: "DKI Jakarta", kode: "DKI01" },
+  });
+
+  const regionJabar = await prisma.region.create({
+    data: { name: "Jawa Barat", kode: "JBR01" },
+  });
+
+  // 2. Buat Branch (Kancab)
+  const branchJaksel = await prisma.branch.create({
+    data: { name: "Kancab Jakarta Selatan", regionId: regionDKI.id },
+  });
+
+  // 3. Buat Division (Divisi Pusat)
+  const divIT = await prisma.division.create({
+    data: { name: "Divisi Teknologi Informasi" },
+  });
+
+  console.log("👤 Membuat Dummy Users...");
+  const defaultPassword = await bcrypt.hash("password123", 10);
+
+  // --- USER 1: ADMIN PUSAT ---
+  // Tidak terikat wilayah manapun, bebas akses semua
+  await prisma.user.create({
+    data: {
+      name: "Budi Admin",
+      username: "admin.pusat",
+      password: defaultPassword,
+      role: "ADMIN",
     },
   });
-  if (haikalUser && haikalUser.regionId) {
-    // 3. Masukkan data dummy ke tabel ActivityReport
-    await prisma.activityReport.createMany({
-      data: [
-        {
-          regionId: haikalUser.regionId, // Pakai ID Kanwil milik Haikal
-          branchId: haikalUser.branchId || undefined,
-          divisionId: haikalUser.divisionId || undefined,
-          activityName: "Penyaluran Beras SPHP",
-          quarterPeriod: "Q1",
-          year: "2026",
-          claimedCount: 15,
-          // createdAt otomatis diisi oleh Prisma (waktu saat ini)
-        },
-        {
-          regionId: haikalUser.regionId,
-          branchId: haikalUser.branchId || undefined,
-          divisionId: haikalUser.divisionId || undefined,
-          activityName: "Inspeksi Gudang Beras Jakarta",
-          quarterPeriod: "Q1",
-          year: "2026",
-          claimedCount: 4,
-        },
-        {
-          regionId: haikalUser.regionId,
-          branchId: haikalUser.branchId || undefined,
-          divisionId: haikalUser.divisionId || undefined,
-          activityName: "Pengecekan Kualitas Gabah",
-          quarterPeriod: "Q2",
-          year: "2026",
-          claimedCount: 8,
-        },
-      ],
-    });
-    console.log("✅ Berhasil membuat 3 data laporan!");
-  } else {
-    console.log(
-      "⚠️ User haikal_admin tidak ditemukan atau tidak punya regionId.",
-    );
-  }
-  // await prisma.user.deleteMany();
-  // await prisma.branch.deleteMany();
-  // await prisma.region.deleteMany();
-  // await prisma.division.deleteMany();
-  // await prisma.activityReport.deleteMany();
-  // await prisma.activityPhoto.deleteMany();
 
-  // const regionDKI = await prisma.region.create({
-  //   data: {
-  //     nama: "Kanwil DKI Jakarta",
-  //     kode: "R-DKI-01",
-  //   },
-  // });
+  // --- USER 2: PIC KANWIL (DKI JAKARTA) ---
+  // Bisa submit laporan khusus region DKI Jakarta
+  await prisma.user.create({
+    data: {
+      name: "Siti Kanwil",
+      username: "pic.dki",
+      password: defaultPassword,
+      role: "PIC",
+      regionId: regionDKI.id,
+    },
+  });
 
-  // const branchJaksel = await prisma.branch.create({
-  //   data: {
-  //     name: "Kancab Jakarta Selatan",
-  //     regionId: regionDKI.id,
-  //   },
-  // });
+  // --- USER 3: PIC KANCAB (JAKARTA SELATAN) ---
+  // Bisa submit laporan khusus kancab Jaksel
+  await prisma.user.create({
+    data: {
+      name: "Agus Kancab",
+      username: "pic.jaksel",
+      password: defaultPassword,
+      role: "PIC",
+      regionId: regionDKI.id, // Kancab ini ada di region DKI
+      branchId: branchJaksel.id,
+    },
+  });
 
-  // const divTI = await prisma.division.create({
-  //   data: {
-  //     name: "Divisi TI",
-  //   },
-  // });
+  // --- USER 4: VIEWER KANCAB (JAKARTA SELATAN) ---
+  // Karyawan biasa, cuma bisa lihat-lihat laporan dan kalender
+  await prisma.user.create({
+    data: {
+      name: "Rina Pegawai Biasa",
+      username: "viewer.jaksel",
+      password: defaultPassword,
+      role: "VIEWER",
+      regionId: regionDKI.id,
+      branchId: branchJaksel.id,
+    },
+  });
 
-  // const hashedPassword = await bcrypt.hash("password123", 10);
+  console.log("📂 Membuat Dummy Program Budaya...");
+  const programAKHLAK = await prisma.programBudaya.create({
+    data: {
+      name: "Implementasi Core Values AKHLAK",
+      description: "Program internalisasi nilai-nilai dasar perusahaan.",
+      isActive: true,
+    },
+  });
 
-  // const adminUser = await prisma.user.create({
-  //   data: {
-  //     username: "haikal_admin",
-  //     password: hashedPassword,
-  //     name: "Haikal Abizar",
-  //     role: "REGION",
-  //     regionId: regionDKI.id,
-  //     branchId: branchJaksel.id,
-  //     divisionId: divTI.id,
-  //     authProvider: "LOCAL",
-  //   },
-  // });
+  console.log("📝 Membuat Dummy Activity Report...");
+  await prisma.activityReport.create({
+    data: {
+      activityName: "Sosialisasi Anti Fraud",
+      tanggalKegiatan: new Date("2026-05-01T09:00:00Z"),
+      lokasi: "Kantor Cabang Jakarta Selatan",
+      description: "Kegiatan rutin penyuluhan anti fraud kepada seluruh pegawai cabang.",
+      picKegiatan: "Agus Kancab",
+      status: "PENDING",
+      regionId: regionDKI.id,
+      branchId: branchJaksel.id,
+      programId: programAKHLAK.id,
+    },
+  });
 
-  console.log("Seed selesai, data berhasil dibuat!");
+  console.log("✅ Seeding Selesai! Semua data berhasil dibuat.");
 }
 
 main()

@@ -1,7 +1,18 @@
 // auth.config.ts
 import type { NextAuthConfig } from "next-auth";
+import { getDashboardByRole } from "@/lib/routes";
 
 const PUBLIC_ROUTES = ["/login"];
+
+// Map each role → path prefixes they're allowed to access
+const ROLE_PREFIXES: Record<string, string[]> = {
+  ADMIN: ["/admin"],
+  PIC: ["/pic"],
+  VIEWER: ["/viewer"],
+};
+
+// All role-specific prefixes (used to detect protected zones)
+const ALL_ROLE_PREFIXES = Object.values(ROLE_PREFIXES).flat();
 
 export const authConfig: NextAuthConfig = {
   providers: [],
@@ -17,14 +28,42 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isPublicRoute = PUBLIC_ROUTES.includes(nextUrl.pathname);
+      const pathname = nextUrl.pathname;
 
-      if (isLoggedIn && nextUrl.pathname === "/login") {
-        // Biar universal, arahin ke /dashboard (jangan langsung admin, karena kancab juga login di sini)
-        return Response.redirect(new URL("/dashboard", nextUrl));
+      // 1) Logged-in user visiting /login or / → redirect to their dashboard
+      if (isLoggedIn && (pathname === "/login" || pathname === "/")) {
+        const role = auth?.user?.role as string;
+        const dashboardPath = getDashboardByRole(role);
+        return Response.redirect(new URL(dashboardPath, nextUrl));
       }
 
+      // 2) Not logged in and not on a public route → send to /login
       if (!isLoggedIn && !isPublicRoute) {
         return Response.redirect(new URL("/login", nextUrl));
+      }
+
+      // 3) Role-based route guard: block access to another role's routes
+      if (isLoggedIn) {
+        const role = auth?.user?.role as string;
+        const allowedPrefixes = ROLE_PREFIXES[role] || [];
+
+        // Check if the path falls under any role-specific prefix
+        const isRoleRoute = ALL_ROLE_PREFIXES.some((prefix) =>
+          pathname.startsWith(prefix),
+        );
+
+        if (isRoleRoute) {
+          // User is accessing a role-specific route — is it theirs?
+          const isAllowed = allowedPrefixes.some((prefix) =>
+            pathname.startsWith(prefix),
+          );
+
+          if (!isAllowed) {
+            // Not their route → redirect to their own dashboard
+            const dashboardPath = getDashboardByRole(role);
+            return Response.redirect(new URL(dashboardPath, nextUrl));
+          }
+        }
       }
 
       return true;
@@ -40,6 +79,9 @@ export const authConfig: NextAuthConfig = {
         token.regionId = user.regionId || null;
         token.branchId = user.branchId || null;
         token.divisionId = user.divisionId || null;
+        token.regionName = user.regionName || null;
+        token.branchName = user.branchName || null;
+        token.divisionName = user.divisionName || null;
       }
       return token;
     },
@@ -54,6 +96,9 @@ export const authConfig: NextAuthConfig = {
         session.user.regionId = token.regionId as string | null;
         session.user.branchId = token.branchId as string | null;
         session.user.divisionId = token.divisionId as string | null;
+        session.user.regionName = token.regionName as string | null;
+        session.user.branchName = token.branchName as string | null;
+        session.user.divisionName = token.divisionName as string | null;
       }
       return session;
     },
