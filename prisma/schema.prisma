@@ -145,6 +145,7 @@ model ActivityPhoto {
 
   originalName String
 
-  imageUrl String
+  imageUrl  String
+  publicId  String? // Cloudinary public_id untuk keperluan delete
 }
 

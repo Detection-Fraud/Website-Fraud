@@ -1,6 +1,5 @@
 import { errorResponse } from "@/lib/response";
 import { v2 as cloudinary } from "cloudinary";
-import { error } from "console";
 import { NextResponse } from "next/server";
 
 cloudinary.config({
@@ -35,10 +34,13 @@ export async function POST(request: Request) {
       uploadStream.end(buffer);
     });
 
+    const result = uploadResult as any;
+
     return NextResponse.json(
       {
         message: "Upload Berhasil",
-        url: (uploadResult as any).secure_url,
+        url: result.secure_url,
+        publicId: result.public_id, // Simpan untuk keperluan delete di Cloudinary
         originalName: file.name,
       },
       { status: 200 },

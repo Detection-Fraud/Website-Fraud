@@ -1,55 +1,29 @@
 "use client";
 
-import { Button, Chip } from "@heroui/react";
+import {
+  Button,
+  Chip,
+  Label,
+  SearchField,
+  SearchFieldGroup,
+} from "@heroui/react";
 import { FaEye } from "react-icons/fa";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import DataTable, { TableColumn } from "@/components/layout/DataTable";
 import AppBar from "@/components/layout/Appbar";
-
-export interface ActivityReportItem {
-  id: string;
-  activityName: string;
-  tanggalKegiatan: string;
-  lokasi: string;
-  picKegiatan: string;
-  description: string;
-  status: string;
-  createdAt: string;
-  notes?: string | null;
-  region?: { name: string } | null;
-  branch?: { name: string } | null;
-  division?: { name: string } | null;
-  program?: { name: string } | null;
-  photos?: { id: number; originalName: string; imageUrl: string }[];
-}
+import { useReportList, type ActivityReportItem } from "@/hooks/useReportList";
 
 export default function PicView() {
-  const [reports, setReports] = useState<ActivityReportItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const router = useRouter();
-
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const response = await fetch("/api/reports");
-        const json = await response.json();
-
-        if (!response.ok) {
-          throw new Error(json.message || "Gagal mengambil data laporan");
-        }
-        setReports(json.data || []);
-      } catch (error: any) {
-        setError(error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchReports();
-  }, []);
+  const {
+    reports,
+    pagination,
+    isLoading,
+    searchInput,
+    setSearchInput,
+    handleSearch,
+    handleClearSearch,
+    updateParams,
+    router,
+  } = useReportList();
 
   const columns: TableColumn[] = [
     { key: "activityName", label: "Nama Kegiatan" },
@@ -116,7 +90,17 @@ export default function PicView() {
         }}
       />
 
-      <DataTable column={columns} renderCell={renderCell} data={reports} />
+      <DataTable
+        column={columns}
+        renderCell={renderCell}
+        data={reports}
+        pagination={pagination}
+        onPageChange={(page) => updateParams({ page: String(page) })}
+        search={searchInput}
+        onSearch={setSearchInput}
+        onClearSearch={handleClearSearch}
+        handleSearch={handleSearch}
+      />
     </div>
   );
 }

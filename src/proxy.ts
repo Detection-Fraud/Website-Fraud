@@ -9,5 +9,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login|assets).*)"],
+  // `/login` TIDAK di-exclude agar callback `authorized` bisa redirect
+  // user yang sudah login ke dashboard sesuai role-nya
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|assets).*)"],
 };
