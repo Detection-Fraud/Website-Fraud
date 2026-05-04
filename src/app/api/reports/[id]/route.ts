@@ -137,7 +137,7 @@ export async function PUT(
       where: { id },
       data: {
         activityName,
-        programId,
+        programId: programId || null,
         tanggalKegiatan: new Date(tanggalKegiatan),
         lokasi,
         description,
@@ -148,7 +148,7 @@ export async function PUT(
           photos.length > 0 && {
             photos: {
               create: photos.map((p: any) => ({
-                imageUrl: p.url,
+                imageUrl: p.imageUrl,
                 originalName: p.originalName,
                 publicId: p.publicId ?? null,
               })),
@@ -167,4 +167,3 @@ export async function PUT(
     });
   }
 }
-

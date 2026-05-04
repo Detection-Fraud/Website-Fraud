@@ -1,5 +1,6 @@
 import { StatusType } from "@/types/status.types";
-import { Card, Chip } from "@heroui/react";
+import { Button, Card, Chip } from "@heroui/react";
+import { useRouter } from "next/navigation";
 import { CiClock2 } from "react-icons/ci";
 import { FiAlertTriangle, FiMessageSquare, FiXCircle } from "react-icons/fi";
 import { IoMdCheckmarkCircleOutline } from "react-icons/io";
@@ -9,6 +10,7 @@ interface StatusViewProps {
   sentDate?: string;
   note?: string;
   updatedAt?: string;
+  reportId?: string;
 }
 
 export default function StatusView({
@@ -16,7 +18,9 @@ export default function StatusView({
   sentDate,
   note,
   updatedAt,
+  reportId,
 }: StatusViewProps) {
+  const router = useRouter();
   return (
     <div>
       {status === "PENDING" ? (
@@ -91,6 +95,16 @@ export default function StatusView({
                   <p className="text-sm text-red-800 italic">"{note}"</p>
                 </div>
               )}
+
+              <Button
+                variant="danger"
+                className={"mt-3"}
+                onClick={() => {
+                  router.push(`/pic/detection/${reportId}/edit`);
+                }}
+              >
+                Upload Ulang
+              </Button>
             </div>
           </Card.Content>
         </Card>

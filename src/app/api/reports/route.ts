@@ -19,6 +19,10 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, parseInt(searchParams.get("limit") || "10"));
     const search = searchParams.get("search") || "";
 
+    // FILTER STATUS & PROGRAM
+    const statusFilter = searchParams.get("status") || "ALL";
+    const programFilter = searchParams.get("programId") || "ALL";
+
     let whereClause: any = {};
 
     switch (user.role) {
@@ -62,6 +66,14 @@ export async function GET(request: NextRequest) {
         { picKegiatan: { contains: search, mode: "insensitive" } },
         { program: { name: { contains: search, mode: "insensitive" } } },
       ];
+    }
+
+    if (statusFilter !== "ALL") {
+      whereClause.status = statusFilter;
+    }
+
+    if (programFilter !== "ALL") {
+      whereClause.programId = programFilter;
     }
 
     const summaryTotal = await prisma.activityReport.count({

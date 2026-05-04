@@ -61,6 +61,9 @@ export function useReportList() {
   const limit = Number(searchParams.get("limit") || "10");
   const search = searchParams.get("search") || "";
 
+  const statusFilter = searchParams.get("status") || "ALL";
+  const programFilter = searchParams.get("programId") || "ALL";
+
   // State lokal untuk search input (biar ga fetch setiap ketik)
   const [searchInput, setSearchInput] = useState(search);
 
@@ -95,7 +98,7 @@ export function useReportList() {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `/api/reports?page=${page}&limit=${limit}&search=${search}`,
+          `/api/reports?page=${page}&limit=${limit}&search=${search}&status=${statusFilter}&programId=${programFilter}`,
         );
         const json = await response.json();
 
@@ -116,7 +119,7 @@ export function useReportList() {
     };
 
     fetchReports();
-  }, [page, limit, search]);
+  }, [page, limit, search, statusFilter, programFilter]);
 
   // Sync searchInput saat URL berubah (misal user klik Back)
   useEffect(() => {

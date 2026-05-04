@@ -2,7 +2,7 @@
 
 import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { errorResponse } from "@/lib/response";
+import { errorResponse, successResponse } from "@/lib/response";
 import { getDashboardByRole } from "@/lib/routes";
 import { LoginSchema } from "@/schemas/auth";
 import { AuthError } from "next-auth";
@@ -29,8 +29,9 @@ export async function loginAction(values: z.infer<typeof LoginSchema>) {
     await signIn("credentials", {
       username,
       password,
-      redirectTo,
+      redirect: false,
     });
+    return successResponse({ redirectTo });
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {

@@ -15,6 +15,7 @@ export default function AppBar({
 }: PropTypes) {
   return (
     <div className="flex flex-row justify-between items-center">
+     
       <div>
         <h1 className="font-semibold text-lg">
           {title || "Dashboard Kantor Wilayah"}
@@ -30,10 +31,10 @@ export default function AppBar({
             variant="primary"
             size="lg"
             className={"px-6 rounded-xl"}
-        >
-          <IoMdAdd />
-          Buat Laporan
-        </Button>
+          >
+            <IoMdAdd />
+            Buat Laporan
+          </Button>
         )}
       </div>
     </div>

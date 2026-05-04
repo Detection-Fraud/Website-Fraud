@@ -57,7 +57,7 @@ export default function ModalNotes({ isOpen, onClose, namaPic, id }: PropTypes) 
                   />
                 </TextField>
 
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-5 flex gap-2.5">
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-5 flex gap-2.5 mt-3">
                   <FiAlertTriangle className="text-orange-600 w-5 h-5" />
                   <p className="text-xs text-orange-700 leading-relaxed">
                     Setelah ditolak, pengirim akan menerima notifikasi beserta

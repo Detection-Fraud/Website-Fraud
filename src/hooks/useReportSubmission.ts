@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useReportStore } from "@/store/useReportStore";
 import { toast } from "@heroui/react";
+import { useRouter } from "next/navigation";
 
 export interface ReportFormData {
   activityName: string;
@@ -11,8 +12,10 @@ export interface ReportFormData {
   description: string;
 }
 
-export function useReportSubmission() {
+export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
   const { images, updateImageStatus, resetStore } = useReportStore();
+
+  const router = useRouter();
 
   const [loadingText, setLoadingText] = useState("");
 
@@ -108,8 +111,12 @@ export function useReportSubmission() {
 
       setLoadingText("Sedang menyimpan laporan...");
 
-      const responDatabase = await fetch("/api/reports", {
-        method: "POST",
+      const urlDatabase = reportId
+        ? `/api/reports/${reportId}`
+        : `/api/reports`;
+
+      const responDatabase = await fetch(urlDatabase, {
+        method: reportId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           activityName: dataForm.activityName,
@@ -118,18 +125,29 @@ export function useReportSubmission() {
           tanggalKegiatan: dataForm.tanggalKegiatan,
           picKegiatan: dataForm.picKegiatan,
           description: dataForm.description,
-          uploadedPhotos: fotoBerhasilUpload,
+          uploadedPhotos: fotoBerhasilUpload, // untuk POST route
+          photos: fotoBerhasilUpload, // untuk PUT route
         }),
       });
 
-      const hasilDatabase = await responDatabase.json();
+      const textRespon = await responDatabase.text();
+      let hasilDatabase;
+      try {
+        hasilDatabase = JSON.parse(textRespon);
+      } catch (e) {
+        throw new Error(`Server returned non-JSON response: ${textRespon}`);
+      }
 
       if (!responDatabase.ok) {
         console.error("Server error response:", hasilDatabase);
         throw new Error(hasilDatabase.message || "Gagal menyimpan ke database");
       }
 
-      toast.success("Laporan berhasil dikirim dan tersimpan aman!");
+      toast.success(
+        reportId ? "Laporan berhasil diupdate!" : "Laporan berhasil dikirim!",
+      );
+      
+      router.push("/pic/dashboard");  
       resetStore();
     } catch (error) {
       console.error(error);

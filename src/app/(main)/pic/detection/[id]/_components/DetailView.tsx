@@ -6,12 +6,7 @@ import { StatusType } from "@/types/status.types";
 import { Card, Chip } from "@heroui/react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  FiArrowLeft,
-  FiCalendar,
-  FiImage,
-  FiMapPin
-} from "react-icons/fi";
+import { FiArrowLeft, FiCalendar, FiImage, FiMapPin } from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
 import StatusView from "./StatusView";
 
@@ -47,6 +42,7 @@ export default function DetailView({ id }: { id: string }) {
           sentDate={useFormatDate(report?.createdAt)}
           note={report?.notes || ""}
           updatedAt={useFormatDate(report?.updatedAt)}
+          reportId={report?.id ?? ""}
         />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

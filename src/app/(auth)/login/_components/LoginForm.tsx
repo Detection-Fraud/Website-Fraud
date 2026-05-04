@@ -43,6 +43,9 @@ export default function LoginForm() {
           description: response.message,
           indicator: <CiCircleInfo />,
         });
+      } else if (!response?.error && (response?.data as any)?.redirectTo) {
+        // Lakukan HARD RELOAD agar session NextAuth dan UI di layout ter-refresh secara sempurna
+        window.location.href = (response.data as any).redirectTo;
       }
     });
   };

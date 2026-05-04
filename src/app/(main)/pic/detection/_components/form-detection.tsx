@@ -14,7 +14,17 @@ import type { Key } from "@heroui/react";
 import { ProgramBudaya } from "@generated/prisma";
 import CalendarPicker from "../../_components/calendar-picker";
 import { useState } from "react";
+import { parseDate } from "@internationalized/date";
 import type { DateValue } from "@internationalized/date";
+
+export interface InitialData {
+  activityName?: string;
+  programId?: string;
+  tanggalKegiatan?: string;
+  lokasi?: string;
+  picKegiatan?: string;
+  description?: string;
+}
 
 interface PropTypes {
   loadingText: string;
@@ -26,6 +36,8 @@ interface PropTypes {
   semuaLulus: boolean;
   totalGambar: number;
   programs: ProgramBudaya[];
+
+  initialData?: InitialData;
 }
 export default function FormDetection({
   loadingText,
@@ -37,9 +49,25 @@ export default function FormDetection({
   semuaLulus,
   totalGambar,
   programs,
+  initialData,
 }: PropTypes) {
-  const [selectedProgramId, setSelectedProgramId] = useState<Key | null>(null);
-  const [selectedDate, setSelectedDate] = useState<DateValue | null>(null);
+  const [selectedProgramId, setSelectedProgramId] = useState<Key | null>(
+    initialData?.programId || null,
+  );
+  const [selectedDate, setSelectedDate] = useState<DateValue | null>(() => {
+    if (initialData?.tanggalKegiatan) {
+      try {
+        // Ekstrak hanya tanggal (YYYY-MM-DD) dari string ISO
+        const dateString = new Date(initialData.tanggalKegiatan)
+          .toISOString()
+          .split("T")[0];
+        return parseDate(dateString);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
 
   return (
     <Card variant="default" className="shadow-sm">
@@ -69,17 +97,16 @@ export default function FormDetection({
               description: nativeData.description || "",
             };
 
-            console.log(
-              "DEBUG selectedProgramId:",
-              JSON.stringify(selectedProgramId),
-            );
-            console.log("DEBUG selectedDate:", selectedDate?.toString());
-            console.log("DEBUG formData:", formData);
             tanganiSubmitFinal(formData);
           }}
           className="w-full flex flex-col gap-5"
         >
-          <TextField name="activityName" isRequired className="w-full">
+          <TextField
+            name="activityName"
+            isRequired
+            className="w-full"
+            defaultValue={initialData?.activityName}
+          >
             <Label className="text-sm font-medium">Nama Kegiatan</Label>
             <Input
               placeholder="Contoh: Sosialisasi Bulog"
@@ -97,6 +124,7 @@ export default function FormDetection({
               name="programId"
               value={selectedProgramId}
               onChange={(value) => setSelectedProgramId(value)}
+              aria-label="Program Budaya"
             >
               <Select.Trigger>
                 <Select.Value />
@@ -125,7 +153,12 @@ export default function FormDetection({
             <CalendarPicker value={selectedDate} onChange={setSelectedDate} />
           </div>
 
-          <TextField name="lokasi" isRequired className="w-full">
+          <TextField
+            name="lokasi"
+            isRequired
+            className="w-full"
+            defaultValue={initialData?.lokasi}
+          >
             <Label className="text-sm font-medium">Lokasi</Label>
             <Input
               placeholder="Contoh: Kantor Cabang Jakarta Selatan"
@@ -135,7 +168,12 @@ export default function FormDetection({
             />
           </TextField>
 
-          <TextField name="picKegiatan" isRequired className="w-full">
+          <TextField
+            name="picKegiatan"
+            isRequired
+            className="w-full"
+            defaultValue={initialData?.picKegiatan}
+          >
             <Label className="text-sm font-medium">PIC Kegiatan</Label>
             <Input
               placeholder="Contoh: Rio"
@@ -144,7 +182,12 @@ export default function FormDetection({
             />
           </TextField>
 
-          <TextField name="description" isRequired className="w-full">
+          <TextField
+            name="description"
+            isRequired
+            className="w-full"
+            defaultValue={initialData?.description}
+          >
             <Label className="text-sm font-medium">Deskripsi</Label>
             <TextArea
               placeholder="Kegiatan ini dilaksanakan dengan tujuan..."
@@ -164,8 +207,8 @@ export default function FormDetection({
           <div className="mt-2 grid grid-cols-2 gap-3 w-full">
             {/* Tombol Check AI */}
             <Button
-              type="button" // Mencegah form ke-submit
-              onPress={handleCheckFraud} // Pakai onPress untuk NextUI/HeroUI
+              type="button"
+              onPress={handleCheckFraud}
               variant="primary"
               isDisabled={
                 !adaGambarIdle || adaGambarLoading || totalGambar === 0

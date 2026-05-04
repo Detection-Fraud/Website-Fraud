@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, Dropdown, Label } from "@heroui/react";
+import { Avatar, Button, Dropdown, Label } from "@heroui/react";
 import { signOut } from "next-auth/react";
 import { FaArrowRightToBracket } from "react-icons/fa6";
 
@@ -23,7 +23,7 @@ export default function DropdownUser({ user }: { user: UserData }) {
   return (
     <Dropdown>
       <Dropdown.Trigger>
-        <div className="flex flex-row-reverse gap-4 items-center cursor-pointer">
+        <div role="button" tabIndex={0} className="flex flex-row-reverse gap-4 items-center cursor-pointer outline-none border-none bg-transparent">
           <Avatar>
             <Avatar.Fallback>
               {user?.name?.[0]?.toUpperCase()}
@@ -56,7 +56,7 @@ export default function DropdownUser({ user }: { user: UserData }) {
           </div>
         </div>
 
-        <Dropdown.Menu>
+        <Dropdown.Menu aria-label="User actions">
           <Dropdown.Item
             id={"logout"}
             textValue={"Logout"}

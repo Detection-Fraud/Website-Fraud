@@ -12,6 +12,12 @@ import DataTable, { TableColumn } from "@/components/layout/DataTable";
 import AppBar from "@/components/layout/Appbar";
 import { useReportList, type ActivityReportItem } from "@/hooks/useReportList";
 
+import { useSearchParams } from "next/navigation";
+import { Select, ListBox } from "@heroui/react";
+
+import { useEffect, useState } from "react";
+import { ProgramBudaya } from "@generated/prisma";
+
 export default function PicView() {
   const {
     reports,
@@ -24,6 +30,21 @@ export default function PicView() {
     updateParams,
     router,
   } = useReportList();
+
+  const searchParams = useSearchParams();
+  const currentStatus = searchParams.get("status") || "ALL";
+  const currentProgram = searchParams.get("programId") || "ALL";
+
+  const [programs, setPrograms] = useState<ProgramBudaya[]>([]);
+
+  useEffect(() => {
+    fetch("/api/programs")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.data) setPrograms(json.data);
+      })
+      .catch((err) => console.error(err));
+  }, []);
 
   const columns: TableColumn[] = [
     { key: "activityName", label: "Nama Kegiatan" },
@@ -100,6 +121,80 @@ export default function PicView() {
         onSearch={setSearchInput}
         onClearSearch={handleClearSearch}
         handleSearch={handleSearch}
+        filterStatus={
+          <div className="w-48">
+            <Select
+              aria-label="Filter Status"
+              placeholder="Semua Status"
+              value={currentStatus}
+              onChange={(key) => {
+                const selected = key as string;
+                updateParams({ status: selected, page: "1" });
+              }}
+            >
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="ALL" textValue="Semua Status">
+                    <ListBox.ItemIndicator />
+                    Semua Status
+                  </ListBox.Item>
+                  <ListBox.Item id="PENDING" textValue="Pending">
+                    <ListBox.ItemIndicator />
+                    Pending
+                  </ListBox.Item>
+                  <ListBox.Item id="APPROVED" textValue="Approved">
+                    <ListBox.ItemIndicator />
+                    Approved
+                  </ListBox.Item>
+                  <ListBox.Item id="REJECTED" textValue="Rejected">
+                    <ListBox.ItemIndicator />
+                    Rejected
+                  </ListBox.Item>
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          </div>
+        }
+        filterProgram={
+          <div className="w-48">
+            <Select
+              aria-label="Filter Program"
+              placeholder="Semua Program"
+              value={currentProgram}
+              onChange={(key) => {
+                const selected = key as string;
+                updateParams({ programId: selected, page: "1" });
+              }}
+            >
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="ALL" textValue="Semua Status">
+                    <ListBox.ItemIndicator />
+                    Semua Program
+                  </ListBox.Item>
+                  {programs.map((program) => (
+                    <ListBox.Item
+                      key={program.id}
+                      id={program.id}
+                      textValue={program.name}
+                    >
+                      <ListBox.ItemIndicator />
+                      {program.name}
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          </div>
+        }
       />
     </div>
   );

@@ -1,10 +1,8 @@
 import {
-  Label,
   Pagination,
   SearchField,
   SearchFieldGroup,
-  Select,
-  Table,
+  Table
 } from "@heroui/react";
 import { BsFillInboxFill } from "react-icons/bs";
 
@@ -31,6 +29,8 @@ interface DataTableProps<T> {
   onSearch: (search: string) => void;
   onClearSearch: () => void;
   handleSearch: () => void;
+  filterStatus?: React.ReactNode;
+  filterProgram?: React.ReactNode;
 }
 
 export default function DataTable<T>({
@@ -44,13 +44,18 @@ export default function DataTable<T>({
   onSearch,
   onClearSearch,
   handleSearch,
+  filterStatus,
+  filterProgram,
 }: DataTableProps<T>) {
   const showPagination = pagination && pagination.totalPages > 0;
 
   return (
     <Table>
-      <div className="flex w-full justify-end p-4">
-        <SearchField>
+      {/* Container untuk filter & pencarian dibikin sejajar dengan gap */}
+      <div className="flex w-full flex-row items-center justify-start gap-3 p-4">
+        {filterStatus}
+        {filterProgram}
+        <SearchField className="w-64">
           <SearchFieldGroup>
             <SearchField.SearchIcon />
             <SearchField.Input
@@ -66,10 +71,6 @@ export default function DataTable<T>({
             <SearchField.ClearButton onClick={onClearSearch} />
           </SearchFieldGroup>
         </SearchField>
-
-        <Select>
-          
-        </Select>
       </div>
       <Table.ScrollContainer>
         <Table.Content aria-label={ariaLabel || "Tabel Data"}>
