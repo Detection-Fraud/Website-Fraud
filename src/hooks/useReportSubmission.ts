@@ -2,15 +2,7 @@ import { useState } from "react";
 import { useReportStore } from "@/store/useReportStore";
 import { toast } from "@heroui/react";
 import { useRouter } from "next/navigation";
-
-export interface ReportFormData {
-  activityName: string;
-  programId: string;
-  lokasi: string;
-  tanggalKegiatan: string;
-  picKegiatan: string;
-  description: string;
-}
+import { ReportFormData } from "@/types/report.types";
 
 export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
   const { images, updateImageStatus, resetStore } = useReportStore();
@@ -146,8 +138,8 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
       toast.success(
         reportId ? "Laporan berhasil diupdate!" : "Laporan berhasil dikirim!",
       );
-      
-      router.push("/pic/dashboard");  
+
+      router.push("/pic/dashboard");
       resetStore();
     } catch (error) {
       console.error(error);

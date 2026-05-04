@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "@heroui/react";
 import { useCurrentUser } from "./useCurrentUser";
 
-import { ActivityReportItem } from "./useReportList";
+import { ActivityReportItem } from "@/types/report.types";
 
 export function useReportDetail(id: string) {
   const [report, setReport] = useState<ActivityReportItem | null>(null);
@@ -25,7 +25,7 @@ export function useReportDetail(id: string) {
           toast.danger(result.message || "Gagal memuat data");
           return;
         }
-        
+
         setReport(result.data);
       } catch (err: any) {
         toast.danger("Terjadi kesalahan jaringan");

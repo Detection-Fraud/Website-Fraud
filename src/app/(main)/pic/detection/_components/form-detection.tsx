@@ -1,4 +1,6 @@
-import { ReportFormData } from "@/hooks/useReportSubmission";
+import { useFormDetectionLogic } from "@/hooks/useFormDetectionLogic";
+import { ReportFormData } from "@/types/report.types";
+import { ProgramBudaya } from "@generated/prisma";
 import {
   Button,
   Card,
@@ -10,12 +12,7 @@ import {
   TextArea,
   TextField,
 } from "@heroui/react";
-import type { Key } from "@heroui/react";
-import { ProgramBudaya } from "@generated/prisma";
 import CalendarPicker from "../../_components/calendar-picker";
-import { useState } from "react";
-import { parseDate } from "@internationalized/date";
-import type { DateValue } from "@internationalized/date";
 
 export interface InitialData {
   activityName?: string;
@@ -51,22 +48,15 @@ export default function FormDetection({
   programs,
   initialData,
 }: PropTypes) {
-  const [selectedProgramId, setSelectedProgramId] = useState<Key | null>(
-    initialData?.programId || null,
-  );
-  const [selectedDate, setSelectedDate] = useState<DateValue | null>(() => {
-    if (initialData?.tanggalKegiatan) {
-      try {
-        // Ekstrak hanya tanggal (YYYY-MM-DD) dari string ISO
-        const dateString = new Date(initialData.tanggalKegiatan)
-          .toISOString()
-          .split("T")[0];
-        return parseDate(dateString);
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
+  const {
+    selectedProgramId,
+    setSelectedProgramId,
+    selectedDate,
+    setSelectedDate,
+    handleFormSubmit,
+  } = useFormDetectionLogic({
+    initialData,
+    tanganiSubmitFinal,
   });
 
   return (
@@ -81,24 +71,7 @@ export default function FormDetection({
         {/* Komponen Form HeroUI membungkus input dan tombol submit */}
         <Form
           validationBehavior="native"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const nativeData = Object.fromEntries(
-              new FormData(e.currentTarget),
-            ) as Record<string, string>;
-
-            // Gabungkan data native + state (Select & DatePicker)
-            const formData: ReportFormData = {
-              activityName: nativeData.activityName || "",
-              programId: selectedProgramId ? String(selectedProgramId) : "",
-              tanggalKegiatan: selectedDate ? selectedDate.toString() : "",
-              lokasi: nativeData.lokasi || "",
-              picKegiatan: nativeData.picKegiatan || "",
-              description: nativeData.description || "",
-            };
-
-            tanganiSubmitFinal(formData);
-          }}
+          onSubmit={handleFormSubmit}
           className="w-full flex flex-col gap-5"
         >
           <TextField

@@ -2,37 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-
-export interface ActivityReportItem {
-  id: string;
-  activityName: string;
-  tanggalKegiatan: string;
-  lokasi: string;
-  picKegiatan: string;
-  description: string;
-  status: string;
-  createdAt: string;
-  notes?: string | null;
-  region?: { name: string } | null;
-  branch?: { name: string } | null;
-  division?: { name: string } | null;
-  program?: { name: string } | null;
-  photos?: { id: number; originalName: string; imageUrl: string }[];
-  updatedAt?: string;
-}
+import { ActivityReportItem, SummaryStats } from "@/types/report.types";
 
 export interface PaginationInfo {
   total: number;
   page: number;
   limit: number;
   totalPages: number;
-}
-
-export interface SummaryStats {
-  total: number;
-  pending: number;
-  approved: number;
-  rejected: number;
 }
 
 export function useReportList() {

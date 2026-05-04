@@ -1,13 +1,8 @@
 "use client";
 
-import {
-  useReportSubmission
-} from "@/hooks/useReportSubmission";
+import { useReportSubmission } from "@/hooks/useReportSubmission";
 import { useReportStore } from "@/store/useReportStore";
-import {
-  Card,
-  Link
-} from "@heroui/react";
+import { Card, Link } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { ProgramBudaya } from "@generated/prisma";
 
@@ -16,6 +11,7 @@ import { CiImageOn } from "react-icons/ci";
 import Dropzone from "./_components/dropzone";
 import FormDetection from "./_components/form-detection";
 import GridPreview from "./_components/gridPreview";
+import { useProgram } from "@/hooks/useProgram";
 
 export default function DetectionPage() {
   const { resetStore } = useReportStore();
@@ -31,28 +27,12 @@ export default function DetectionPage() {
     totalGambar,
   } = useReportSubmission();
 
-  const [programs, setPrograms] = useState<ProgramBudaya[]>([]);
+  const { programs } = useProgram();
 
   // Bersihkan memori gambar saat keluar dari halaman
   useEffect(() => {
     return () => resetStore();
   }, [resetStore]);
-
-  // Fetch data Program Budaya dari API
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        const response = await fetch("/api/programs");
-        const json = await response.json();
-        if (response.ok) {
-          setPrograms(json.data || []);
-        }
-      } catch (error) {
-        console.error("Gagal mengambil data program budaya:", error);
-      }
-    };
-    fetchPrograms();
-  }, []);
 
   return (
     <div className="w-full space-y-6">
