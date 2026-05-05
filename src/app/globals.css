@@ -1,19 +1,14 @@
 @import "tailwindcss";
+
 @import "../../node_modules/@heroui/styles/dist/index.css";
 
-/*
- * HeroUI Theme Customization
- * Add this to your global.css after importing @heroui/styles
- * Only includes base variables from variables.css
- * @see https://heroui.com/docs/react/getting-started/theming
- */
+@custom-variant dark (&:is(.dark *));
 
 :root,
 .light,
 .default,
 [data-theme="light"],
 [data-theme="default"] {
-  /* Theme Colors (Light Mode) */
   --accent: oklch(52.92% 0.1931 262.13);
   --accent-foreground: oklch(99.11% 0 0);
   --background: oklch(97.02% 0 262.13);
@@ -44,19 +39,20 @@
   --surface-tertiary-foreground: oklch(21.03% 0 262.13);
   --warning: oklch(78.19% 0.1585 73.33);
   --warning-foreground: oklch(21.03% 0.0059 73.33);
+  --chart-1: #0369a1;
+  --chart-2: #0284c7;
+  --chart-3: #0ea5e9;
+  --chart-4: #7dd3fc;
+  --chart-5: #e0f2fe;
 
-  /* Border Radius */
   --field-radius: 0.75rem;
 
-  /* Font Family */
-  /* Make sure to load Inter font in your app */
   --font-sans: var(--font-inter);
 }
 
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
-  /* Theme Colors (Dark Mode) */
   --accent: oklch(52.92% 0.1931 262.13);
   --accent-foreground: oklch(99.11% 0 0);
   --background: oklch(12% 0 262.13);
@@ -90,7 +86,5 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
   font-family: "Inter", sans-serif;
 }

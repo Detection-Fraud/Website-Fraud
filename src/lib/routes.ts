@@ -4,7 +4,7 @@
 export function getDashboardByRole(role: string): string {
   switch (role) {
     case "ADMIN":
-      return "/admin/approval";
+      return "/admin/dashboard";
     case "PIC":
       return "/pic/dashboard";
     case "VIEWER":
