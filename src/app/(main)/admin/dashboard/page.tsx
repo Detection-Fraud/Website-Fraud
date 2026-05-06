@@ -41,9 +41,15 @@ export default function DashboardAdmin() {
     programId,
     setProgramId,
   } = useDashboardAnalytics();
+
   const currentMonthName = new Intl.DateTimeFormat("id-ID", {
     month: "long",
   }).format(new Date());
+
+  const percentage = (
+    ((summary?.totalApproved || 0) / (summary?.totalKegiatan || 1)) *
+    100
+  ).toFixed(2);
 
   return (
     <div className="space-y-7">
@@ -72,7 +78,7 @@ export default function DashboardAdmin() {
         />
         <SummaryCard
           title="Tingkat Persetujuan"
-          value={`${(((summary?.laporanBulanIni || 0) / (summary?.totalKegiatan || 1)) * 100).toFixed(2)}%`}
+          value={`${percentage}%`}
           icon={<IoIosCheckmarkCircleOutline className="w-5 h-5" />}
           description={"Tervalidasi"}
           color="orange"

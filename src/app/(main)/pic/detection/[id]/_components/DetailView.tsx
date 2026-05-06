@@ -13,6 +13,31 @@ import StatusView from "./StatusView";
 export default function DetailView({ id }: { id: string }) {
   const { report, loading, user } = useReportDetail(id);
 
+  // Hanya kancab pemilik laporan yang bisa upload ulang.
+  // Kanwil yang melihat laporan kancab bawahannya TIDAK boleh upload ulang.
+  const canResubmit =
+    !!user?.branchId &&
+    !!report?.branch?.id &&
+    user.branchId === report.branch.id;
+
+  const textRole = report?.branch
+    ? `Kantor Cabang : ${report.branch.name}`
+    : report?.region
+      ? `Kantor Wilayah : ${report.region.name}`
+      : `Divisi : ${report?.division?.name || "Tidak Diketahui"}`;
+
+  const unitRole = report?.branch
+    ? `Kantor Cabang`
+    : report?.region
+      ? `Kantor Wilayah`
+      : `Divisi`;
+
+  const unitText = report?.branch
+    ? `${report.branch.name}`
+    : report?.region
+      ? `${report.region.name}`
+      : `${report?.division?.name}`;
+
   return (
     <div className="w-full space-y-4 mb-10">
       <div className="space-y-2">
@@ -28,11 +53,7 @@ export default function DetailView({ id }: { id: string }) {
         </h2>
         <Chip color="accent" variant="soft">
           <LuBuilding2 />
-          <Chip.Label>
-            {report?.region?.name && `Kantor Wilayah: ${report.region.name}`}
-            {report?.branch?.name && `Kantor Cabang: ${report.branch.name}`}
-            {report?.division?.name && `Divisi: ${report.division.name}`}
-          </Chip.Label>
+          <Chip.Label>{textRole}</Chip.Label>
         </Chip>
       </div>
 
@@ -43,6 +64,7 @@ export default function DetailView({ id }: { id: string }) {
           note={report?.notes || ""}
           updatedAt={useFormatDate(report?.updatedAt)}
           reportId={report?.id ?? ""}
+          canResubmit={canResubmit}
         />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -63,17 +85,13 @@ export default function DetailView({ id }: { id: string }) {
               <div>
                 <p className="text-xs text-gray-400 mb-1">Unit : </p>
                 <Chip color="accent" variant="soft" size="lg">
-                  {report?.region?.name && `Kantor Wilayah`}
-                  {report?.branch?.name && `Kantor Cabang`}
-                  {report?.division?.name && `Divisi`}
+                  {unitRole}
                 </Chip>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-1">Nama Unit : </p>
                 <Chip variant="secondary" size="lg">
-                  {report?.region?.name && `${report.region.name}`}
-                  {report?.branch?.name && `${report.branch.name}`}
-                  {report?.division?.name && `${report.division.name}`}
+                  {unitText}
                 </Chip>
               </div>
               <div className="flex items-start gap-2">

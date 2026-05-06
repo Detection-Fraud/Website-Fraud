@@ -21,8 +21,12 @@ export interface RankingWilayah {
 
 export interface DashboardSummary {
   totalKegiatan: number;
+  totalApproved: number;
+  totalPending: number;
+  totalRejected: number;
   totalUnitAktif: number;
   laporanBulanIni: number;
+  laporanBulanLalu: number;
 }
 
 export interface DashboardCharts {

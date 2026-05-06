@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         if (user.branchId) {
           whereClause = { branchId: user.branchId };
         } else if (user.regionId) {
-          whereClause = { regionId: user.regionId, branchId: null };
+          whereClause = { regionId: user.regionId };
         } else if (user.divisionId) {
           whereClause = { divisionId: user.divisionId };
         }
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         if (user.branchId) {
           whereClause = { branchId: user.branchId };
         } else if (user.regionId) {
-          whereClause = { regionId: user.regionId, branchId: null };
+          whereClause = { regionId: user.regionId };
         } else if (user.divisionId) {
           whereClause = { divisionId: user.divisionId };
         }

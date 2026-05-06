@@ -1,4 +1,4 @@
-import { MdOutlinePendingActions } from "react-icons/md";
+import { MdOutlinePendingActions, MdOutlineShowChart } from "react-icons/md";
 import { PiNotebookLight } from "react-icons/pi";
 import { RxDashboard } from "react-icons/rx";
 
@@ -11,6 +11,12 @@ export const SidebarMenuAdmin = [
     label: "Dashboard",
     href: "/admin/dashboard",
     icon: <RxDashboard />,
+  },
+  {
+    key: "analytics",
+    label: "Analytics",
+    href: "/admin/analytics",
+    icon: <MdOutlineShowChart />,
   },
   {
     key: "approved",

@@ -11,6 +11,7 @@ interface StatusViewProps {
   note?: string;
   updatedAt?: string;
   reportId?: string;
+  canResubmit?: boolean;
 }
 
 export default function StatusView({
@@ -19,8 +20,11 @@ export default function StatusView({
   note,
   updatedAt,
   reportId,
+  canResubmit,
 }: StatusViewProps) {
   const router = useRouter();
+
+  console.log(canResubmit)
   return (
     <div>
       {status === "PENDING" ? (
@@ -96,15 +100,17 @@ export default function StatusView({
                 </div>
               )}
 
-              <Button
-                variant="danger"
-                className={"mt-3"}
-                onClick={() => {
-                  router.push(`/pic/detection/${reportId}/edit`);
-                }}
-              >
-                Upload Ulang
-              </Button>
+              {canResubmit && (
+                <Button
+                  variant="danger"
+                  className={"mt-3"}
+                  onClick={() => {
+                    router.push(`/pic/detection/${reportId}/edit`);
+                  }}
+                >
+                  Upload Ulang
+                </Button>
+              )}
             </div>
           </Card.Content>
         </Card>

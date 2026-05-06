@@ -28,9 +28,9 @@ export async function GET(
     const report = await prisma.activityReport.findUnique({
       where: { id },
       include: {
-        region: { select: { name: true } },
-        branch: { select: { name: true } },
-        division: { select: { name: true } },
+        region: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
+        division: { select: { id: true, name: true } },
         program: { select: { name: true } },
         photos: { select: { id: true, originalName: true, imageUrl: true } },
       },
@@ -50,9 +50,8 @@ export async function GET(
         // User level kancab → hanya bisa lihat laporan kancab yang sama
         hasAccess = report.branchId === user.branchId;
       } else if (user?.regionId) {
-        // User level kanwil → hanya bisa lihat laporan kanwil yang sama (tidak include kancab)
-        hasAccess =
-          report.regionId === user.regionId && report.branchId === null;
+        // User level kanwil → hanya bisa lihat laporan kanwil yang sama
+        hasAccess = report.regionId === user.regionId;
       } else if (user?.divisionId) {
         // User level divisi → hanya bisa lihat laporan divisi yang sama
         hasAccess = report.divisionId === user.divisionId;
@@ -116,6 +115,13 @@ export async function PUT(
       return NextResponse.json(errorResponse("Laporan tidak ditemukan", 404), {
         status: 404,
       });
+    }
+
+    if (session.user.branchId !== existingReport.branchId) {
+      return NextResponse.json(
+        errorResponse("Anda tidak memiliki akses ke laporan ini", 403),
+        { status: 403 },
+      );
     }
 
     // Hapus foto lama dari Cloudinary & DB jika ada foto baru yang dikirim

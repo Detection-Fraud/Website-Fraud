@@ -2,7 +2,7 @@ import {
   Pagination,
   SearchField,
   SearchFieldGroup,
-  Table
+  Table,
 } from "@heroui/react";
 import { BsFillInboxFill } from "react-icons/bs";
 
@@ -48,6 +48,39 @@ export default function DataTable<T>({
   filterProgram,
 }: DataTableProps<T>) {
   const showPagination = pagination && pagination.totalPages > 0;
+
+  const getPageNumbers = () => {
+    if (!pagination) return [];
+    const { page, totalPages } = pagination;
+    const pages: (number | "ellipsis")[] = [];
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+
+      if (page > 3) {
+        pages.push("ellipsis");
+      }
+
+      const start = Math.max(2, page - 1);
+      const end = Math.min(totalPages - 1, page + 1);
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (page < totalPages - 2) {
+        pages.push("ellipsis");
+      }
+
+      pages.push(totalPages);
+    }
+
+    return pages;
+  };
 
   return (
     <Table>
@@ -116,27 +149,39 @@ export default function DataTable<T>({
               <Pagination.Item>
                 <Pagination.Previous
                   isDisabled={pagination.page <= 1}
-                  onClick={() => onPageChange?.(pagination.page - 1)}
+                  onPress={() => onPageChange?.(pagination.page - 1)}
                 >
                   <Pagination.PreviousIcon />
                   <span>Previous</span>
                 </Pagination.Previous>
               </Pagination.Item>
 
-              <Pagination.Item>
-                <Pagination.Link isActive>{pagination.page}</Pagination.Link>
-              </Pagination.Item>
-
-              {pagination.page < pagination.totalPages && (
-                <Pagination.Item>
-                  <Pagination.Ellipsis />
-                </Pagination.Item>
+              {getPageNumbers().map((p, i) =>
+                p === "ellipsis" ? (
+                  <Pagination.Item key={`ellipsis-${i}`}>
+                    <Pagination.Ellipsis />
+                  </Pagination.Item>
+                ) : (
+                  <Pagination.Item key={p}>
+                    <Pagination.Link
+                      isActive={p === pagination.page}
+                      onPress={() => onPageChange?.(p)}
+                      className={
+                        p === pagination.page
+                          ? "bg-linear-to-r from-blue-950 via-blue-900 to-blue-800 font-bold text-white"
+                          : ""
+                      }
+                    >
+                      {p}
+                    </Pagination.Link>
+                  </Pagination.Item>
+                ),
               )}
 
               <Pagination.Item>
                 <Pagination.Next
                   isDisabled={pagination.page >= pagination.totalPages}
-                  onClick={() => onPageChange?.(pagination.page + 1)}
+                  onPress={() => onPageChange?.(pagination.page + 1)}
                 >
                   <span>Next</span>
                   <Pagination.NextIcon />

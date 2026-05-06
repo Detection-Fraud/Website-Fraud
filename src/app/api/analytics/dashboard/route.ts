@@ -56,6 +56,18 @@ export async function GET(request: NextRequest) {
       where: whereClause,
     });
 
+    const totalApproved = await prisma.activityReport.count({
+      where: { ...whereClause, status: "APPROVED" },
+    });
+
+    const totalPending = await prisma.activityReport.count({
+      where: { ...whereClause, status: "PENDING" },
+    });
+
+    const totalRejected = await prisma.activityReport.count({
+      where: { ...whereClause, status: "REJECTED" },
+    });
+
     const branchAktif = await prisma.activityReport.findMany({
       where: { ...whereClause, branchId: { not: null } },
       select: { branchId: true },
@@ -94,6 +106,19 @@ export async function GET(request: NextRequest) {
         createdAt: {
           gte: startOfMonth,
           lte: endOfMonth,
+        },
+      },
+    });
+
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    const laporanBulanLalu = await prisma.activityReport.count({
+      where: {
+        ...whereClause,
+        createdAt: {
+          gte: startOfLastMonth,
+          lte: endOfLastMonth,
         },
       },
     });
@@ -278,8 +303,12 @@ export async function GET(request: NextRequest) {
         {
           summary: {
             totalKegiatan,
+            totalApproved,
+            totalPending,
+            totalRejected,
             totalUnitAktif,
             laporanBulanIni,
+            laporanBulanLalu,
           },
           charts: {
             kegiatanPerBulan,

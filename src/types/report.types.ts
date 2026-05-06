@@ -8,9 +8,9 @@ export interface ActivityReportItem {
   status: string;
   createdAt: string;
   notes?: string | null;
-  region?: { name: string } | null;
-  branch?: { name: string } | null;
-  division?: { name: string } | null;
+  region?: { name: string, id: string } | null;
+  branch?: { name: string, id: string } | null;
+  division?: { name: string, id: string } | null;
   program?: { name: string } | null;
   photos?: {
     id: number;
