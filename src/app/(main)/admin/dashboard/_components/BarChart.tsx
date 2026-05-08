@@ -7,20 +7,25 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { KegiatanPerBulan } from "@/types/analytics.type";
+import { KegiatanPerPeriode } from "@/types/analytics.type";
 
 const chartConfig = {
-  jumlah: {
-    label: "Total Laporan",
+  tahunIni: {
+    label: "Tahun Ini",
     color: "#0284c7", // Tailwind sky-600
+  },
+  tahunLalu: {
+    label: "Tahun Lalu",
+    color: "#94a3b8", // Tailwind slate-400
   },
 } satisfies ChartConfig;
 
 interface DashboardBarChartProps {
-  data?: KegiatanPerBulan[];
+  data?: KegiatanPerPeriode[];
+  showComparison?: boolean;
 }
 
-export default function DashboardBarChart({ data = [] }: DashboardBarChartProps) {
+export default function DashboardBarChart({ data = [], showComparison = false }: DashboardBarChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="flex h-[300px] items-center justify-center text-gray-500 text-sm">
@@ -29,16 +34,18 @@ export default function DashboardBarChart({ data = [] }: DashboardBarChartProps)
     );
   }
 
+  console.log(data);
+
   return (
     <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
       <RechartsBarChart accessibilityLayer data={data}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis
-          dataKey="bulan"
+          dataKey="periode"
           tickLine={false}
           tickMargin={10}
           axisLine={false}
-          tickFormatter={(value) => value.substring(0, 3)}
+          tickFormatter={(value) => value ? String(value).substring(0, 3) : ""}
         />
         <YAxis 
           tickLine={false}
@@ -46,7 +53,10 @@ export default function DashboardBarChart({ data = [] }: DashboardBarChartProps)
           tickMargin={10}
         />
         <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-        <Bar dataKey="jumlah" fill="var(--color-jumlah)" radius={[4, 4, 0, 0]} />
+        {showComparison && (
+          <Bar dataKey="tahunLalu" fill="var(--color-tahunLalu)" radius={[4, 4, 0, 0]} />
+        )}
+        <Bar dataKey="tahunIni" fill="var(--color-tahunIni)" radius={[4, 4, 0, 0]} />
       </RechartsBarChart>
     </ChartContainer>
   );

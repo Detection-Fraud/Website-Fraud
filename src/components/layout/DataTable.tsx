@@ -25,12 +25,15 @@ interface DataTableProps<T> {
   renderCell?: (item: T, columnKey: string) => React.ReactNode;
   pagination?: PaginationInfo;
   onPageChange?: (page: number) => void;
-  search: string;
-  onSearch: (search: string) => void;
-  onClearSearch: () => void;
-  handleSearch: () => void;
+  search?: string;
+  onSearch?: (search: string) => void;
+  onClearSearch?: () => void;
+  handleSearch?: () => void;
   filterStatus?: React.ReactNode;
   filterProgram?: React.ReactNode;
+
+  haveSearch?: boolean;
+  haveFilter?: boolean;
 }
 
 export default function DataTable<T>({
@@ -45,6 +48,8 @@ export default function DataTable<T>({
   onClearSearch,
   handleSearch,
   filterStatus,
+  haveFilter,
+  haveSearch,
   filterProgram,
 }: DataTableProps<T>) {
   const showPagination = pagination && pagination.totalPages > 0;
@@ -83,33 +88,39 @@ export default function DataTable<T>({
   };
 
   return (
-    <Table>
+    <Table className="p-0 rounded-none">
       {/* Container untuk filter & pencarian dibikin sejajar dengan gap */}
-      <div className="flex w-full flex-row items-center justify-start gap-3 p-4">
-        {filterStatus}
-        {filterProgram}
-        <SearchField className="w-64">
-          <SearchFieldGroup>
-            <SearchField.SearchIcon />
-            <SearchField.Input
-              placeholder="Cari Laporan..."
-              value={search}
-              onChange={(e) => onSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleSearch();
-                }
-              }}
-            />
-            <SearchField.ClearButton onClick={onClearSearch} />
-          </SearchFieldGroup>
-        </SearchField>
-      </div>
+      {/* {haveSearch && (
+        <div className="flex w-full flex-row items-center justify-start gap-3 p-4">
+          {haveFilter && filterStatus}
+          {haveFilter && filterProgram}
+          <SearchField className="w-64">
+            <SearchFieldGroup>
+              <SearchField.SearchIcon />
+              <SearchField.Input
+                placeholder="Cari Laporan..."
+                value={search}
+                onChange={(e) => onSearch?.(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch?.();
+                  }
+                }}
+              />
+              <SearchField.ClearButton onClick={onClearSearch} />
+            </SearchFieldGroup>
+          </SearchField>
+        </div>
+      )} */}
       <Table.ScrollContainer>
         <Table.Content aria-label={ariaLabel || "Tabel Data"}>
           <Table.Header>
             {column.map((col, idx) => (
-              <Table.Column key={col.key} isRowHeader={idx === 0}>
+              <Table.Column
+                className={"px-6 py-3.5 bg-[#f8fafc]"}
+                key={col.key}
+                isRowHeader={idx === 0}
+              >
                 {col.label}
               </Table.Column>
             ))}
@@ -125,7 +136,10 @@ export default function DataTable<T>({
             {data.map((item, idx) => (
               <Table.Row key={idx}>
                 {column.map((col) => (
-                  <Table.Cell key={col.key}>
+                  <Table.Cell
+                    key={col.key}
+                    className={"rounded-none px-6 text-start"}
+                  >
                     {renderCell
                       ? renderCell(item, col.key)
                       : (item as any)[col.key]}
@@ -138,9 +152,9 @@ export default function DataTable<T>({
       </Table.ScrollContainer>
 
       {showPagination && (
-        <Table.Footer>
+        <Table.Footer className="bg-white">
           <Pagination>
-            <Pagination.Summary>
+            <Pagination.Summary className="text-xs">
               Menampilkan {(pagination.page - 1) * pagination.limit + 1}-
               {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
               dari {pagination.total} data
@@ -168,7 +182,7 @@ export default function DataTable<T>({
                       onPress={() => onPageChange?.(p)}
                       className={
                         p === pagination.page
-                          ? "bg-linear-to-r from-blue-950 via-blue-900 to-blue-800 font-bold text-white"
+                          ? "bg-linear-to-br from-sky-600  to-sky-500 font-bold text-white"
                           : ""
                       }
                     >

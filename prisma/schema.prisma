@@ -87,7 +87,10 @@ model ProgramBudaya {
 
   name String
 
-  description String
+  frequency Int
+  startDate DateTime
+  endDate DateTime
+
 
   isActive Boolean @default(true)
 

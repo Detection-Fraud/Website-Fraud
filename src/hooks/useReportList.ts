@@ -119,6 +119,7 @@ export function useReportList() {
     updateParams,
 
     summary,
+    statusFilter,
     // Navigation
     router,
   };

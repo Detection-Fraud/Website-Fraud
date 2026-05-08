@@ -15,7 +15,6 @@ export default function AppBar({
 }: PropTypes) {
   return (
     <div className="flex flex-row justify-between items-center">
-     
       <div>
         <h1 className="font-semibold text-lg">
           {title || "Dashboard Kantor Wilayah"}

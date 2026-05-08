@@ -1,6 +1,7 @@
-export interface KegiatanPerBulan {
-  bulan: string;
-  jumlah: number;
+export interface KegiatanPerPeriode {
+  periode: string;
+  tahunIni: number;
+  tahunLalu: number;
 }
 
 export interface TopUnit {
@@ -13,10 +14,25 @@ export interface DistribusiProgram {
   value: number;
 }
 
+export interface DistribusiProgramPerPeriode {
+  ALL: DistribusiProgram[];
+  TW1: DistribusiProgram[];
+  TW2: DistribusiProgram[];
+  TW3: DistribusiProgram[];
+  TW4: DistribusiProgram[];
+  SM1: DistribusiProgram[];
+  SM2: DistribusiProgram[];
+}
+
 export interface RankingWilayah {
   rank: number;
   name: string;
+  unit: number;
+  kegiatan: number;
+  approval: number;
+  approvalRate: number;
   jumlah: number;
+  status: string;
 }
 
 export interface DashboardSummary {
@@ -30,12 +46,13 @@ export interface DashboardSummary {
 }
 
 export interface DashboardCharts {
-  kegiatanPerBulan: KegiatanPerBulan[];
+  kegiatanPerBulan: KegiatanPerPeriode[];
+  kegiatanPerTriwulan: KegiatanPerPeriode[];
+  kegiatanPerSemester: KegiatanPerPeriode[];
   topUnit: TopUnit[];
   distribusiProgram: DistribusiProgram[];
   rankingWilayah: RankingWilayah[];
 }
-
 export interface DashboardData {
   summary: DashboardSummary;
   charts: DashboardCharts;

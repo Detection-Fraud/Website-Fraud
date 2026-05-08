@@ -5,7 +5,12 @@ import {
 } from "@/types/analytics.type";
 import { Card, Chip, Link, ProgressBar, Tabs } from "@heroui/react";
 import { BiAward, BiLineChart } from "react-icons/bi";
-import { FiBarChart2, FiMinus, FiTrendingDown, FiTrendingUp } from "react-icons/fi";
+import {
+  FiBarChart2,
+  FiMinus,
+  FiTrendingDown,
+  FiTrendingUp,
+} from "react-icons/fi";
 import { GoArrowUpRight, GoTrophy } from "react-icons/go";
 import DashboardBarChart from "./BarChart";
 import DashboardLineChart from "./LineChart";
@@ -169,60 +174,20 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
 
           <Card.Content className="space-y-6 pt-4">
             {charts?.rankingWilayah?.slice(0, 6).map((wilayah, index) => {
-              const maxJumlah = charts?.rankingWilayah?.[0]?.jumlah || 1;
-              const progress = (wilayah.jumlah / maxJumlah) * 100;
+              // 1. Menggunakan data asli dari API (bukan mock lagi)
+              const maxKegiatan = charts?.rankingWilayah?.[0]?.kegiatan || 1;
+              const progress = (wilayah.kegiatan / maxKegiatan) * 100;
 
-              let statusLabel = "";
-              let statusColor: "success" | "accent" | "warning" | "default" =
-                "default";
+              // 2. Mapping warna sesuai data 'status' dari Backend
+              let statusColor: "success" | "default" | "warning" | "danger" = "default";
+              if (wilayah.status === "Sangat Baik") statusColor = "success";
+              else if (wilayah.status === "Baik") statusColor = "default";
+              else if (wilayah.status === "Cukup") statusColor = "warning";
+              else if (wilayah.status === "Perlu Perhatian")
+                statusColor = "danger";
 
-              let trendIcon = null;
-              let trendColor = "";
-              let mockPercentage = 0;
-
-              // Logika tiruan untuk mencocokkan dengan desain gambar
-              if (index === 0) {
-                statusLabel = "Sangat Baik";
-                statusColor = "success";
-                mockPercentage = 94.5;
-                trendIcon = <FiTrendingUp />;
-                trendColor = "text-green-500";
-              } else if (index === 1) {
-                statusLabel = "Sangat Baik";
-                statusColor = "success";
-                mockPercentage = 89.8;
-                trendIcon = <FiTrendingUp />;
-                trendColor = "text-green-500";
-              } else if (index === 2) {
-                statusLabel = "Baik";
-                statusColor = "accent";
-                mockPercentage = 88.5;
-                trendIcon = <FiMinus />;
-                trendColor = "text-gray-400";
-              } else if (index === 3) {
-                statusLabel = "Baik";
-                statusColor = "accent";
-                mockPercentage = 85.1;
-                trendIcon = <FiTrendingUp />;
-                trendColor = "text-green-500";
-              } else if (index === 4) {
-                statusLabel = "Cukup";
-                statusColor = "warning";
-                mockPercentage = 81.0;
-                trendIcon = <FiTrendingDown />;
-                trendColor = "text-red-500";
-              } else {
-                statusLabel = "Cukup";
-                statusColor = "warning";
-                mockPercentage = 78.6;
-                trendIcon = <FiMinus />;
-                trendColor = "text-gray-400";
-              }
-
-              const mockJumlahUnit = Math.max(
-                1,
-                Math.floor(wilayah.jumlah / 10),
-              );
+              // Note: Untuk 'Trend', kita skip dulu karena perlu perhitungan historis
+              // yang lebih rumit di backend. Untuk sekarang kita tampilkan persentase murni.
 
               return (
                 <div key={wilayah.name} className="flex gap-4 items-start">
@@ -236,14 +201,14 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                       <BiAward className="w-5 h-5 text-orange-400" />
                     ) : (
                       <span className="text-sm font-bold text-gray-500">
-                        #{index + 1}
+                        #{wilayah.rank}
                       </span>
                     )}
                   </div>
 
                   {/* Bagian Kanan: Konten Baris */}
                   <div className="flex-1 space-y-1.5">
-                    {/* Baris Atas: Nama, Chip/Badge, dan Angka Persentase */}
+                    {/* Baris Atas: Nama, Chip/Badge, dan Angka Persentase Asli */}
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-sm text-gray-900">
@@ -251,37 +216,31 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                         </span>
                         <Chip
                           size="sm"
-                          color={statusColor}
-                          variant="secondary"
+                          color={statusColor as any}
+                          variant="soft"
                           className="text-[10px] h-5 px-1 font-medium"
                         >
-                          {statusLabel}
+                          {wilayah.status}
                         </Chip>
                       </div>
                       <div className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
-                        <span className={`${trendColor} text-xs`}>
-                          {trendIcon}
-                        </span>{" "}
-                        {mockPercentage}%
+                        {wilayah.approvalRate}%
                       </div>
                     </div>
 
-                    {/* Baris Bawah: Progress Bar & Teks Detail */}
+                    {/* Baris Bawah: Progress Bar & Teks Detail Asli */}
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
-                        <ProgressBar
-                          value={progress}
-                          color={statusColor}
-                          size="sm"
-                          aria-label={`Progress ${wilayah.name}`}
-                        >
-                          <ProgressBar.Track>
-                            <ProgressBar.Fill />
-                          </ProgressBar.Track>
-                        </ProgressBar>
+                        {/* Progress Bar diubah biar pake color bawaan Tailwind/Hex kalau HeroUI ngaco valuenya */}
+                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full bg-blue-500`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
                       </div>
                       <div className="text-[11px] text-gray-400 whitespace-nowrap font-medium">
-                        {wilayah.jumlah} kegiatan • {mockJumlahUnit} unit
+                        {wilayah.kegiatan} kegiatan • {wilayah.unit} unit
                       </div>
                     </div>
                   </div>

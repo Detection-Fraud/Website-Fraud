@@ -2,7 +2,7 @@
 
 import AppBar from "@/components/layout/Appbar";
 import DataTable, { TableColumn } from "@/components/layout/DataTable";
-import { Button, Chip } from "@heroui/react";
+import { Button, Card, Chip } from "@heroui/react";
 import { FaEye } from "react-icons/fa";
 
 import { ListBox, Select } from "@heroui/react";
@@ -42,33 +42,21 @@ export default function PicView() {
         }}
       />
 
-      <DataTable
-        column={REPORT_COLUMNS}
-        renderCell={(item, key) =>
-          renderReportCell(item, key, (id) =>
-            router.push(`/pic/detection/${id}`),
-          )
-        }
-        data={reports}
-        pagination={pagination}
-        onPageChange={(page) => updateParams({ page: String(page) })}
-        search={searchInput}
-        onSearch={setSearchInput}
-        onClearSearch={handleClearSearch}
-        handleSearch={handleSearch}
-        filterStatus={
-          <FilterStatus
-            value={currentStatus}
-            onChange={(val) => updateParams({ status: val, page: "1" })}
+      <Card className="p-0 rounded-lg shadow-sm border-slate-400">
+        <Card.Content>
+          <DataTable
+            column={REPORT_COLUMNS}
+            renderCell={(item, key) =>
+              renderReportCell(item, key, (id) =>
+                router.push(`/pic/detection/${id}`),
+              )
+            }
+            data={reports}
+            pagination={pagination}
+            onPageChange={(page) => updateParams({ page: String(page) })}
           />
-        }
-        filterProgram={
-          <FilterProgram
-            value={currentProgram}
-            onChange={(val) => updateParams({ programId: val, page: "1" })}
-          />
-        }
-      />
+        </Card.Content>
+      </Card>
     </div>
   );
 }

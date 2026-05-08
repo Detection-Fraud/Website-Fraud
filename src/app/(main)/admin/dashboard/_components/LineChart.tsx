@@ -8,19 +8,24 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { KegiatanPerBulan } from "@/types/analytics.type";
+import { KegiatanPerPeriode } from "@/types/analytics.type";
 const chartConfig = {
-  jumlah: {
-    label: "Total Laporan",
+  tahunIni: {
+    label: "Tahun Ini",
     color: "#0284c7", // Tailwind sky-600
+  },
+  tahunLalu: {
+    label: "Tahun Lalu",
+    color: "#94a3b8", // Tailwind slate-400
   },
 } satisfies ChartConfig;
 
 interface DashboardLineChartProps {
-  data?: KegiatanPerBulan[];
+  data?: KegiatanPerPeriode[];
+  showComparison?: boolean;
 }
 
-export default function DashboardLineChart({ data = [] }: DashboardLineChartProps) {
+export default function DashboardLineChart({ data = [], showComparison = false }: DashboardLineChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="flex h-[300px] items-center justify-center text-gray-500 text-sm">
@@ -30,38 +35,48 @@ export default function DashboardLineChart({ data = [] }: DashboardLineChartProp
   }
 
   return (
-    <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+    <ChartContainer config={chartConfig} className="min-h-[340px] w-full">
       {/* Komponen utama LineChart */}
       <LineChart
         accessibilityLayer // Menambahkan label ARIA otomatis
         data={data}
         margin={{
-          top: 20, 
+          top: 100, 
           left: 12,
           right: 12,
-          bottom: 20,
+          bottom: 10,
         }}
       >
         <CartesianGrid vertical={false} />
 
         <XAxis
-          dataKey="bulan"
+          dataKey="periode"
           tickLine={false} 
           axisLine={false} 
           tickMargin={18} 
-          tickFormatter={(value) => value.slice(0, 3)} 
+          tickFormatter={(value) => value ? String(value).substring(0, 3) : ""} 
         />
 
         <ChartTooltip
           cursor={false}
           content={<ChartTooltipContent indicator="line" />}
         />
+        {showComparison && (
+          <Line
+            dataKey="tahunLalu" 
+            type="natural" 
+            stroke="var(--color-tahunLalu)" 
+            strokeWidth={2} 
+            dot={{ fill: "var(--color-tahunLalu)" }} 
+            activeDot={{ r: 6 }} 
+          />
+        )}
         <Line
-          dataKey="jumlah" 
+          dataKey="tahunIni" 
           type="natural" 
-          stroke="var(--color-jumlah)" 
+          stroke="var(--color-tahunIni)" 
           strokeWidth={2} 
-          dot={{ fill: "var(--color-jumlah)" }} 
+          dot={{ fill: "var(--color-tahunIni)" }} 
           activeDot={{ r: 6 }} 
         >
           <LabelList
