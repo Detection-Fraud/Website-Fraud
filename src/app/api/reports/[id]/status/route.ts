@@ -20,11 +20,32 @@ export async function PATCH(
     const body = await req.json();
     const { status, notes } = body;
 
-    if (status === "REJECTED" && !notes) {
-      return NextResponse.json(errorResponse("Notes tidak boleh kosong", 400), {
-        status: 400,
-      });
+    const currentReport = await prisma.activityReport.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!currentReport) {
+      return NextResponse.json(errorResponse("Laporan tidak ditemukan", 404));
     }
+
+    if (currentReport.status !== "PENDING") {
+      return NextResponse.json(
+        errorResponse(
+          "Hanya laporan dengan status PENDING yang dapat diubah",
+          400,
+        ),
+        { status: 400 },
+      );
+    }
+
+    if (status === "REJECTED" && (!notes || notes.trim().length < 10)) {
+      return NextResponse.json(
+        errorResponse("Catatan penolakan wajib diisi minimal 10 karakter", 400),
+        { status: 400 },
+      );
+    }
+
     const updatedReport = await prisma.activityReport.update({
       where: { id },
       data: {

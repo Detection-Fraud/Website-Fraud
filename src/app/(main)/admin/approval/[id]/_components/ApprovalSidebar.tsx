@@ -1,7 +1,7 @@
+import { ActivityReportItem } from "@/types/report.types";
 import { Avatar, Card } from "@heroui/react";
 import { FiAlertTriangle, FiMapPin, FiUser } from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
-import { ActivityReportItem } from "@/hooks/useReportList";
 
 interface ApprovalSidebarProps {
   report: ActivityReportItem | null;
@@ -12,7 +12,7 @@ export default function ApprovalSidebar({ report }: ApprovalSidebarProps) {
     if (report?.division) return "divisi";
     if (report?.branch) return "kancab";
     if (report?.region) return "kanwil";
-    return "kanwil"; // fallback default
+    return "kanwil";
   };
 
   const unitType = getUnitType();

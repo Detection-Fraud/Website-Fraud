@@ -54,9 +54,13 @@ export default function FormDetection({
     selectedDate,
     setSelectedDate,
     handleFormSubmit,
+    minDate,
+    maxDate,
+    isDateDisabled,
   } = useFormDetectionLogic({
     initialData,
     tanganiSubmitFinal,
+    programs,
   });
 
   return (
@@ -123,7 +127,13 @@ export default function FormDetection({
           {/* DatePicker: value disimpan di state */}
           <div className="w-full flex flex-col gap-1">
             <Label className="text-sm font-medium">Tanggal Kegiatan</Label>
-            <CalendarPicker value={selectedDate} onChange={setSelectedDate} />
+            <CalendarPicker
+              value={selectedDate}
+              onChange={setSelectedDate}
+              isDisabled={isDateDisabled}
+              minValue={minDate}
+              maxValue={maxDate}
+            />
           </div>
 
           <TextField

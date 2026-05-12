@@ -23,6 +23,10 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get("status") || "ALL";
     const programFilter = searchParams.get("programId") || "ALL";
 
+    // FILTER WILAYAH
+    const regionFilter = searchParams.get("regionId") || "ALL";
+    const branchFilter = searchParams.get("branchId") || "ALL";
+
     let whereClause: any = {};
 
     switch (user.role) {
@@ -56,6 +60,18 @@ export async function GET(request: NextRequest) {
         );
     }
 
+    if (regionFilter !== "ALL") {
+      whereClause.regionId = regionFilter;
+    }
+
+    if (branchFilter !== "ALL") {
+      whereClause.branchId = branchFilter;
+    }
+
+    if (programFilter !== "ALL") {
+      whereClause.programId = programFilter;
+    }
+
     const baseWhereClause = { ...whereClause };
 
     if (search) {
@@ -70,10 +86,6 @@ export async function GET(request: NextRequest) {
 
     if (statusFilter !== "ALL") {
       whereClause.status = statusFilter;
-    }
-
-    if (programFilter !== "ALL") {
-      whereClause.programId = programFilter;
     }
 
     const summaryTotal = await prisma.activityReport.count({
@@ -92,26 +104,27 @@ export async function GET(request: NextRequest) {
       where: { ...baseWhereClause, status: "REJECTED" },
     });
 
-    const total = await prisma.activityReport.count({
-      where: whereClause,
-    });
-
     const skip = (page - 1) * limit;
 
-    const reports = await prisma.activityReport.findMany({
-      where: whereClause,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        region: { select: { name: true } },
-        branch: { select: { name: true } },
-        division: { select: { name: true } },
-        program: { select: { name: true } },
-      },
-      skip,
-      take: limit,
-    });
+    const [total, reports] = await Promise.all([
+      prisma.activityReport.count({
+        where: whereClause,
+      }),
+      prisma.activityReport.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          region: { select: { name: true } },
+          branch: { select: { name: true } },
+          division: { select: { name: true } },
+          program: { select: { name: true } },
+        },
+        skip,
+        take: limit,
+      }),
+    ]);
 
     return NextResponse.json(
       {
@@ -150,7 +163,6 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    console.log("DEBUG POST /api/reports body:", JSON.stringify(body, null, 2));
     const {
       activityName,
       tanggalKegiatan,
@@ -160,6 +172,48 @@ export async function POST(request: Request) {
       programId,
       uploadedPhotos,
     } = body;
+
+    if (!programId || !tanggalKegiatan) {
+      return NextResponse.json(
+        errorResponse("Program dan tanggal kegiatan wajib diisi", 400),
+        { status: 400 },
+      );
+    }
+
+    const programData = await prisma.programBudaya.findUnique({
+      where: { id: programId },
+    });
+
+    if (!programData) {
+      return NextResponse.json(errorResponse("Program tidak ditemukan", 400), {
+        status: 400,
+      });
+    }
+
+    const inputDate = new Date(tanggalKegiatan);
+    const startDate = new Date(programData.startDate);
+    const endDate = new Date(programData.endDate);
+
+    inputDate.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (today > endDate) {
+      return NextResponse.json(
+        errorResponse("Tanggal kegiatan sudah berakhir", 403),
+        { status: 403 },
+      );
+    }
+
+    if (inputDate < startDate || inputDate > endDate) {
+      return NextResponse.json(
+        errorResponse("Tanggal kegiatan diluar periode program", 400),
+        { status: 400 },
+      );
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       const newReport = await tx.activityReport.create({

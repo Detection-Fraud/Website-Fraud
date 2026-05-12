@@ -1,7 +1,13 @@
 "use client";
 
 import type { DateValue } from "@internationalized/date";
-import { Calendar, DateField, DatePicker, Label } from "@heroui/react";
+import {
+  Calendar,
+  DateField,
+  DatePicker,
+  FieldError,
+  Label,
+} from "@heroui/react";
 
 interface CalendarPickerProps {
   value: DateValue | null;
@@ -10,6 +16,11 @@ interface CalendarPickerProps {
   name?: string;
   isRequired?: boolean;
   isDisabled?: boolean;
+
+  minValue?: DateValue;
+  maxValue?: DateValue;
+  variant?: "primary" | "secondary";
+  isInvalid?: boolean;
 }
 
 export default function CalendarPicker({
@@ -19,6 +30,10 @@ export default function CalendarPicker({
   name = "date",
   isRequired = false,
   isDisabled = false,
+  minValue,
+  variant = "primary",
+  isInvalid = false,
+  maxValue,
 }: CalendarPickerProps) {
   return (
     <DatePicker
@@ -28,9 +43,12 @@ export default function CalendarPicker({
       onChange={onChange}
       isRequired={isRequired}
       isDisabled={isDisabled}
+      minValue={minValue}
+      maxValue={maxValue}
+      isInvalid={isInvalid}
     >
       {label && <Label className="text-sm font-medium">{label}</Label>}
-      <DateField.Group fullWidth>
+      <DateField.Group fullWidth variant={variant}>
         <DateField.Input>
           {(segment) => <DateField.Segment segment={segment} />}
         </DateField.Input>
@@ -40,8 +58,15 @@ export default function CalendarPicker({
           </DatePicker.Trigger>
         </DateField.Suffix>
       </DateField.Group>
+      {isInvalid && (
+        <FieldError>Tanggal berakhir harus setelah tanggal mulai</FieldError>
+      )}
       <DatePicker.Popover>
-        <Calendar aria-label={label || "Pilih tanggal"}>
+        <Calendar
+          aria-label={label || "Pilih tanggal"}
+          minValue={minValue}
+          maxValue={maxValue}
+        >
           <Calendar.Header>
             <Calendar.YearPickerTrigger>
               <Calendar.YearPickerTriggerHeading />

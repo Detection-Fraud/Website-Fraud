@@ -4,12 +4,15 @@ import { Avatar, Button, Dropdown, Label } from "@heroui/react";
 import { signOut } from "next-auth/react";
 import { FaArrowRightToBracket } from "react-icons/fa6";
 
-interface UserData {
+export interface UserData {
   name?: string | null;
   role?: string;
   regionName?: string | null;
   branchName?: string | null;
   divisionName?: string | null;
+  regionId?: string;
+  branchId?: string;
+  divisionId?: string;
 }
 
 export default function DropdownUser({ user }: { user: UserData }) {
@@ -17,13 +20,26 @@ export default function DropdownUser({ user }: { user: UserData }) {
     await signOut({ callbackUrl: "/login" });
   };
 
-  // Tampilkan nama wilayah/cabang/divisi (mana yang ada)
-  const unitName = user.regionName || user.branchName || user.divisionName;
+  let unitName = "";
+
+  if (user?.branchId) {
+    unitName = user?.branchName || "Kantor Cabang";
+  } else if (user?.regionId) {
+    unitName = `Kanwil ${user?.regionName || "Kantor Wilayah"}`;
+  } else if (user?.divisionId || user?.divisionName) {
+    unitName = `Divisi ${user?.divisionName || "Pusat"}`;
+  } else if (user?.role === "ADMIN") {
+    unitName = "Administrator Pusat";
+  }
 
   return (
     <Dropdown>
       <Dropdown.Trigger>
-        <div role="button" tabIndex={0} className="flex flex-row-reverse gap-4 items-center cursor-pointer outline-none border-none bg-transparent">
+        <div
+          role="button"
+          tabIndex={0}
+          className="flex flex-row-reverse gap-4 items-center cursor-pointer outline-none border-none bg-transparent"
+        >
           <Avatar>
             <Avatar.Fallback>
               {user?.name?.[0]?.toUpperCase()}

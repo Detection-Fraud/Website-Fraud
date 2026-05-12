@@ -2,7 +2,7 @@
 
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import Image from "next/image";
-import DropdownUser from "./DropdownUser";
+import DropdownUser, { UserData } from "./DropdownUser";
 import { useLayoutStore } from "@/store/useLayoutStore";
 import { Button } from "@heroui/react";
 import { PiSidebarSimpleBold } from "react-icons/pi";
@@ -33,7 +33,7 @@ export default function Navbar() {
             </p>
           </div>
         </div>
-        <div>{!isLoading && user && <DropdownUser user={user} />}</div>
+        <div>{!isLoading && user && <DropdownUser user={user as UserData} />}</div>
       </div>
     </header>
   );

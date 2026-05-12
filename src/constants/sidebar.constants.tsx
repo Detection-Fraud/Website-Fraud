@@ -36,6 +36,12 @@ export const SidebarMenuAdmin = [
     href: "/admin/management",
     icon: <FaRegUser />,
   },
+  {
+    key: "program-budaya",
+    label: "Program Budaya",
+    href: "/admin/programs",
+    icon: <PiNotebookLight />,
+  },
 ];
 
 export const SidebarMenuPIC = [

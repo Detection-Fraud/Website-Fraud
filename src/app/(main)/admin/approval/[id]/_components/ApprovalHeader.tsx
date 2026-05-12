@@ -1,8 +1,8 @@
+import { ActivityReportItem } from "@/types/report.types";
 import { Button, Chip, Spinner } from "@heroui/react";
 import Link from "next/link";
 import { FiArrowLeft, FiCheckCircle, FiXCircle } from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
-import { ActivityReportItem } from "@/hooks/useReportList";
 
 interface ApprovalHeaderProps {
   report: ActivityReportItem | null;
@@ -17,6 +17,27 @@ export default function ApprovalHeader({
   onApprove,
   onReject,
 }: ApprovalHeaderProps) {
+  const getUnitType = () => {
+    if (report?.division) return "divisi";
+    if (report?.branch) return "kancab";
+    if (report?.region) return "kanwil";
+    return "kanwil";
+  };
+
+  const unitType = getUnitType();
+
+  const getUnitTypeLabel = () => {
+    if (unitType === "divisi") return "Divisi";
+    if (unitType === "kancab") return "Kantor Cabang";
+    return "Kantor Wilayah";
+  };
+
+  const getUnitName = () => {
+    if (unitType === "divisi") return report?.division?.name;
+    if (unitType === "kancab") return report?.branch?.name;
+    return report?.region?.name;
+  };
+
   return (
     <div className="space-y-2">
       <Link
@@ -33,11 +54,7 @@ export default function ApprovalHeader({
           </h2>
           <Chip color="accent" variant="soft">
             <LuBuilding2 />
-            <Chip.Label>
-              {report?.region?.name && `Kantor Wilayah: ${report.region.name}`}
-              {report?.branch?.name && `Kantor Cabang: ${report.branch.name}`}
-              {report?.division?.name && `Divisi: ${report.division.name}`}
-            </Chip.Label>
+            <Chip.Label>{getUnitName()}</Chip.Label>
           </Chip>
         </div>
         {report?.status === "PENDING" && (

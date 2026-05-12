@@ -6,12 +6,14 @@ interface PropTypes {
   showAddButton?: boolean;
   title?: string;
   description?: string;
+  textAddButton?: string;
 }
 export default function AppBar({
   onAdd,
   showAddButton = true,
   title,
   description,
+  textAddButton = "Buat Laporan",
 }: PropTypes) {
   return (
     <div className="flex flex-row justify-between items-center">
@@ -19,7 +21,7 @@ export default function AppBar({
         <h1 className="font-semibold text-lg">
           {title || "Dashboard Kantor Wilayah"}
         </h1>
-        <p className="text-sm text-muted">
+        <p className="text-xs text-muted">
           {description || "List laporan bulanan yang telah di kirim"}
         </p>
       </div>
@@ -32,7 +34,7 @@ export default function AppBar({
             className={"px-6 rounded-xl"}
           >
             <IoMdAdd />
-            Buat Laporan
+            {textAddButton || "Buat Laporan"}
           </Button>
         )}
       </div>

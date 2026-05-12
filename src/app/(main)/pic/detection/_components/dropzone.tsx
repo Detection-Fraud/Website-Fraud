@@ -3,16 +3,51 @@
 import React, { useState } from "react";
 import { FiUpload } from "react-icons/fi";
 import { useReportStore } from "@/store/useReportStore";
-import { cn } from "@heroui/react";
+import { cn, toast } from "@heroui/react";
 
 export default function Dropzone() {
-  const { addImages } = useReportStore();
+  const { addImages, images } = useReportStore();
   const [isDragging, setIsDragging] = useState(false);
 
   const prosessFileGambar = (fileFisik: FileList | File[]) => {
     const listFile = Array.from(fileFisik);
+    const MAX_IMAGES = 10;
+    const MAX_SIZES_MB = 2;
+    const MAX_SIZE_BYTES = MAX_SIZES_MB * 1024 * 1024;
 
-    const newImage = listFile.map((file) => ({
+    const sisaSlot = MAX_IMAGES - images.length;
+    if (sisaSlot <= 0) {
+      toast.danger(
+        `Maksimal ${MAX_IMAGES} foto. Hapus foto yang ada terlebih dahulu`,
+      );
+      return;
+    }
+    const fileTerFilter = listFile.slice(0, sisaSlot);
+    if (listFile.length > sisaSlot) {
+      toast.warning(
+        `Hanya ${sisaSlot} foto yang ditambahkan karena batas maksimal 10.`,
+      );
+    }
+
+    const fileValid: File[] = [];
+    const fileInvalid: string[] = [];
+    fileTerFilter.forEach((file) => {
+      if (file.size > MAX_SIZE_BYTES) {
+        fileInvalid.push(file.name);
+      } else {
+        fileValid.push(file);
+      }
+    });
+
+    if (fileInvalid.length > 0) {
+      toast.danger(
+        `File berikut melebihi ${MAX_SIZES_MB} MB dan dilewati ${fileInvalid.join(", ")}`,
+      );
+    }
+
+    if (fileValid.length === 0) return;
+
+    const newImage = fileValid.map((file) => ({
       id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       file: file,
       previewUrl: URL.createObjectURL(file),

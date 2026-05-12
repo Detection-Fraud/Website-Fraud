@@ -8,8 +8,11 @@ import {
   Button,
   Card,
   Chip,
+  Label,
+  ListBox,
   SearchField,
   SearchFieldGroup,
+  Select,
   Tag,
   TagGroup,
 } from "@heroui/react";
@@ -19,6 +22,8 @@ import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
 import { ActivityReportItem } from "@/types/report.types";
 import { LuBuilding2 } from "react-icons/lu";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
+import { useMasterWilayah } from "@/hooks/useMasterWilayah";
+import { useProgram } from "@/hooks/useProgram";
 
 export default function ApprovalView() {
   const {
@@ -32,10 +37,23 @@ export default function ApprovalView() {
     updateParams,
     router,
     statusFilter,
+    regionFilter,
+    branchFilter,
+    programFilter,
     summary,
   } = useReportList();
 
+  const { programs } = useProgram();
+
+  console.log(programs);
+
+  const { regions, isLoadingWilayah } = useMasterWilayah();
+
   const { charts } = useDashboardAnalytics();
+
+  const selectedRegion = regions.find((r) => r.id === regionFilter);
+
+  const branches = selectedRegion ? selectedRegion.branches : [];
 
   const columns: TableColumn[] = [
     { key: "activityName", label: "Nama Kegiatan" },
@@ -77,18 +95,24 @@ export default function ApprovalView() {
           </div>
         );
       case "unit":
-        const unitName = item.region?.name
-          ? `Kanwil ${item.region.name}`
-          : item.branch?.name
-            ? `Kancab ${item.branch.name}`
-            : item.division?.name
-              ? `Divisi ${item.division.name}`
-              : "-";
+        const getUnitType = () => {
+          if (item.division) return "Divisi";
+          if (item.branch) return "Kancab";
+          if (item.region) return "Kanwil";
+          return "Kanwil";
+        };
+
+        const unitType = getUnitType();
+        const getUnitTypeLabel = () => {
+          if (unitType === "Divisi") return item.division?.name;
+          if (unitType === "Kancab") return item.branch?.name;
+          if (unitType === "Kanwil") return item.region?.name;
+        };
         return (
           <div className="flex flex-row items-center gap-2">
             <LuBuilding2 className="text-slate-500 w-3.5 h-3.5" />
             <span className="text-xs font-light text-slate-700 max-w-[200px] truncate">
-              {unitName}
+              {getUnitTypeLabel()}
             </span>
           </div>
         );
@@ -157,6 +181,119 @@ export default function ApprovalView() {
         description="Daftar foto kegiatan yang telah diupload oleh Kanwil, Kancab, dan Divisi"
         showAddButton={false}
       />
+
+      <div className="flex flex-row gap-2 justify-start items-center">
+        <Select
+          aria-label="Pilih Program Budaya"
+          className={"w-62"}
+          placeholder="Pilih Program Budaya"
+          value={programFilter}
+          onChange={(key) =>
+            updateParams({
+              programId: (key ?? "ALL") as string,
+              page: "1",
+            })
+          }
+        >
+          <Label>Program Budaya</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="ALL" textValue="Semua Program Budaya">
+                Semua Program Budaya
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+              {programs?.map((program: any) => (
+                <ListBox.Item
+                  key={program.id}
+                  id={String(program.id)}
+                  textValue={program.name}
+                >
+                  {program.name}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+        <Select
+          aria-label="Pilih Wilayah"
+          className={"w-42"}
+          placeholder="Pilih Wilayah"
+          value={regionFilter === "ALL" ? "ALL" : regionFilter}
+          onChange={(key) =>
+            updateParams({
+              regionId: (key ?? "ALL") as string,
+              branchId: "ALL",
+              page: "1",
+            })
+          }
+        >
+          <Label>Wilayah</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="ALL" textValue="Semua Wilayah">
+                Semua Wilayah
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+              {regions.map((region) => (
+                <ListBox.Item
+                  key={region.id}
+                  id={String(region.id)}
+                  textValue={region.name}
+                >
+                  <ListBox.ItemIndicator />
+                  {region.name}
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+        <Select
+          aria-label="Pilih Kantor Cabang"
+          className={"w-52"}
+          placeholder="Pilih Kantor Cabang"
+          isDisabled={regionFilter === "ALL" || !selectedRegion}
+          value={branchFilter}
+          onChange={(key) =>
+            updateParams({
+              branchId: (key ?? "ALL") as string,
+              page: "1",
+            })
+          }
+        >
+          <Label>Kantor Cabang</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="ALL" textValue="Semua Kantor Cabang">
+                Semua Cabang
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+              {branches?.map((branch: any) => (
+                <ListBox.Item
+                  key={branch.id}
+                  id={String(branch.id)}
+                  textValue={branch.name}
+                >
+                  {branch.name}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div>
@@ -296,7 +433,7 @@ export default function ApprovalView() {
                   </Tag>
                   <Tag
                     id="REJECTED"
-                    className="data-[selected=true]:bg-gradient-to-br data-[selected=true]:from-red-600 data-[selected=true]:to-red-400 data-[selected=true]:text-white data-[selected=true]:font-semibold data-[selected=true]:shadow-md px-3 py-1"
+                    className="data-[selected=true]:bg-linear-to-br data-[selected=true]:from-red-600 data-[selected=true]:to-red-400 data-[selected=true]:text-white data-[selected=true]:font-semibold data-[selected=true]:shadow-md px-3 py-1"
                   >
                     Rejected
                   </Tag>

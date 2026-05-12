@@ -19,6 +19,21 @@ export async function POST(request: Request) {
       });
     }
 
+    const MAX_SIZE_BYTES = 2 * 1024 * 1024;
+    if (file.size > MAX_SIZE_BYTES) {
+      return NextResponse.json(
+        errorResponse(`File maksimal ${MAX_SIZE_BYTES}MB`, 400),
+        { status: 400 },
+      );
+    }
+
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/jpg"];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json(errorResponse(`Tipe file tidak didukung`, 400), {
+        status: 400,
+      });
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 

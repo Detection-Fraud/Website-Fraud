@@ -20,8 +20,9 @@ export function useDashboardAnalytics() {
 
   // State untuk Query Params (Backend Filters)
   const [year, setYear] = useState(new Date().getFullYear());
-  const [regionId, setRegionId] = useState<string | undefined>(undefined);
-  const [programId, setProgramId] = useState<string | undefined>(undefined);
+  const [regionId, setRegionId] = useState<string>("ALL");
+  const [programId, setProgramId] = useState<string>("ALL");
+  const [branchId, setBranchId] = useState<string>("ALL");
 
   // 2. Tambahkan State untuk UI Filter (Frontend Filter)
   const [periode, setPeriode] = useState<PeriodeFilter>("ALL");
@@ -34,9 +35,10 @@ export function useDashboardAnalytics() {
       try {
         const params = new URLSearchParams();
         params.set("year", String(year));
-        params.set("periode", periode); // kirim ke API agar distribusiProgram difilter sesuai periode
-        if (regionId) params.set("regionId", regionId);
-        if (programId) params.set("programId", programId);
+        params.set("periode", periode);
+        if (regionId !== "ALL") params.set("regionId", regionId);
+        if (programId !== "ALL") params.set("programId", programId);
+        if (branchId !== "ALL") params.set("branchId", branchId);
 
         const response = await fetch(
           `/api/analytics/dashboard?${params.toString()}`,
@@ -58,7 +60,7 @@ export function useDashboardAnalytics() {
 
     // 'periode' masuk ke dep array karena distribusiProgram harus di-refetch saat periode berubah
     fetchDashboard();
-  }, [year, regionId, programId, periode]);
+  }, [year, regionId, programId, periode, branchId]);
 
   // 3. Helper cerdas penyedia data grafik yang udah mateng
   const getAreaChartData = () => {
@@ -124,6 +126,9 @@ export function useDashboardAnalytics() {
     setRegionId,
     programId,
     setProgramId,
+
+    branchId,
+    setBranchId,
 
     // Export state periode buat di-binding ke Dropdown HeroUI
     periode,

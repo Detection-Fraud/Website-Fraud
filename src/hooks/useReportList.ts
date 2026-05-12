@@ -40,6 +40,9 @@ export function useReportList() {
   const statusFilter = searchParams.get("status") || "ALL";
   const programFilter = searchParams.get("programId") || "ALL";
 
+  const regionFilter = searchParams.get("regionId") || "ALL";
+  const branchFilter = searchParams.get("branchId") || "ALL";
+
   // State lokal untuk search input (biar ga fetch setiap ketik)
   const [searchInput, setSearchInput] = useState(search);
 
@@ -74,7 +77,7 @@ export function useReportList() {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `/api/reports?page=${page}&limit=${limit}&search=${search}&status=${statusFilter}&programId=${programFilter}`,
+          `/api/reports?page=${page}&limit=${limit}&search=${search}&status=${statusFilter}&programId=${programFilter}&regionId=${regionFilter}&branchId=${branchFilter}`,
         );
         const json = await response.json();
 
@@ -95,7 +98,7 @@ export function useReportList() {
     };
 
     fetchReports();
-  }, [page, limit, search, statusFilter, programFilter]);
+  }, [page, limit, search, statusFilter, programFilter, regionFilter, branchFilter]);
 
   // Sync searchInput saat URL berubah (misal user klik Back)
   useEffect(() => {
@@ -122,5 +125,9 @@ export function useReportList() {
     statusFilter,
     // Navigation
     router,
+
+    regionFilter,
+    branchFilter,
+    programFilter,
   };
 }

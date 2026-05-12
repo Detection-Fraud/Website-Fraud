@@ -7,6 +7,7 @@ import AnalyticChart from "./_components/AnalyticChart";
 import MiniCart from "./_components/MiniCart";
 import DataTable from "@/components/layout/DataTable";
 import AnalyticTableRanking from "./_components/AnalyticTableRanking";
+import { useMasterWilayah } from "@/hooks/useMasterWilayah";
 
 export default function AnalyticsAdmin() {
   const {
@@ -24,7 +25,11 @@ export default function AnalyticsAdmin() {
     pieChartData,
     setProgramId,
     dynamicSummary,
+    branchId,
+    setBranchId,
   } = useDashboardAnalytics();
+
+  const { regions } = useMasterWilayah();
 
   const currentMonth = summary?.laporanBulanIni || 0;
   const lastMonth = summary?.laporanBulanLalu || 0;
@@ -41,19 +46,28 @@ export default function AnalyticsAdmin() {
     100
   ).toFixed(2);
 
+  const selectedRegion = regions.find((r) => r.id === regionId);
+
+  const branches = selectedRegion ? selectedRegion.branches : [];
+
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-2">
         <BiFilterAlt className="w-4 h-4 text-gray-500" />
         <p className="text-gray-500 font-medium">Filter: </p>
 
-        {/* Select Filter */}
+        {/* Select Filter Wilayah */}
         <div>
           <Select
-            aria-label="Filter Status"
-            placeholder="Semua Status"
+            aria-label="Filter Wilayah"
+            placeholder="Semua Wilayah"
             variant="primary"
             className={"w-48"}
+            selectedKey={regionId}
+            onSelectionChange={(key) => {
+              setRegionId((key ?? "ALL") as string);
+              setBranchId("ALL"); // Reset kancab saat ganti wilayah
+            }}
           >
             <Select.Trigger className="shadow-sm bg-white border border-gray-200">
               <Select.Value />
@@ -61,33 +75,70 @@ export default function AnalyticsAdmin() {
             </Select.Trigger>
             <Select.Popover>
               <ListBox>
-                <ListBox.Item id="ALL" textValue="Semua Status">
+                <ListBox.Item id="ALL" textValue="Semua Wilayah">
                   <ListBox.ItemIndicator />
-                  Semua Status
+                  Semua Wilayah
                 </ListBox.Item>
-                <ListBox.Item id="PENDING" textValue="Pending">
-                  <ListBox.ItemIndicator />
-                  Pending
-                </ListBox.Item>
-                <ListBox.Item id="APPROVED" textValue="Approved">
-                  <ListBox.ItemIndicator />
-                  Approved
-                </ListBox.Item>
-                <ListBox.Item id="REJECTED" textValue="Rejected">
-                  <ListBox.ItemIndicator />
-                  Rejected
-                </ListBox.Item>
+                {regions?.map((region) => (
+                  <ListBox.Item
+                    key={region.id}
+                    id={String(region.id)}
+                    textValue={region.name}
+                  >
+                    <ListBox.ItemIndicator />
+                    {region.name}
+                  </ListBox.Item>
+                ))}
               </ListBox>
             </Select.Popover>
           </Select>
         </div>
 
+        {/* Select Filter Kantor Cabang */}
+        <div>
+          <Select
+            aria-label="Filter Kantor Cabang"
+            placeholder="Semua Kancab"
+            variant="primary"
+            className={"w-52"}
+            isDisabled={regionId === "ALL"}
+            value={branchId}
+            onChange={(key) => {
+              setBranchId((key ?? "ALL") as string);
+            }}
+          >
+            <Select.Trigger className="shadow-sm bg-white border border-gray-200">
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="ALL" textValue="Semua Kancab">
+                  <ListBox.ItemIndicator />
+                  Semua Kancab
+                </ListBox.Item>
+                {branches?.map((branch: any) => (
+                  <ListBox.Item
+                    key={branch.id}
+                    id={String(branch.id)}
+                    textValue={branch.name}
+                  >
+                    <ListBox.ItemIndicator />
+                    {branch.name}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+        </div>
+
+        {/* Select Filter Periode */}
         <div>
           <Select
             aria-label="Filter Periode Waktu"
             placeholder="Pilih Periode"
             value={periode}
-            onChange={(key) => setPeriode(key as any)}
+            onChange={(key) => setPeriode((key ?? "ALL") as any)}
             className="w-48"
           >
             <Select.Trigger className="shadow-sm bg-white border border-gray-200">

@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
     // 2. Ambil filter dari query params
     const searchParams = request.nextUrl.searchParams;
     const regionId = searchParams.get("regionId") || undefined;
+    const branchId = searchParams.get("branchId") || undefined;
     const programId = searchParams.get("programId") || undefined;
     const year = parseInt(
       searchParams.get("year") || String(new Date().getFullYear()),
@@ -64,6 +65,9 @@ export async function GET(request: NextRequest) {
       case "ADMIN":
         if (regionId) {
           whereClause.regionId = regionId;
+        }
+        if (branchId) {
+          whereClause.branchId = branchId;
         }
         break;
       case "PIC":
@@ -86,42 +90,6 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. Summary cards
-    const totalKegiatan = await prisma.activityReport.count({
-      where: whereClause,
-    });
-
-    const totalApproved = await prisma.activityReport.count({
-      where: { ...whereClause, status: "APPROVED" },
-    });
-
-    const totalPending = await prisma.activityReport.count({
-      where: { ...whereClause, status: "PENDING" },
-    });
-
-    const totalRejected = await prisma.activityReport.count({
-      where: { ...whereClause, status: "REJECTED" },
-    });
-
-    const branchAktif = await prisma.activityReport.findMany({
-      where: { ...whereClause, branchId: { not: null } },
-      select: { branchId: true },
-      distinct: ["branchId"],
-    });
-
-    const regionAktif = await prisma.activityReport.findMany({
-      where: { ...whereClause, regionId: { not: null }, branchId: null },
-      select: { regionId: true },
-      distinct: ["regionId"],
-    });
-
-    const divisionAktif = await prisma.activityReport.findMany({
-      where: { ...whereClause, divisionId: { not: null } },
-      select: { divisionId: true },
-      distinct: ["divisionId"],
-    });
-
-    const totalUnitAktif =
-      branchAktif.length + regionAktif.length + divisionAktif.length;
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -134,16 +102,6 @@ export async function GET(request: NextRequest) {
       59,
     );
 
-    const laporanBulanIni = await prisma.activityReport.count({
-      where: {
-        ...whereClause,
-        createdAt: {
-          gte: startOfMonth,
-          lte: endOfMonth,
-        },
-      },
-    });
-
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(
       now.getFullYear(),
@@ -154,45 +112,83 @@ export async function GET(request: NextRequest) {
       59,
     );
 
-    const laporanBulanLalu = await prisma.activityReport.count({
-      where: {
-        ...whereClause,
-        createdAt: {
-          gte: startOfLastMonth,
-          lte: endOfLastMonth,
+    const [
+      totalKegiatan,
+      totalApproved,
+      totalPending,
+      totalRejected,
+      laporanBulanIni,
+      laporanBulanLalu,
+      branchAktifRaw,
+      regionAktifRaw,
+      divisionAktifRaw,
+    ] = await Promise.all([
+      prisma.activityReport.count({ where: whereClause }),
+      prisma.activityReport.count({
+        where: { ...whereClause, status: "APPROVED" },
+      }),
+      prisma.activityReport.count({
+        where: { ...whereClause, status: "PENDING" },
+      }),
+      prisma.activityReport.count({
+        where: { ...whereClause, status: "REJECTED" },
+      }),
+      prisma.activityReport.count({
+        where: {
+          ...whereClause,
+          createdAt: { gte: startOfMonth, lte: endOfMonth },
         },
-      },
-    });
+      }),
+      prisma.activityReport.count({
+        where: {
+          ...whereClause,
+          createdAt: { gte: startOfLastMonth, lte: endOfLastMonth },
+        },
+      }),
+      prisma.activityReport.groupBy({
+        by: ["branchId"],
+        where: { ...whereClause, branchId: { not: null } },
+      }),
+      prisma.activityReport.groupBy({
+        by: ["regionId"],
+        where: { ...whereClause, regionId: { not: null }, branchId: null },
+      }),
+      prisma.activityReport.groupBy({
+        by: ["divisionId"],
+        where: { ...whereClause, divisionId: { not: null } },
+      }),
+    ]);
 
-    // 5. Kegiatan per bulan
+    const totalUnitAktif =
+      branchAktifRaw.length + regionAktifRaw.length + divisionAktifRaw.length;
+
+    // 5. Kegiatan per bulan, triwulan, dan semester (SAFE COUNTING)
 
     const prevYear = year - 1;
-
-    const startOfYear = new Date(year, 0, 1);
-    const endOfYear = new Date(year, 11, 31, 23, 59, 59);
-
-    const startOfPrevYear = new Date(prevYear, 0, 1);
-    const endOfPrevYear = new Date(prevYear, 11, 31, 23, 59, 59);
-
-    const reportsInYear = await prisma.activityReport.findMany({
-      where: {
-        ...whereClause,
-        tanggalKegiatan: {
-          gte: startOfYear,
-          lte: endOfYear,
-        },
-      },
-      select: { tanggalKegiatan: true },
+    const months = Array.from({ length: 12 }, (_, i) => i);
+    // Bikin array of promises untuk 12 bulan (Tahun ini & Tahun Lalu)
+    const countsPromises = months.flatMap((month) => {
+      const startThisYear = new Date(year, month, 1);
+      const endThisYear = new Date(year, month + 1, 0, 23, 59, 59);
+      const startLastYear = new Date(prevYear, month, 1);
+      const endLastYear = new Date(prevYear, month + 1, 0, 23, 59, 59);
+      return [
+        prisma.activityReport.count({
+          where: {
+            ...whereClause,
+            tanggalKegiatan: { gte: startThisYear, lte: endThisYear },
+          },
+        }),
+        prisma.activityReport.count({
+          where: {
+            ...whereClause,
+            tanggalKegiatan: { gte: startLastYear, lte: endLastYear },
+          },
+        }),
+      ];
     });
-
-    const reportsInPrevYear = await prisma.activityReport.findMany({
-      where: {
-        ...whereClause,
-        tanggalKegiatan: { gte: startOfPrevYear, lte: endOfPrevYear },
-      },
-      select: { tanggalKegiatan: true },
-    });
-
+    // Jalankan semua query database secara bersamaan!
+    const countsResults = await Promise.all(countsPromises);
     const namaBulan = [
       "Jan",
       "Feb",
@@ -210,16 +206,11 @@ export async function GET(request: NextRequest) {
 
     // --- A. GENERATE DATA BULANAN ---
     const kegiatanPerBulan = namaBulan.map((bulan, index) => ({
-      periode: bulan, // Kita ubah key-nya jadi 'periode' biar dinamis
-      tahunIni: reportsInYear.filter(
-        (r) => new Date(r.tanggalKegiatan).getMonth() === index,
-      ).length,
-      tahunLalu: reportsInPrevYear.filter(
-        (r) => new Date(r.tanggalKegiatan).getMonth() === index,
-      ).length,
+      periode: bulan,
+      tahunIni: countsResults[index * 2], // index Genap
+      tahunLalu: countsResults[index * 2 + 1], // index Ganjil
     }));
-
-    // ---B. Generate Data TRIWULAN ---
+    // --- B. GENERATE DATA TRIWULAN ---
     const namaTriwulan = [
       "Triwulan 1",
       "Triwulan 2",
@@ -227,38 +218,29 @@ export async function GET(request: NextRequest) {
       "Triwulan 4",
     ];
     const kegiatanPerTriwulan = namaTriwulan.map((tw, index) => {
-      const startMonth = index * 3;
-      const endMonth = startMonth + 2;
-
+      const startIdx = index * 3;
       return {
         periode: tw,
-        tahunIni: reportsInYear.filter((r) => {
-          const m = new Date(r.tanggalKegiatan).getMonth();
-          return m >= startMonth && m <= endMonth;
-        }).length,
-        tahunLalu: reportsInPrevYear.filter((r) => {
-          const m = new Date(r.tanggalKegiatan).getMonth();
-          return m >= startMonth && m <= endMonth;
-        }).length,
+        tahunIni: kegiatanPerBulan
+          .slice(startIdx, startIdx + 3)
+          .reduce((sum, item) => sum + item.tahunIni, 0),
+        tahunLalu: kegiatanPerBulan
+          .slice(startIdx, startIdx + 3)
+          .reduce((sum, item) => sum + item.tahunLalu, 0),
       };
     });
-
     // --- C. GENERATE DATA SEMESTER ---
     const namaSemester = ["Semester 1", "Semester 2"];
     const kegiatanPerSemester = namaSemester.map((sem, index) => {
-      const startMonth = index * 6;
-      const endMonth = startMonth + 5;
-
+      const startIdx = index * 6;
       return {
         periode: sem,
-        tahunIni: reportsInYear.filter((r) => {
-          const m = new Date(r.tanggalKegiatan).getMonth();
-          return m >= startMonth && m <= endMonth;
-        }).length,
-        tahunLalu: reportsInPrevYear.filter((r) => {
-          const m = new Date(r.tanggalKegiatan).getMonth();
-          return m >= startMonth && m <= endMonth;
-        }).length,
+        tahunIni: kegiatanPerBulan
+          .slice(startIdx, startIdx + 6)
+          .reduce((sum, item) => sum + item.tahunIni, 0),
+        tahunLalu: kegiatanPerBulan
+          .slice(startIdx, startIdx + 6)
+          .reduce((sum, item) => sum + item.tahunLalu, 0),
       };
     });
 

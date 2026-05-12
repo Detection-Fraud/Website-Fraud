@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Key } from "@heroui/react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { InitialData, ReportFormData } from "@/types/report.types";
+import { ProgramBudaya } from "@generated/prisma";
 
 interface UseFormDetectionLogicProps {
   initialData?: InitialData;
+  programs: ProgramBudaya[];
   tanganiSubmitFinal: (formData: ReportFormData) => void;
 }
 
 export function useFormDetectionLogic({
   initialData,
+  programs,
   tanganiSubmitFinal,
 }: UseFormDetectionLogicProps) {
   const [selectedProgramId, setSelectedProgramId] = useState<Key | null>(
@@ -29,6 +32,31 @@ export function useFormDetectionLogic({
     }
     return null;
   });
+
+  const { minDate, maxDate, isDateDisabled } = useMemo(() => {
+    if (!selectedProgramId) {
+      return {
+        minDate: undefined,
+        maxDate: undefined,
+        isDateDisabled: true,
+      };
+    }
+    const program = programs.find((p) => p.id === selectedProgramId);
+    if (!program) {
+      return { minDate: undefined, maxDate: undefined, isDateDisabled: true };
+    }
+
+    const startString = new Date(program.startDate).toISOString().split("T")[0];
+    const endString = new Date(program.endDate).toISOString().split("T")[0];
+
+    const start = parseDate(startString);
+    const end = parseDate(endString);
+    return {
+      minDate: start,
+      maxDate: end,
+      isDateDisabled: false,
+    };
+  }, [selectedProgramId, programs]);
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,5 +82,9 @@ export function useFormDetectionLogic({
     selectedDate,
     setSelectedDate,
     handleFormSubmit,
+
+    minDate,
+    maxDate,
+    isDateDisabled,
   };
 }
