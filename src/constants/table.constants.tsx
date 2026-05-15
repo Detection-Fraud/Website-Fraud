@@ -47,18 +47,24 @@ export const renderReportCell = (
         </div>
       );
     case "unit":
-      const unitName = item.region?.name
-        ? `Kanwil ${item.region.name}`
-        : item.branch?.name
-          ? `Kancab ${item.branch.name}`
-          : item.division?.name
-            ? `Divisi ${item.division.name}`
-            : "-";
+      const getUnitType = () => {
+        if (item.division) return "Divisi";
+        if (item.branch) return "Kancab";
+        if (item.region) return "Kanwil";
+        return "Kanwil";
+      };
+
+      const unitType = getUnitType();
+      const getUnitTypeLabel = () => {
+        if (unitType === "Divisi") return item.division?.name;
+        if (unitType === "Kancab") return item.branch?.name;
+        if (unitType === "Kanwil") return item.region?.name;
+      };
       return (
         <div className="flex flex-row items-center gap-2">
           <LuBuilding2 className="text-slate-500 w-3.5 h-3.5" />
           <span className="text-xs font-light text-slate-700 max-w-[200px] truncate">
-            {unitName}
+            {getUnitTypeLabel()}
           </span>
         </div>
       );

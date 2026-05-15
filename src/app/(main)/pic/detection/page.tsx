@@ -54,7 +54,7 @@ export default function DetectionPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 w-full max-w-5xl mx-auto gap-6 px-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 w-full max-w-5xl mx-auto gap-6 px-4 items-start">
         {/* KOLOM KIRI (Besar): DROPZONE & PREVIEW */}
         <Card className="w-full p-6 lg:col-span-2 shadow-sm" variant="default">
           <Card.Content>
@@ -67,7 +67,7 @@ export default function DetectionPage() {
         </Card>
 
         {/* KOLOM KANAN (Kecil): FORM TEKS & TOMBOL */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 flex flex-col gap-6 sticky top-6 mb-10">
           <FormDetection
             loadingText={loadingText}
             handleCheckFraud={handleCheckFraud}
@@ -79,9 +79,7 @@ export default function DetectionPage() {
             totalGambar={totalGambar}
             programs={programs}
           />
-        </div>
 
-        <div className="lg:col-start-3 mb-10">
           <Card className="bg-blue-50 border border-blue-200 rounded-xl p-4">
             <div className="flex flex-row items-center justify-start gap-2">
               <div>

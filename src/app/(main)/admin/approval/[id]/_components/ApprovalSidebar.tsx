@@ -84,7 +84,7 @@ export default function ApprovalSidebar({ report }: ApprovalSidebarProps) {
         </Card.Content>
       </Card>
       <Card
-        className={`rounded-2xl p-5 border shadow-sm bg-gradient-to-br ${unitStyle.bg} ${unitStyle.border}`}
+        className={`rounded-2xl p-5 border shadow-sm bg-linear-to-br ${unitStyle.bg} ${unitStyle.border}`}
       >
         <Card.Header>
           <Card.Title>

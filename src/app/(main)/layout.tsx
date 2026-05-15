@@ -16,7 +16,7 @@ export default function ViewerLayout({
 
         <main className="flex-1 overflow-y-auto">
           <ToastProvider placement="top end" maxVisibleToasts={1} />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-20 mt-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-8 mt-12">
             {children}
           </div>
         </main>
