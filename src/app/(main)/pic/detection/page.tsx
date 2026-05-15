@@ -3,15 +3,14 @@
 import { useReportSubmission } from "@/hooks/useReportSubmission";
 import { useReportStore } from "@/store/useReportStore";
 import { Card, Link } from "@heroui/react";
-import { useEffect, useState } from "react";
-import { ProgramBudaya } from "@generated/prisma";
+import { useEffect } from "react";
 
 import { CiImageOn } from "react-icons/ci";
 
+import { useProgramList } from "@/hooks/useProgramList";
 import Dropzone from "./_components/dropzone";
 import FormDetection from "./_components/form-detection";
 import GridPreview from "./_components/gridPreview";
-import { useProgram } from "@/hooks/useProgram";
 
 export default function DetectionPage() {
   const { resetStore } = useReportStore();
@@ -27,7 +26,7 @@ export default function DetectionPage() {
     totalGambar,
   } = useReportSubmission();
 
-  const { programs } = useProgram();
+  const { programs } = useProgramList();
 
   // Bersihkan memori gambar saat keluar dari halaman
   useEffect(() => {

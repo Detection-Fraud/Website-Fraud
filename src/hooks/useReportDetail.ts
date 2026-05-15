@@ -27,7 +27,7 @@ export function useReportDetail(id: string) {
         }
 
         setReport(result.data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         toast.danger("Terjadi kesalahan jaringan");
       } finally {
         setLoading(false);
@@ -37,7 +37,7 @@ export function useReportDetail(id: string) {
     if (id) {
       fetchReport();
     }
-  }, [id]);
+}, [id]);
 
   return { report, loading, user };
 }

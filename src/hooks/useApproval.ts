@@ -35,9 +35,11 @@ export function useApproval() {
       router.refresh();
 
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.danger(error.message || "Failed to update status");
+      toast.danger(
+        error instanceof Error ? error.message : "Failed to update status",
+      );
       return false;
     } finally {
       setIsLoading(false);

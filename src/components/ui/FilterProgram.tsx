@@ -1,7 +1,7 @@
 "use client";
 
-import { ListBox, Select } from "@heroui/react";
-import { useProgram } from "@/hooks/useProgram";
+import { useProgramList } from "@/hooks/useProgramList";
+import { Label, ListBox, Select } from "@heroui/react";
 
 interface FilterProgramProps {
   value: string;
@@ -9,7 +9,7 @@ interface FilterProgramProps {
 }
 
 export default function FilterProgram({ value, onChange }: FilterProgramProps) {
-  const { programs } = useProgram();
+  const { programs } = useProgramList();
 
   return (
     <div className="w-48">
@@ -19,6 +19,7 @@ export default function FilterProgram({ value, onChange }: FilterProgramProps) {
         value={value}
         onChange={(key) => onChange(key as string)}
       >
+        <Label>Program</Label>
         <Select.Trigger>
           <Select.Value />
           <Select.Indicator />

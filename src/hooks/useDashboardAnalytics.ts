@@ -16,7 +16,7 @@ export type PeriodeFilter =
 export function useDashboardAnalytics() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // State untuk Query Params (Backend Filters)
   const [year, setYear] = useState(new Date().getFullYear());
@@ -24,7 +24,6 @@ export function useDashboardAnalytics() {
   const [programId, setProgramId] = useState<string>("ALL");
   const [branchId, setBranchId] = useState<string>("ALL");
 
-  // 2. Tambahkan State untuk UI Filter (Frontend Filter)
   const [periode, setPeriode] = useState<PeriodeFilter>("ALL");
 
   useEffect(() => {
@@ -50,9 +49,9 @@ export function useDashboardAnalytics() {
           throw new Error(json.message || "Gagal mengambil data analytics");
         }
         setData(json.data);
-      } catch (err: any) {
-        console.error("Dashboard fetch error: ", err);
-        setError(err.message);
+      } catch (error: unknown) {
+        console.error("Dashboard fetch error: ", error);
+        setError(error instanceof Error ? error.message : "Terjadi kesalahan");
       } finally {
         setIsLoading(false);
       }

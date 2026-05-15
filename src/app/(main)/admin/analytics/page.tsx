@@ -1,13 +1,18 @@
 "use client";
 
-import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
-import { Card, ListBox, Select } from "@heroui/react";
+import {
+  PeriodeFilter,
+  useDashboardAnalytics,
+} from "@/hooks/useDashboardAnalytics";
+import { Card, Label, ListBox, Select } from "@heroui/react";
 import { BiFilterAlt } from "react-icons/bi";
 import AnalyticChart from "./_components/AnalyticChart";
 import MiniCart from "./_components/MiniCart";
 import DataTable from "@/components/layout/DataTable";
 import AnalyticTableRanking from "./_components/AnalyticTableRanking";
 import { useMasterWilayah } from "@/hooks/useMasterWilayah";
+import SelectWilayah from "@/components/ui/SelectWilayah";
+import SelectKancab from "@/components/ui/SelectKancab";
 
 export default function AnalyticsAdmin() {
   const {
@@ -58,78 +63,26 @@ export default function AnalyticsAdmin() {
 
         {/* Select Filter Wilayah */}
         <div>
-          <Select
-            aria-label="Filter Wilayah"
-            placeholder="Semua Wilayah"
-            variant="primary"
-            className={"w-48"}
-            selectedKey={regionId}
-            onSelectionChange={(key) => {
-              setRegionId((key ?? "ALL") as string);
-              setBranchId("ALL"); // Reset kancab saat ganti wilayah
+          <SelectWilayah
+            regions={regions}
+            value={regionId}
+            onChange={(val) => {
+              setRegionId(val);
+              setBranchId("ALL");
             }}
-          >
-            <Select.Trigger className="shadow-sm bg-white border border-gray-200">
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                <ListBox.Item id="ALL" textValue="Semua Wilayah">
-                  <ListBox.ItemIndicator />
-                  Semua Wilayah
-                </ListBox.Item>
-                {regions?.map((region) => (
-                  <ListBox.Item
-                    key={region.id}
-                    id={String(region.id)}
-                    textValue={region.name}
-                  >
-                    <ListBox.ItemIndicator />
-                    {region.name}
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
+            className="w-48"
+          />
         </div>
 
         {/* Select Filter Kantor Cabang */}
         <div>
-          <Select
-            aria-label="Filter Kantor Cabang"
-            placeholder="Semua Kancab"
-            variant="primary"
-            className={"w-52"}
-            isDisabled={regionId === "ALL"}
+          <SelectKancab
+            branches={branches}
             value={branchId}
-            onChange={(key) => {
-              setBranchId((key ?? "ALL") as string);
-            }}
-          >
-            <Select.Trigger className="shadow-sm bg-white border border-gray-200">
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                <ListBox.Item id="ALL" textValue="Semua Kancab">
-                  <ListBox.ItemIndicator />
-                  Semua Kancab
-                </ListBox.Item>
-                {branches?.map((branch: any) => (
-                  <ListBox.Item
-                    key={branch.id}
-                    id={String(branch.id)}
-                    textValue={branch.name}
-                  >
-                    <ListBox.ItemIndicator />
-                    {branch.name}
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
+            isDisabled={regionId === "ALL"}
+            onChange={setBranchId}
+            className="w-52"
+          />
         </div>
 
         {/* Select Filter Periode */}
@@ -138,9 +91,10 @@ export default function AnalyticsAdmin() {
             aria-label="Filter Periode Waktu"
             placeholder="Pilih Periode"
             value={periode}
-            onChange={(key) => setPeriode((key ?? "ALL") as any)}
+            onChange={(key) => setPeriode((key ?? "ALL") as PeriodeFilter)}
             className="w-48"
           >
+            <Label>Periode</Label>
             <Select.Trigger className="shadow-sm bg-white border border-gray-200">
               <Select.Value />
               <Select.Indicator />

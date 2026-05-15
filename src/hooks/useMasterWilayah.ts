@@ -1,8 +1,9 @@
+import { RegionWithBranches } from "@/types/region.types";
 import { useEffect, useState } from "react";
 
 export function useMasterWilayah() {
-  const [regions, setRegions] = useState<any[]>([]);
-  const [isLoadingWilayah, setIsLoading] = useState(true);
+  const [regions, setRegions] = useState<RegionWithBranches[]>([]);
+  const [isLoadingWilayah, setIsLoadingWilayah] = useState(true);
 
   useEffect(() => {
     const fetchWilayah = async () => {
@@ -16,7 +17,7 @@ export function useMasterWilayah() {
       } catch (error) {
         console.log("Error fetching wilayah:", error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingWilayah(false);
       }
     };
     fetchWilayah();

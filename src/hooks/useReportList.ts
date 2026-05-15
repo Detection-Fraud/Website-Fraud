@@ -90,15 +90,23 @@ export function useReportList() {
         if (json.summary) {
           setSummary(json.summary);
         }
-      } catch (error: any) {
-        setError(error.message);
+      } catch (error: unknown) {
+        setError(error instanceof Error ? error.message : "Terjadi kesalahan");
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchReports();
-  }, [page, limit, search, statusFilter, programFilter, regionFilter, branchFilter]);
+  }, [
+    page,
+    limit,
+    search,
+    statusFilter,
+    programFilter,
+    regionFilter,
+    branchFilter,
+  ]);
 
   // Sync searchInput saat URL berubah (misal user klik Back)
   useEffect(() => {

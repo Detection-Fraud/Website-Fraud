@@ -1,35 +1,30 @@
 "use client";
 
 import AppBar from "@/components/layout/Appbar";
-import DataTable, { TableColumn } from "@/components/layout/DataTable";
+import DataTable from "@/components/layout/DataTable";
 import { useReportList } from "@/hooks/useReportList";
 import {
-  Avatar,
-  Button,
   Card,
-  Chip,
-  Label,
-  ListBox,
   SearchField,
   SearchFieldGroup,
-  Select,
   Tag,
   TagGroup,
 } from "@heroui/react";
-import { FaEye } from "react-icons/fa";
-import { FiAlertTriangle, FiCalendar, FiImage, FiMapPin } from "react-icons/fi";
-import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
-import { ActivityReportItem } from "@/types/report.types";
-import { LuBuilding2 } from "react-icons/lu";
-import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
+
+import { useProgramList } from "@/hooks/useProgramList";
 import { useMasterWilayah } from "@/hooks/useMasterWilayah";
-import { useProgram } from "@/hooks/useProgram";
+
+import FilterProgram from "@/components/ui/FilterProgram";
+import SelectWilayah from "@/components/ui/SelectWilayah";
+import SelectKancab from "@/components/ui/SelectKancab";
+import ApprovalSummaryCards from "./ApprovalSummaryCard"; // Pastikan namanya sesuai dengan file kamu
+
+import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
 
 export default function ApprovalView() {
   const {
     reports,
     pagination,
-    isLoading,
     searchInput,
     setSearchInput,
     handleSearch,
@@ -43,136 +38,11 @@ export default function ApprovalView() {
     summary,
   } = useReportList();
 
-  const { programs } = useProgram();
-
-  console.log(programs);
-
-  const { regions, isLoadingWilayah } = useMasterWilayah();
-
-  const { charts } = useDashboardAnalytics();
+  const { programs } = useProgramList();
+  const { regions } = useMasterWilayah();
 
   const selectedRegion = regions.find((r) => r.id === regionFilter);
-
   const branches = selectedRegion ? selectedRegion.branches : [];
-
-  const columns: TableColumn[] = [
-    { key: "activityName", label: "Nama Kegiatan" },
-    { key: "tanggalKegiatan", label: "Tanggal" },
-    { key: "lokasi", label: "Lokasi" },
-    { key: "unit", label: "Unit" },
-    { key: "picKegiatan", label: "PIC" },
-    { key: "program", label: "Program" },
-    { key: "status", label: "Status" },
-    { key: "aksi", label: "Aksi" },
-  ];
-
-  const renderCell = (item: ActivityReportItem, columnKey: string) => {
-    switch (columnKey) {
-      case "tanggalKegiatan":
-        const date = new Date(item.tanggalKegiatan).toLocaleDateString(
-          "id-ID",
-          {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          },
-        );
-        return (
-          <div className="flex flex-row items-center gap-2">
-            <FiCalendar className="text-slate-500 w-3.5 h-3.5" />
-            <span className="text-xs font-light text-slate-700 max-w-[200px] truncate">
-              {date}
-            </span>
-          </div>
-        );
-      case "lokasi":
-        return (
-          <div className="flex flex-row items-center gap-2">
-            <FiMapPin className="text-slate-500 w-3.5 h-3.5" />
-            <span className="text-xs font-light text-slate-700 max-w-[200px] truncate">
-              {item.lokasi}
-            </span>
-          </div>
-        );
-      case "unit":
-        const getUnitType = () => {
-          if (item.division) return "Divisi";
-          if (item.branch) return "Kancab";
-          if (item.region) return "Kanwil";
-          return "Kanwil";
-        };
-
-        const unitType = getUnitType();
-        const getUnitTypeLabel = () => {
-          if (unitType === "Divisi") return item.division?.name;
-          if (unitType === "Kancab") return item.branch?.name;
-          if (unitType === "Kanwil") return item.region?.name;
-        };
-        return (
-          <div className="flex flex-row items-center gap-2">
-            <LuBuilding2 className="text-slate-500 w-3.5 h-3.5" />
-            <span className="text-xs font-light text-slate-700 max-w-[200px] truncate">
-              {getUnitTypeLabel()}
-            </span>
-          </div>
-        );
-      case "picKegiatan":
-        return (
-          <div className="flex flex-row items-center gap-2">
-            <Avatar variant="soft" color="accent" size="sm">
-              <Avatar.Fallback>
-                {item.picKegiatan.charAt(0).toUpperCase()}
-              </Avatar.Fallback>
-            </Avatar>
-            <span className="text-xs font-light text-slate-700 max-w-[200px] truncate">
-              {item.picKegiatan}
-            </span>
-          </div>
-        );
-      case "program":
-        return (
-          <div className="flex flex-row items-center gap-2">
-            <span className="text-xs font-light text-slate-700 max-w-[200px] truncate">
-              {item.program?.name || "-"}
-            </span>
-          </div>
-        );
-      case "status": {
-        const color =
-          item.status === "APPROVED"
-            ? "success"
-            : item.status === "PENDING"
-              ? "warning"
-              : "danger";
-        return (
-          <Chip variant="soft" size="sm" color={color} className="rounded-md">
-            {item.status}
-          </Chip>
-        );
-      }
-      case "activityName": {
-        return (
-          <span className="font-semibold text-md text-gray-700 max-w-[200px] truncate">
-            {item.activityName}
-          </span>
-        );
-      }
-      case "aksi":
-        return (
-          <Button
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            className={"rounded-full text-blue-800"}
-            onPress={() => router.push(`/admin/approval/${item.id}`)}
-          >
-            <FaEye />
-          </Button>
-        );
-      default:
-        return (item as any)[columnKey];
-    }
-  };
 
   return (
     <div className="space-y-8 mb-10">
@@ -182,190 +52,33 @@ export default function ApprovalView() {
         showAddButton={false}
       />
 
+      {/* FILTER SECTION */}
       <div className="flex flex-row gap-2 justify-start items-center">
-        <Select
-          aria-label="Pilih Program Budaya"
-          className={"w-62"}
-          placeholder="Pilih Program Budaya"
+        <FilterProgram
           value={programFilter}
-          onChange={(key) =>
-            updateParams({
-              programId: (key ?? "ALL") as string,
-              page: "1",
-            })
+          onChange={(val) => updateParams({ programId: val, page: "1" })}
+        />
+
+        <SelectWilayah
+          regions={regions}
+          value={regionFilter}
+          onChange={(val) =>
+            updateParams({ regionId: val, branchId: "ALL", page: "1" })
           }
-        >
-          <Label>Program Budaya</Label>
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              <ListBox.Item id="ALL" textValue="Semua Program Budaya">
-                Semua Program Budaya
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-              {programs?.map((program: any) => (
-                <ListBox.Item
-                  key={program.id}
-                  id={String(program.id)}
-                  textValue={program.name}
-                >
-                  {program.name}
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-        <Select
-          aria-label="Pilih Wilayah"
-          className={"w-42"}
-          placeholder="Pilih Wilayah"
-          value={regionFilter === "ALL" ? "ALL" : regionFilter}
-          onChange={(key) =>
-            updateParams({
-              regionId: (key ?? "ALL") as string,
-              branchId: "ALL",
-              page: "1",
-            })
-          }
-        >
-          <Label>Wilayah</Label>
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              <ListBox.Item id="ALL" textValue="Semua Wilayah">
-                Semua Wilayah
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-              {regions.map((region) => (
-                <ListBox.Item
-                  key={region.id}
-                  id={String(region.id)}
-                  textValue={region.name}
-                >
-                  <ListBox.ItemIndicator />
-                  {region.name}
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-        <Select
-          aria-label="Pilih Kantor Cabang"
-          className={"w-52"}
-          placeholder="Pilih Kantor Cabang"
-          isDisabled={regionFilter === "ALL" || !selectedRegion}
+        />
+
+        <SelectKancab
+          branches={branches}
           value={branchFilter}
-          onChange={(key) =>
-            updateParams({
-              branchId: (key ?? "ALL") as string,
-              page: "1",
-            })
-          }
-        >
-          <Label>Kantor Cabang</Label>
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              <ListBox.Item id="ALL" textValue="Semua Kantor Cabang">
-                Semua Cabang
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-              {branches?.map((branch: any) => (
-                <ListBox.Item
-                  key={branch.id}
-                  id={String(branch.id)}
-                  textValue={branch.name}
-                >
-                  {branch.name}
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
+          isDisabled={regionFilter === "ALL" || !selectedRegion}
+          onChange={(val) => updateParams({ branchId: val, page: "1" })}
+        />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <Card className="rounded-xl shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <Card.Header className="flex flex-row items-start gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <FiImage className="w-5 h-5 text-blue-600" />
-              </div>
-              <Card.Title>
-                <p className="text-3xl font-bold leading-none text-[#0284c7]">
-                  {summary.total}
-                </p>
-                <p className="text-sm text-slate-700 font-semibold">
-                  Total Upload
-                </p>
-                <p className="text-slate-400 text-xs mt-0.5">Semua Unggahan</p>
-              </Card.Title>
-            </Card.Header>
-          </Card>
-        </div>
-        <div>
-          <Card className="rounded-xl shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <Card.Header className="flex flex-row items-start gap-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                <FiAlertTriangle className="w-5 h-5 text-orange-600" />
-              </div>
-              <Card.Title>
-                <p className="text-3xl font-bold text-[#d97706] leading-none">
-                  {summary.pending}
-                </p>
-                <p className="text-sm text-slate-700 font-semibold">Menunggu</p>
-                <p className="text-xs text-slate-400 mt-0.5">Total Menunggu</p>
-              </Card.Title>
-            </Card.Header>
-          </Card>
-        </div>
-        <div>
-          <Card className="rounded-xl shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <Card.Header className="flex flex-row items-start gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <BsCheck2Circle className="w-5 h-5 text-green-600" />
-              </div>
-              <Card.Title>
-                <p className="text-3xl font-bold text-[#059669] leading-none">
-                  {summary.approved}
-                </p>
-                <p className="text-sm text-slate-700 font-semibold">
-                  Disetujui
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">Total Disetujui</p>
-              </Card.Title>
-            </Card.Header>
-          </Card>
-        </div>
-        <div>
-          <Card className="rounded-xl shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <Card.Header className="flex flex-row items-start gap-4">
-              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <BsXCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <Card.Title>
-                <p className="text-3xl font-bold text-[#ef4444] leading-none">
-                  {summary.rejected}
-                </p>
-                <p className="text-sm text-slate-700 font-semibold">Ditolak</p>
-                <p className="text-xs text-slate-400 mt-0.5">Total Ditolak</p>
-              </Card.Title>
-            </Card.Header>
-          </Card>
-        </div>
-      </div>
+      {/* SUMMARY CARDS SECTION */}
+      <ApprovalSummaryCards summary={summary} />
 
+      {/* DATA TABLE SECTION */}
       <Card className="rounded-lg shadow-md border-gray-200 p-0">
         <div className="flex flex-row w-full items-center justify-between pr-4">
           <Card.Header className="p-4">
@@ -377,23 +90,16 @@ export default function ApprovalView() {
             </Card.Description>
           </Card.Header>
 
-          <div className="flex flex-row  items-center justify-center gap-6">
-            {/* 1. Search  */}
+          <div className="flex flex-row items-center justify-center gap-6">
             <div>
               <SearchField>
-                <SearchFieldGroup className={"shadow-sm bg-[#f8fafc]"}>
+                <SearchFieldGroup className="shadow-sm bg-[#f8fafc]">
                   <SearchField.SearchIcon />
                   <SearchField.Input
                     placeholder="Search..."
                     value={searchInput}
-                    onChange={(e) => {
-                      setSearchInput(e.target.value);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleSearch?.();
-                      }
-                    }}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch?.()}
                   />
                   <SearchField.ClearButton
                     onClick={() => handleClearSearch?.()}
@@ -401,7 +107,7 @@ export default function ApprovalView() {
                 </SearchFieldGroup>
               </SearchField>
             </div>
-            {/* FILTER */}
+
             <div>
               <TagGroup
                 selectedKeys={new Set([statusFilter])}
@@ -415,25 +121,25 @@ export default function ApprovalView() {
                 <TagGroup.List>
                   <Tag
                     id="ALL"
-                    className="data-[selected=true]:bg-linear-to-br data-[selected=true]:from-sky-600 data-[selected=true]:to-sky-500 data-[selected=true]:text-white data-[selected=true]:font-semibold data-[selected=true]:shadow-md px-3 py-1"
+                    className="data-[selected=true]:bg-sky-500 data-[selected=true]:text-white px-3 py-1"
                   >
                     Semua
                   </Tag>
                   <Tag
                     id="PENDING"
-                    className="data-[selected=true]:bg-linear-to-br data-[selected=true]:from-amber-600 data-[selected=true]:to-amber-400 data-[selected=true]:text-white data-[selected=true]:font-semibold data-[selected=true]:shadow-md px-3 py-1"
+                    className="data-[selected=true]:bg-amber-500 data-[selected=true]:text-white px-3 py-1"
                   >
                     Pending
                   </Tag>
                   <Tag
                     id="APPROVED"
-                    className="data-[selected=true]:bg-linear-to-br data-[selected=true]:from-green-600 data-[selected=true]:to-green-500 data-[selected=true]:text-white data-[selected=true]:font-semibold data-[selected=true]:shadow-md px-3 py-1"
+                    className="data-[selected=true]:bg-green-500 data-[selected=true]:text-white px-3 py-1"
                   >
                     Approved
                   </Tag>
                   <Tag
                     id="REJECTED"
-                    className="data-[selected=true]:bg-linear-to-br data-[selected=true]:from-red-600 data-[selected=true]:to-red-400 data-[selected=true]:text-white data-[selected=true]:font-semibold data-[selected=true]:shadow-md px-3 py-1"
+                    className="data-[selected=true]:bg-red-500 data-[selected=true]:text-white px-3 py-1"
                   >
                     Rejected
                   </Tag>
@@ -442,9 +148,14 @@ export default function ApprovalView() {
             </div>
           </div>
         </div>
+
         <DataTable
-          column={columns}
-          renderCell={renderCell}
+          column={REPORT_COLUMNS}
+          renderCell={(item, key) =>
+            renderReportCell(item, key, (id) =>
+              router.push(`/admin/approval/${id}`),
+            )
+          }
           data={reports}
           pagination={pagination}
           onPageChange={(page) => updateParams({ page: String(page) })}

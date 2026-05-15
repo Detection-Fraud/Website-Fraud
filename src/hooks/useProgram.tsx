@@ -95,9 +95,9 @@ export function useProgram() {
         if (json.summary) setSummary(json.summary);
         if (json.pagination) setPagination(json.pagination);
         setError(null);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Fetch Program Error:", error);
-        setError(error.message);
+        setError(error instanceof Error ? error.message : "Terjadi Kesalahan");
       } finally {
         setIsLoading(false);
       }
@@ -146,7 +146,9 @@ export function useProgram() {
     setIsActionLoading(true);
     try {
       const isEdit = !!selectedProgram;
-      const url = isEdit ? `/api/programs/${selectedProgram!.id}` : `/api/programs`;
+      const url = isEdit
+        ? `/api/programs/${selectedProgram!.id}`
+        : `/api/programs`;
       const method = isEdit ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
@@ -161,8 +163,10 @@ export function useProgram() {
 
       modalAddState.close();
       refreshData();
-    } catch (err: any) {
-      setError(err.message || "Terjadi kesalahan pada server");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Terjadi kesalahan pada server",
+      );
     } finally {
       setIsActionLoading(false);
     }
@@ -180,8 +184,12 @@ export function useProgram() {
       if (!res.ok) throw new Error("Gagal mengubah status program");
       modalState.close();
       refreshData(); // hanya re-fetch data, bukan reload seluruh halaman
-    } catch (error: any) {
-      setError(error.message || "Terjadi kesalahan pada server");
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan pada server",
+      );
     } finally {
       setIsActionLoading(false);
     }

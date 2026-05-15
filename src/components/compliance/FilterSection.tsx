@@ -11,6 +11,9 @@ import {
 } from "@heroui/react";
 import { useEffect } from "react";
 import { FiDownload, FiX } from "react-icons/fi";
+import FilterProgram from "../ui/FilterProgram";
+import SelectWilayah from "../ui/SelectWilayah";
+import SelectKancab from "../ui/SelectKancab";
 
 interface FilterSectionProps {
   filters: {
@@ -95,127 +98,32 @@ export default function FilterSection({
           </div>
         )}
         <div className="flex gap-4 items-center">
-          <Select
-            aria-label="Filter Program Budaya"
-            placeholder="Semua Program Budaya"
-            variant="primary"
-            className={"w-59"}
-            name="program-budaya"
+          <FilterProgram
             value={filters.programId}
-            onChange={(key) => {
-              handleProgramChange((key ?? "ALL") as string);
-            }}
-          >
-            <Label className="text-[#64748b] text-xs font-bold uppercase tracking-tighter">
-              Program Budaya
-            </Label>
-            <Select.Trigger className="shadow-sm bg-white border border-gray-200">
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                <ListBox.Item id="ALL" textValue="Semua Program Budaya">
-                  <ListBox.ItemIndicator />
-                  Semua Program Budaya
-                </ListBox.Item>
-                {options?.programList?.map((program) => (
-                  <ListBox.Item
-                    key={program.id}
-                    id={String(program.id)}
-                    textValue={program.name}
-                  >
-                    <ListBox.ItemIndicator />
-                    {program.name}
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
+            onChange={(val) => handleProgramChange(val)}
+          />
           {!hideSelectWilayah &&
             (activeTab === "REGION_AND_BRANCH" ||
               activeTab === "REGION" ||
               activeTab === "BRANCH") && (
-              <Select
-                aria-label="Filter Wilayah"
-                placeholder="Semua Wilayah"
-                name="kantor-wilayah"
-                variant="primary"
-                className={"w-48"}
+              <SelectWilayah
+                regions={options?.regionsList || []}
                 value={filters.regionId}
-                onChange={(key) => {
-                  handleRegionChange((key ?? "ALL") as string);
-                }}
-              >
-                <Label className="text-[#64748b] text-xs font-bold uppercase tracking-tighter">
-                  Wilayah
-                </Label>
-                <Select.Trigger className="shadow-sm bg-white border border-gray-200">
-                  <Select.Value />
-                  <Select.Indicator />
-                </Select.Trigger>
-                <Select.Popover>
-                  <ListBox>
-                    <ListBox.Item id="ALL" textValue="Semua Wilayah">
-                      <ListBox.ItemIndicator />
-                      Semua Wilayah
-                    </ListBox.Item>
-                    {options?.regionsList?.map((region) => (
-                      <ListBox.Item
-                        key={region.id}
-                        id={String(region.id)}
-                        textValue={region.name}
-                      >
-                        <ListBox.ItemIndicator />
-                        {region.name}
-                      </ListBox.Item>
-                    ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
+                onChange={(val) => handleRegionChange(val)}
+                className="w-48"
+              />
             )}
 
           {!hideSelectKancab && activeTab === "BRANCH" && (
-            <Select
-              aria-label="Filter Kantor Cabang"
-              placeholder="Semua Cabang"
-              variant="primary"
-              className={"w-59"}
-              name="kantor-cabang"
+            <SelectKancab
+              branches={options?.branchList || []}
+              value={filters.branchId}
               isDisabled={
                 !options?.branchList || options.branchList.length === 0
               }
-              value={filters.branchId}
-              onChange={(key) => {
-                handleBranchChange((key ?? "ALL") as string);
-              }}
-            >
-              <Label className="text-[#64748b] text-xs font-bold uppercase tracking-tighter">
-                Kantor Cabang
-              </Label>
-              <Select.Trigger className="shadow-sm bg-white border border-gray-200">
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  <ListBox.Item id="ALL" textValue="Semua Cabang">
-                    <ListBox.ItemIndicator />
-                    Semua Cabang
-                  </ListBox.Item>
-                  {options?.branchList?.map((branch) => (
-                    <ListBox.Item
-                      key={branch.id}
-                      id={String(branch.id)}
-                      textValue={branch.name}
-                    >
-                      <ListBox.ItemIndicator />
-                      {branch.name}
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
+              onChange={(val) => handleBranchChange(val)}
+              className="w-59"
+            />
           )}
 
           {isFilterActive && (
