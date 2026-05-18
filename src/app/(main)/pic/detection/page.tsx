@@ -28,7 +28,6 @@ export default function DetectionPage() {
 
   const { programs } = useProgramList();
 
-  // Bersihkan memori gambar saat keluar dari halaman
   useEffect(() => {
     return () => resetStore();
   }, [resetStore]);

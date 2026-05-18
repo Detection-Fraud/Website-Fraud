@@ -152,20 +152,6 @@ export default function FormDetection({
           </TextField>
 
           <TextField
-            name="picKegiatan"
-            isRequired
-            className="w-full"
-            defaultValue={initialData?.picKegiatan}
-          >
-            <Label className="text-sm font-medium">PIC Kegiatan</Label>
-            <Input
-              placeholder="Contoh: Rio"
-              className="mt-1"
-              autoComplete="off"
-            />
-          </TextField>
-
-          <TextField
             name="description"
             isRequired
             className="w-full"

@@ -90,6 +90,47 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. Summary cards
+    let startMonth = 0;
+    let endMonth = 11;
+
+    switch (periode) {
+      case "TW1":
+        endMonth = 2;
+        break; // Jan-Mar
+      case "TW2":
+        startMonth = 3;
+        endMonth = 5;
+        break; // Apr-Jun
+      case "TW3":
+        startMonth = 6;
+        endMonth = 8;
+        break; // Jul-Sep
+      case "TW4":
+        startMonth = 9;
+        endMonth = 11;
+        break; // Okt-Des
+      case "SM1":
+        endMonth = 5;
+        break; // Jan-Jun
+      case "SM2":
+        startMonth = 6;
+        endMonth = 11;
+        break; // Jul-Des
+      case "ALL":
+      default:
+        break; // Jan-Des
+    }
+
+    const summaryStartDate = new Date(year, startMonth, 1);
+    const summaryEndDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
+
+    const summaryWhereClause = {
+      ...whereClause,
+      tanggalKegiatan: {
+        gte: summaryStartDate,
+        lte: summaryEndDate,
+      },
+    };
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -123,15 +164,15 @@ export async function GET(request: NextRequest) {
       regionAktifRaw,
       divisionAktifRaw,
     ] = await Promise.all([
-      prisma.activityReport.count({ where: whereClause }),
+      prisma.activityReport.count({ where: summaryWhereClause }),
       prisma.activityReport.count({
-        where: { ...whereClause, status: "APPROVED" },
+        where: { ...summaryWhereClause, status: "APPROVED" },
       }),
       prisma.activityReport.count({
-        where: { ...whereClause, status: "PENDING" },
+        where: { ...summaryWhereClause, status: "PENDING" },
       }),
       prisma.activityReport.count({
-        where: { ...whereClause, status: "REJECTED" },
+        where: { ...summaryWhereClause, status: "REJECTED" },
       }),
       prisma.activityReport.count({
         where: {

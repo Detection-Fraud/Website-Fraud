@@ -3,7 +3,7 @@
 import { useFormatDate } from "@/hooks/useFormatDate";
 import { useReportDetail } from "@/hooks/useReportDetail";
 import { StatusType } from "@/types/status.types";
-import { Card, Chip } from "@heroui/react";
+import { Card, Chip, Skeleton } from "@heroui/react";
 import Image from "next/image";
 import Link from "next/link";
 import { FiArrowLeft, FiCalendar, FiImage, FiMapPin } from "react-icons/fi";
@@ -13,8 +13,6 @@ import StatusView from "./StatusView";
 export default function DetailView({ id }: { id: string }) {
   const { report, loading, user } = useReportDetail(id);
 
-  // Hanya kancab pemilik laporan yang bisa upload ulang.
-  // Kanwil yang melihat laporan kancab bawahannya TIDAK boleh upload ulang.
   const canResubmit =
     !!user?.branchId &&
     !!report?.branch?.id &&
@@ -37,6 +35,33 @@ export default function DetailView({ id }: { id: string }) {
     : report?.region
       ? `${report.region.name}`
       : `${report?.division?.name}`;
+
+  if (loading) {
+    return (
+      <div className="w-full space-y-6 mb-10 animate-pulse">
+        {/* Tombol Back & Judul */}
+        <div className="space-y-4">
+          <Skeleton className="h-6 w-48 rounded-md" />
+          <Skeleton className="h-10 w-3/4 rounded-md" />
+          <Skeleton className="h-8 w-32 rounded-full" />
+        </div>
+        {/* Status View */}
+        <Skeleton className="h-24 w-full rounded-xl" />
+        {/* Grid Konten Bawah */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Sidebar */}
+          <div className="space-y-5">
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-48 w-full rounded-2xl" />
+          </div>
+          {/* Galeri Foto */}
+          <div className="lg:col-span-2">
+            <Skeleton className="h-96 w-full rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-4 mb-10">

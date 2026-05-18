@@ -3,6 +3,7 @@ import type { Key } from "@heroui/react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { InitialData, ReportFormData } from "@/types/report.types";
 import { ProgramBudaya } from "@generated/prisma";
+import { useCurrentUser } from "./useCurrentUser";
 
 interface UseFormDetectionLogicProps {
   initialData?: InitialData;
@@ -18,6 +19,8 @@ export function useFormDetectionLogic({
   const [selectedProgramId, setSelectedProgramId] = useState<Key | null>(
     initialData?.programId || null,
   );
+
+  const { user } = useCurrentUser();
 
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(() => {
     if (initialData?.tanggalKegiatan) {
@@ -69,7 +72,7 @@ export function useFormDetectionLogic({
       programId: selectedProgramId ? String(selectedProgramId) : "",
       tanggalKegiatan: selectedDate ? selectedDate.toString() : "",
       lokasi: nativeData.lokasi || "",
-      picKegiatan: nativeData.picKegiatan || "",
+      picKegiatan: user?.name || "",
       description: nativeData.description || "",
     };
 

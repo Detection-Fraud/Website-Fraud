@@ -26,12 +26,6 @@ export default function ApprovalHeader({
 
   const unitType = getUnitType();
 
-  const getUnitTypeLabel = () => {
-    if (unitType === "divisi") return "Divisi";
-    if (unitType === "kancab") return "Kantor Cabang";
-    return "Kantor Wilayah";
-  };
-
   const getUnitName = () => {
     if (unitType === "divisi") return report?.division?.name;
     if (unitType === "kancab") return report?.branch?.name;
@@ -41,11 +35,11 @@ export default function ApprovalHeader({
   return (
     <div className="space-y-2">
       <Link
-        href={`/pic/dashboard`}
+        href={`/admin/approval`}
         className="flex items-center gap-2 text-gray-500 hover:underline mb-4"
       >
         <FiArrowLeft className="w-5 h-5" />
-        <span className="font-medium">Kembali ke Dashboard</span>
+        <span className="font-medium">Kembali ke Approval</span>
       </Link>
       <div className="flex flex-row items-center justify-between">
         <div className="space-y-2">
@@ -65,14 +59,7 @@ export default function ApprovalHeader({
               isDisabled={isLoading}
               onClick={onReject}
             >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <Spinner />
-                  Rejecting...
-                </div>
-              ) : (
-                "Rejected"
-              )}
+              Reject
             </Button>
             <Button
               className={"bg-green-50 text-green-700 border-green-200 border"}
@@ -81,8 +68,8 @@ export default function ApprovalHeader({
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <Spinner />
                   Approving...
+                  <Spinner size="sm" />
                 </div>
               ) : (
                 "Approved"

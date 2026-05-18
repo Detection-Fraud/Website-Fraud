@@ -41,8 +41,7 @@ export default function AnalyticsAdmin() {
 
   const selisih = currentMonth - lastMonth;
 
-  const subText =
-    selisih >= 0 ? `+${selisih} vs bulan lalu` : `${selisih} vs bulan lalu`;
+ 
   const diff = dynamicSummary.currentValue - dynamicSummary.previousValue;
   const dynamicSubText =
     diff >= 0 ? `+${diff} vs tahun lalu` : `${diff} vs tahun lalu`;
