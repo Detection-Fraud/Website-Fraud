@@ -4,6 +4,7 @@ import {
   UnitComplianceRow,
 } from "@/types/compliance.types";
 import { Card, Chip, ProgressBar } from "@heroui/react";
+import { useState } from "react";
 import { FaCrown } from "react-icons/fa";
 import { TbReportAnalytics } from "react-icons/tb";
 
@@ -23,6 +24,18 @@ export default function TableCompliance({
     { key: "unit", label: "Nama Unit" },
     { key: "wilayah", label: "Wilayah" },
   ];
+
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  const [prevSelectedProgramId, setPrevSelectedProgramId] = useState(selectedProgramId);
+  const [prevData, setPrevData] = useState(data);
+
+  if (selectedProgramId !== prevSelectedProgramId || data !== prevData) {
+    setPrevSelectedProgramId(selectedProgramId);
+    setPrevData(data);
+    setPage(1);
+  }
 
   const filteredPrograms =
     selectedProgramId === "ALL"
@@ -135,6 +148,11 @@ export default function TableCompliance({
     return null;
   };
 
+  const rawTableData = data?.tableData || []
+  const total = rawTableData.length;
+  const totalPages = Math.ceil(total/limit)
+  const paginatedData = rawTableData.slice((page-1) * limit, page* limit);
+
   return (
     <div>
       <Card className="rounded-lg p-0">
@@ -154,8 +172,16 @@ export default function TableCompliance({
         <Card.Content>
           <DataTable
             column={columns}
-            data={data?.tableData || []}
+            data={paginatedData}
             renderCell={renderCell}
+            pagination={{
+              total,
+              page,
+              limit, 
+              totalPages,
+              
+            }}
+            onPageChange={(newPage) => setPage(newPage)}
           />
         </Card.Content>
       </Card>

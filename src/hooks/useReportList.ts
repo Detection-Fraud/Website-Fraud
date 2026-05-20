@@ -109,9 +109,11 @@ export function useReportList() {
   ]);
 
   // Sync searchInput saat URL berubah (misal user klik Back)
-  useEffect(() => {
+  const [prevSearch, setPrevSearch] = useState(search);
+  if (search !== prevSearch) {
+    setPrevSearch(search);
     setSearchInput(search);
-  }, [search]);
+  }
 
   return {
     // Data

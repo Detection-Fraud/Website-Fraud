@@ -1,7 +1,7 @@
 import { ActivityReportItem } from "@/types/report.types";
 import { Button, Chip, Spinner } from "@heroui/react";
 import Link from "next/link";
-import { FiArrowLeft, FiCheckCircle, FiXCircle } from "react-icons/fi";
+import { FiArrowLeft, FiCheckCircle } from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
 
 interface ApprovalHeaderProps {

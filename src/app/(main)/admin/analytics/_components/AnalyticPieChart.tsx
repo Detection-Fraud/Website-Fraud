@@ -17,11 +17,9 @@ import {
 
 interface AnalyticPieChartProps {
   data?: DistribusiProgram[];
-  selectedYear?: number;
 }
 export default function AnalyticPieChart({
   data,
-  selectedYear = new Date().getFullYear(),
 }: AnalyticPieChartProps) {
   if (!data || data.length === 0) {
     return (

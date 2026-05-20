@@ -21,9 +21,9 @@ async function main() {
     data: { name: "DKI Jakarta", kode: "DKI01" },
   });
 
-  const regionJabar = await prisma.region.create({
-    data: { name: "Jawa Barat", kode: "JBR01" },
-  });
+  // const regionJabar = await prisma.region.create({
+  //   data: { name: "Jawa Barat", kode: "JBR01" },
+  // });
 
   // 2. Buat Branch (Kancab)
   const branchJaksel = await prisma.branch.create({
@@ -31,9 +31,9 @@ async function main() {
   });
 
   // 3. Buat Division (Divisi Pusat)
-  const divIT = await prisma.division.create({
-    data: { name: "Divisi Teknologi Informasi" },
-  });
+  // const divIT = await prisma.division.create({
+  //   data: { name: "Divisi Teknologi Informasi" },
+  // });
 
   console.log("👤 Membuat Dummy Users...");
   const defaultPassword = await bcrypt.hash("password123", 10);

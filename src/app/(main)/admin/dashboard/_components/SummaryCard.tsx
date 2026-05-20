@@ -1,5 +1,4 @@
 import { Card } from "@heroui/react";
-import { BiTask } from "react-icons/bi";
 
 interface SummaryCardProps {
   title: string;

@@ -1,34 +1,29 @@
 "use client";
 
+import SelectKancab from "@/components/ui/SelectKancab";
+import SelectWilayah from "@/components/ui/SelectWilayah";
 import {
   PeriodeFilter,
   useDashboardAnalytics,
 } from "@/hooks/useDashboardAnalytics";
-import { Card, Label, ListBox, Select } from "@heroui/react";
+import { useMasterWilayah } from "@/hooks/useMasterWilayah";
+import { Label, ListBox, Select } from "@heroui/react";
 import { BiFilterAlt } from "react-icons/bi";
 import AnalyticChart from "./_components/AnalyticChart";
-import MiniCart from "./_components/MiniCart";
-import DataTable from "@/components/layout/DataTable";
 import AnalyticTableRanking from "./_components/AnalyticTableRanking";
-import { useMasterWilayah } from "@/hooks/useMasterWilayah";
-import SelectWilayah from "@/components/ui/SelectWilayah";
-import SelectKancab from "@/components/ui/SelectKancab";
+import MiniCart from "./_components/MiniCart";
 
 export default function AnalyticsAdmin() {
   const {
     summary,
     charts,
-    isLoading,
     areaChartData,
     periode,
     setPeriode,
     year,
-    setYear,
     regionId,
     setRegionId,
-    programId,
     pieChartData,
-    setProgramId,
     dynamicSummary,
     branchId,
     setBranchId,
@@ -39,7 +34,6 @@ export default function AnalyticsAdmin() {
   const currentMonth = summary?.laporanBulanIni || 0;
   const lastMonth = summary?.laporanBulanLalu || 0;
 
-  const selisih = currentMonth - lastMonth;
 
  
   const diff = dynamicSummary.currentValue - dynamicSummary.previousValue;

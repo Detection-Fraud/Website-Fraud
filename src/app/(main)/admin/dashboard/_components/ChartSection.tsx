@@ -1,22 +1,18 @@
 import {
   DashboardCharts,
-  DashboardData,
-  DashboardSummary,
+  DashboardSummary
 } from "@/types/analytics.type";
 import { Card, Chip, Link, ProgressBar, Tabs } from "@heroui/react";
 import { BiAward, BiLineChart } from "react-icons/bi";
 import {
-  FiBarChart2,
-  FiMinus,
-  FiTrendingDown,
-  FiTrendingUp,
+  FiBarChart2
 } from "react-icons/fi";
 import { GoArrowUpRight, GoTrophy } from "react-icons/go";
+import { LuMedal } from "react-icons/lu";
+import { MdOutlineShield } from "react-icons/md";
 import DashboardBarChart from "./BarChart";
 import DashboardLineChart from "./LineChart";
-import { LuMedal } from "react-icons/lu";
 import DashboardPieChart from "./PieChart";
-import { MdOutlineShield } from "react-icons/md";
 
 interface ChartSectionProps {
   charts: DashboardCharts | null | undefined;

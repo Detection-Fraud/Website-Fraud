@@ -120,7 +120,15 @@ export function useComplianceReport() {
   }, [programId, regionId, branchId, divisionId, activeTab]);
 
   useEffect(() => {
-    fetchComplianceData();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) {
+        fetchComplianceData();
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, [fetchComplianceData]);
 
   //   --- 8. RESET FILTER WHEN USER CLEAR THE FILTER

@@ -73,9 +73,11 @@ export function useProgram() {
   };
 
   // Sync searchInput saat URL berubah (misal user klik Back)
-  useEffect(() => {
+  const [prevSearch, setPrevSearch] = useState(search);
+  if (search !== prevSearch) {
+    setPrevSearch(search);
     setSearchInput(search);
-  }, [search]);
+  }
 
   // Fetch data setiap kali page/limit/search dari URL berubah
   useEffect(() => {

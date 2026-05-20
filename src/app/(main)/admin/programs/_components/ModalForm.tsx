@@ -14,7 +14,7 @@ import {
   TextField,
 } from "@heroui/react";
 import { DateValue, parseDate } from "@internationalized/date";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AiOutlineInfoCircle } from "react-icons/ai";
 
 interface ModalFormProps {
@@ -38,7 +38,13 @@ export default function ModalForm({
   const endDate = endValue;
   const isInvalid = endDate ? endDate < startDate! : false;
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevProgram, setPrevProgram] = useState(program);
+
+  if (isOpen !== prevIsOpen || program !== prevProgram) {
+    setPrevIsOpen(isOpen);
+    setPrevProgram(program);
+
     if (isOpen && program) {
       try {
         if (program.startDate) {
@@ -60,7 +66,7 @@ export default function ModalForm({
       setStartValue(null);
       setEndValue(null);
     }
-  }, [isOpen, program]);
+  }
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onClose}>

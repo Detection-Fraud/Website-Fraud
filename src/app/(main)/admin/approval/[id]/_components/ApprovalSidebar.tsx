@@ -1,7 +1,7 @@
 import { ActivityReportItem } from "@/types/report.types";
-import { Avatar, Card } from "@heroui/react";
+import { Card } from "@heroui/react";
 import { formatDate } from "date-fns";
-import { FiAlertTriangle, FiCalendar, FiMapPin, FiUser } from "react-icons/fi";
+import { FiCalendar, FiMapPin, FiUser } from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
 import ApprovalPhotos from "./ApprovalPhotos";
 
@@ -44,14 +44,6 @@ export default function ApprovalSidebar({ report }: ApprovalSidebarProps) {
       },
     };
     return map[unitType] || map.kanwil;
-  };
-
-  const unitStyle = getUnitStyle();
-
-  const getUnitTypeLabel = () => {
-    if (unitType === "divisi") return "Divisi";
-    if (unitType === "kancab") return "Kantor Cabang";
-    return "Kantor Wilayah";
   };
 
   const getUnitNameOnly = () => {

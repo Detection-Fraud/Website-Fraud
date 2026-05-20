@@ -1,33 +1,11 @@
 "use client";
 
-import {
-  Card,
-  Chip,
-  Link,
-  ListBox,
-  ProgressBar,
-  Select,
-  Tabs,
-} from "@heroui/react";
-import { BiFilterAlt, BiTask } from "react-icons/bi";
-import SummaryCard from "./_components/SummaryCard";
-import DashboardBarChart from "./_components/BarChart";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
-import { PiPackage } from "react-icons/pi";
-import { LuBuilding2, LuCalendarDays, LuMedal } from "react-icons/lu";
 import { IoIosCheckmarkCircleOutline } from "react-icons/io";
-import DashboardLineChart from "./_components/LineChart";
-import {
-  FiBarChart2,
-  FiMinus,
-  FiTrendingDown,
-  FiTrendingUp,
-} from "react-icons/fi";
-import { BiLineChart, BiAward } from "react-icons/bi";
-import { GoTrophy, GoArrowUpRight } from "react-icons/go";
+import { LuBuilding2, LuCalendarDays } from "react-icons/lu";
+import { PiPackage } from "react-icons/pi";
 import ChartSection from "./_components/ChartSection";
-import DashboardPieChart from "./_components/PieChart";
-import { MdOutlineShield } from "react-icons/md";
+import SummaryCard from "./_components/SummaryCard";
 
 export default function DashboardAdmin() {
   const {

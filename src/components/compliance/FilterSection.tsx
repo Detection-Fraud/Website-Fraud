@@ -9,7 +9,7 @@ import {
   Tag,
   Card,
 } from "@heroui/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FiDownload, FiX } from "react-icons/fi";
 import FilterProgram from "../ui/FilterProgram";
 import SelectWilayah from "../ui/SelectWilayah";
@@ -62,11 +62,16 @@ export default function FilterSection({
   const hideSelectKancab = isPICBranch || isPICDivision;
   const hideSelectDivisi = isPICBranch || isPICRegion;
 
-  useEffect(() => {
+  const [prevIsPICRegion, setPrevIsPICRegion] = useState(isPICRegion);
+  const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
+
+  if (isPICRegion !== prevIsPICRegion || activeTab !== prevActiveTab) {
+    setPrevIsPICRegion(isPICRegion);
+    setPrevActiveTab(activeTab);
     if (isPICRegion && activeTab === "NASIONAL") {
       handleTabChange("REGION_AND_BRANCH");
     }
-  }, [isPICRegion, activeTab, handleTabChange]);
+  }
   return (
     <Card>
       <Card.Header>

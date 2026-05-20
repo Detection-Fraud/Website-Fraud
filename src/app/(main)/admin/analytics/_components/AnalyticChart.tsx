@@ -1,13 +1,11 @@
 import { PeriodeFilter } from "@/hooks/useDashboardAnalytics";
-import { Card, Chip, Tabs } from "@heroui/react";
-import AnalyticAreaChart from "./AnalyticAreaChart";
-import AnalyticsBarChart from "./AnalyticPieChart";
 import {
-  DashboardData,
   DistribusiProgram,
-  KegiatanPerPeriode,
+  KegiatanPerPeriode
 } from "@/types/analytics.type";
+import { Card, Chip } from "@heroui/react";
 import { BiTrendingUp } from "react-icons/bi";
+import AnalyticAreaChart from "./AnalyticAreaChart";
 import AnalyticPieChart from "./AnalyticPieChart";
 
 interface AnalyticChartProps {

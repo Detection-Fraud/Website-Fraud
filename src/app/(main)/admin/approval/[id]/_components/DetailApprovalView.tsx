@@ -1,14 +1,13 @@
 "use client";
 
+import { useApproval } from "@/hooks/useApproval";
 import { useReportDetail } from "@/hooks/useReportDetail";
 import { Skeleton, useOverlayState } from "@heroui/react";
-import { useApproval } from "@/hooks/useApproval";
 import ModalNotes from "./ModalNotes";
 
+import ActivityTimeline from "@/components/reports/ActivityTimeline";
 import ApprovalHeader from "./ApprovalHeader";
 import ApprovalSidebar from "./ApprovalSidebar";
-import ApprovalPhotos from "./ApprovalPhotos";
-import ActivityTimeline from "@/components/reports/ActivityTimeline";
 
 export default function DetailApprovalView({ id }: { id: string }) {
   const { report, loading } = useReportDetail(id);

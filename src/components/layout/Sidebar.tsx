@@ -12,7 +12,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 export default function Sidebar() {
-  const { user, isLoading } = useCurrentUser();
+  const { user } = useCurrentUser();
   const pathname = usePathname();
 
   const { isSidebarOpen } = useLayoutStore();

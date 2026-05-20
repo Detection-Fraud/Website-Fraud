@@ -38,7 +38,6 @@ export default function ApprovalView() {
     summary,
   } = useReportList();
 
-  const { programs } = useProgramList();
   const { regions } = useMasterWilayah();
 
   const selectedRegion = regions.find((r) => r.id === regionFilter);
