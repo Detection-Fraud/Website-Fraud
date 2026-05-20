@@ -1,3 +1,4 @@
+import ActivityTimeline from "@/components/reports/ActivityTimeline";
 import DetailApprovalView from "./_components/DetailApprovalView";
 
 interface PropTypes {

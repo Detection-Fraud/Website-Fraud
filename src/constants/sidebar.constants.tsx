@@ -1,5 +1,5 @@
 import { MdOutlinePendingActions, MdOutlineShowChart } from "react-icons/md";
-import { PiNotebookLight } from "react-icons/pi";
+import { PiCalendar, PiNotebookLight } from "react-icons/pi";
 import { RxDashboard } from "react-icons/rx";
 
 import { AiOutlineScan } from "react-icons/ai";
@@ -42,6 +42,12 @@ export const SidebarMenuAdmin = [
     href: "/admin/programs",
     icon: <PiNotebookLight />,
   },
+  {
+    key: "kalendar",
+    label: "Kalendar",
+    href: "/admin/kalendar",
+    icon: <PiCalendar />,
+  },
 ];
 
 export const SidebarMenuPIC = [
@@ -62,5 +68,11 @@ export const SidebarMenuPIC = [
     label: "Laporan",
     href: "/pic/reports",
     icon: <PiNotebookLight />,
+  },
+  {
+    key: "kalendar",
+    label: "Kalendar",
+    href: "/pic/kalendar",
+    icon: <PiCalendar />,
   },
 ];

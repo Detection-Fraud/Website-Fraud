@@ -1,7 +1,9 @@
 import { ActivityReportItem } from "@/types/report.types";
 import { Avatar, Card } from "@heroui/react";
-import { FiAlertTriangle, FiMapPin, FiUser } from "react-icons/fi";
+import { formatDate } from "date-fns";
+import { FiAlertTriangle, FiCalendar, FiMapPin, FiUser } from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
+import ApprovalPhotos from "./ApprovalPhotos";
 
 interface ApprovalSidebarProps {
   report: ActivityReportItem | null;
@@ -53,9 +55,9 @@ export default function ApprovalSidebar({ report }: ApprovalSidebarProps) {
   };
 
   const getUnitNameOnly = () => {
-    if (report?.division?.name) return report.division.name;
-    if (report?.branch?.name) return report.branch.name;
-    if (report?.region?.name) return report.region.name;
+    if (report?.division?.name) return `Divisi ${report.division.name}`;
+    if (report?.branch?.name) return `Kantor Cabang ${report.branch.name}`;
+    if (report?.region?.name) return `Kantor Wilayah ${report.region.name}`;
     return "Memuat Unit...";
   };
 
@@ -64,82 +66,74 @@ export default function ApprovalSidebar({ report }: ApprovalSidebarProps) {
       <Card className="rounded-2xl p-5 border border-gray-200 shadow-sm">
         <Card.Header>
           <Card.Title>
-            <div className="flex flex-row items-center gap-2 text-gray-500 mb-4 ">
-              <FiUser className="w-5 h-5" />
-              <p className="font-semibold tracking-wide text-sm uppercase">
-                Person In Charge (PIC)
-              </p>
-            </div>
+            <p className="font-bold">Informasi Kegiatan</p>
           </Card.Title>
         </Card.Header>
-        <Card.Content className="flex flex-row items-center gap-2">
-          <Avatar size="md" className="rounded-xl ">
-            <Avatar.Fallback className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
-              {report?.picKegiatan?.charAt(0).toUpperCase() || "U"}
-            </Avatar.Fallback>
-          </Avatar>
-          <p className="font-bold text-gray-900 text-base">
-            {report?.picKegiatan || "Memuat PIC..."}
-          </p>
-        </Card.Content>
-      </Card>
-      <Card
-        className={`rounded-2xl p-5 border shadow-sm bg-linear-to-br ${unitStyle.bg} ${unitStyle.border}`}
-      >
-        <Card.Header>
-          <Card.Title>
-            <div className="flex flex-row items-center gap-2 text-gray-500 mb-4">
-              <LuBuilding2 className="w-5 h-5" />
-              <p className="font-semibold tracking-wide text-sm uppercase">
-                Informasi Unit
+        <Card.Content className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+              <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
+                <LuBuilding2 className="text-slate-500 w-3.5 h-3.5" />
+                <p className="text-xs">Unit Kerja</p>
+              </div>
+              <p className="font-semibold text-md text-[#314158]">
+                {getUnitNameOnly()}
               </p>
             </div>
-          </Card.Title>
-        </Card.Header>
-        <Card.Content className="space-y-4">
-          {/* Bagian 1: Tipe Unit */}
-          <div>
-            <p className="text-xs text-gray-400 mb-1">Tipe Unit</p>
-            <div
-              className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${unitStyle.badge}`}
-            >
-              {getUnitTypeLabel()}
+
+            <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+              <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
+                <FiCalendar className="text-slate-500 w-3.5 h-3.5" />
+                <p className="text-xs">Tanggal</p>
+              </div>
+              <p className="font-semibold text-md text-[#314158]">
+                {formatDate(report?.createdAt ?? "", "dd MMM yyyy")}
+              </p>
+            </div>
+
+            <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+              <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
+                <FiMapPin className="text-slate-500 w-3.5 h-3.5" />
+                <p className="text-xs">Lokasi</p>
+              </div>
+              <p className="font-semibold text-md text-[#314158]">
+                {report?.lokasi}
+              </p>
+            </div>
+            <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+              <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
+                <FiUser className="text-slate-500 w-3.5 h-3.5" />
+                <p className="text-xs">PIC Pelapor</p>
+              </div>
+              <p className="font-semibold text-md text-[#314158]">
+                {report?.picKegiatan}
+              </p>
             </div>
           </div>
 
-          {/* Bagian 2: Nama Unit */}
-          <div>
-            <p className="text-xs text-gray-400 mb-1">Nama Unit</p>
-            <p className={`text-lg font-bold ${unitStyle.text}`}>
-              {getUnitNameOnly()}
+          <div className="bg-[#e0f2fe] p-[14px] rounded-2xl w-full">
+            <p className="text-[#0ea5e9]">Program Budaya</p>
+            <p className="text-md font-semibold text-[#0369a1]">
+              {report?.program?.name}
             </p>
           </div>
 
-          {/* Bagian 3: Lokasi */}
-          <div>
-            <p className="text-xs text-gray-400 mb-1">Lokasi</p>
-            <div className="flex items-center gap-1.5 text-gray-700 font-medium mt-1">
-              <FiMapPin className="w-4 h-4 text-gray-500" />
-              <span>{report?.lokasi || "Lokasi belum diisi"}</span>
-            </div>
+          <div className="space-y-1 px-[10px]">
+            <p className="text-md font-semibold text-[#62748e]">
+              Deskripsi Kegiatan
+            </p>
+            <p className="text-sm text-gray-400">{report?.description}</p>
           </div>
+
+          {report?.status === "REJECTED" && (
+            <div className="bg-red-50 border border-red-300 p-[14px] rounded-xl">
+              <p className="text-red-800">Catatan Penolakan</p>
+              <p className="text-sm text-red-700">{report?.notes}</p>
+            </div>
+          )}
         </Card.Content>
       </Card>
-      {report?.status === "REJECTED" && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm">
-          <div className="flex gap-3">
-            <FiAlertTriangle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-yellow-900 mb-1">
-                Catatan Admin
-              </p>
-              <p className="text-sm text-yellow-800 leading-relaxed">
-                {report.notes || "Tidak ada catatan."}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <ApprovalPhotos report={report} />
     </div>
   );
 }

@@ -33,6 +33,17 @@ export async function GET(
         division: { select: { id: true, name: true } },
         program: { select: { name: true } },
         photos: { select: { id: true, originalName: true, imageUrl: true } },
+        logs: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            action: true,
+            notes: true,
+            actorName: true,
+            actorRole: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -139,29 +150,41 @@ export async function PUT(
       });
     }
 
-    const updatedReport = await prisma.activityReport.update({
-      where: { id },
-      data: {
-        activityName,
-        programId: programId || null,
-        tanggalKegiatan: new Date(tanggalKegiatan),
-        lokasi,
-        description,
-        picKegiatan,
-        status: "PENDING",
-        notes: null,
-        ...(photos &&
-          photos.length > 0 && {
-            photos: {
-              create: photos.map((p: any) => ({
-                imageUrl: p.imageUrl,
-                originalName: p.originalName,
-                publicId: p.publicId ?? null,
-              })),
-            },
-          }),
-      },
-    });
+    const [updatedReport, _] = await prisma.$transaction([
+      prisma.activityReport.update({
+        where: { id },
+        data: {
+          activityName,
+          programId: programId || null,
+          tanggalKegiatan: new Date(tanggalKegiatan),
+          lokasi,
+          description,
+          picKegiatan,
+          status: "PENDING",
+          notes: null,
+          ...(photos &&
+            photos.length > 0 && {
+              photos: {
+                create: photos.map((p: any) => ({
+                  imageUrl: p.imageUrl,
+                  originalName: p.originalName,
+                  publicId: p.publicId ?? null,
+                })),
+              },
+            }),
+        },
+      }),
+      prisma.activityLog.create({
+        data: {
+          reportId: id,
+          action: "RESUBMITTED",
+          notes: null,
+          actorId: session.user.id,
+          actorName: session.user.name,
+          actorRole: session.user.role,
+        },
+      }),
+    ]);
 
     return NextResponse.json(
       successResponse(updatedReport, "Laporan berhasil diperbarui"),

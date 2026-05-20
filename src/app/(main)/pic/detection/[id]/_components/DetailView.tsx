@@ -6,9 +6,10 @@ import { StatusType } from "@/types/status.types";
 import { Card, Chip, Skeleton } from "@heroui/react";
 import Image from "next/image";
 import Link from "next/link";
-import { FiArrowLeft, FiCalendar, FiImage, FiMapPin } from "react-icons/fi";
+import { FiArrowLeft, FiCalendar, FiImage, FiMapPin, FiUser } from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
 import StatusView from "./StatusView";
+import ActivityTimeline from "@/components/reports/ActivityTimeline";
 
 export default function DetailView({ id }: { id: string }) {
   const { report, loading, user } = useReportDetail(id);
@@ -93,69 +94,72 @@ export default function DetailView({ id }: { id: string }) {
         />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT SIDEBAR */}
-        <div className="space-y-5">
+        {/* LEFT MAIN CONTENT */}
+        <div className="lg:col-span-2 space-y-5">
           <Card className="rounded-2xl p-5 border border-gray-200 shadow-sm">
             <Card.Header>
               <Card.Title>
-                <div className="flex flex-row items-center gap-2 text-gray-500 mb-4 ">
-                  <LuBuilding2 className="w-5 h-5" />
-                  <p className="font-semibold tracking-wide text-sm uppercase">
-                    Informasi Unit
-                  </p>
-                </div>
+                <p className="font-bold">Informasi Kegiatan</p>
               </Card.Title>
             </Card.Header>
             <Card.Content className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Unit : </p>
-                <Chip color="accent" variant="soft" size="lg">
-                  {unitRole}
-                </Chip>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Nama Unit : </p>
-                <Chip variant="secondary" size="lg">
-                  {unitText}
-                </Chip>
-              </div>
-              <div className="flex items-start gap-2">
-                <FiMapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                <p className="text-sm text-gray-600">{report?.lokasi}</p>
-              </div>
-            </Card.Content>
-          </Card>
-          <Card className="rounded-2xl p-5 border border-gray-200 shadow-sm">
-            <Card.Header>
-              <Card.Title>
-                <div className="flex flex-row items-center gap-2 text-gray-500 mb-4 ">
-                  <FiCalendar className="w-5 h-5" />
-                  <p className="font-semibold tracking-wide text-sm uppercase">
-                    Waktu
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+                  <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
+                    <LuBuilding2 className="text-slate-500 w-3.5 h-3.5" />
+                    <p className="text-xs">Unit Kerja</p>
+                  </div>
+                  <p className="font-semibold text-md text-[#314158]">
+                    {unitText}
                   </p>
                 </div>
-              </Card.Title>
-            </Card.Header>
-            <Card.Content className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Unit : </p>
-                <p className="text-sm font-semibold text-gray-800">
-                  {useFormatDate(report?.createdAt)}
+
+                <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+                  <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
+                    <FiCalendar className="text-slate-500 w-3.5 h-3.5" />
+                    <p className="text-xs">Tanggal</p>
+                  </div>
+                  <p className="font-semibold text-md text-[#314158]">
+                    {useFormatDate(report?.createdAt)}
+                  </p>
+                </div>
+
+                <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+                  <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
+                    <FiMapPin className="text-slate-500 w-3.5 h-3.5" />
+                    <p className="text-xs">Lokasi</p>
+                  </div>
+                  <p className="font-semibold text-md text-[#314158]">
+                    {report?.lokasi}
+                  </p>
+                </div>
+                <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+                  <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
+                    <FiUser className="text-slate-500 w-3.5 h-3.5" />
+                    <p className="text-xs">PIC Pelapor</p>
+                  </div>
+                  <p className="font-semibold text-md text-[#314158]">
+                    {report?.picKegiatan}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-[#e0f2fe] p-[14px] rounded-2xl w-full">
+                <p className="text-[#0ea5e9]">Program Budaya</p>
+                <p className="text-md font-semibold text-[#0369a1]">
+                  {report?.program?.name}
                 </p>
               </div>
-              {report?.updatedAt && (
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Direview Pada : </p>
-                  <p className="text-sm font-semibold text-gray-800">
-                    {useFormatDate(report?.updatedAt)}
-                  </p>
-                </div>
-              )}
+
+              <div className="space-y-1 px-[10px]">
+                <p className="text-md font-semibold text-[#62748e]">
+                  Deskripsi Kegiatan
+                </p>
+                <p className="text-sm text-gray-400">{report?.description}</p>
+              </div>
             </Card.Content>
           </Card>
-        </div>
 
-        <div className="lg:col-span-2">
           <Card className="rounded-2xl p-5 border border-gray-200 shadow-sm">
             <Card.Header>
               <Card.Title>
@@ -165,7 +169,7 @@ export default function DetailView({ id }: { id: string }) {
                     Dokumentasi Foto Kegiatan
                   </p>
                   <Chip>
-                    <Chip.Label>{report?.photos?.length}</Chip.Label>
+                    <Chip.Label>{report?.photos?.length || 0}</Chip.Label>
                   </Chip>
                 </div>
               </Card.Title>
@@ -187,6 +191,11 @@ export default function DetailView({ id }: { id: string }) {
               ))}
             </Card.Content>
           </Card>
+        </div>
+
+        {/* RIGHT SIDEBAR - ACTIVITY TIMELINE */}
+        <div className="lg:col-span-1 space-y-4">
+          <ActivityTimeline logs={report?.logs} />
         </div>
       </div>
     </div>

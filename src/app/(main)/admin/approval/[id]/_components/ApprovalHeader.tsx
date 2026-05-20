@@ -27,9 +27,9 @@ export default function ApprovalHeader({
   const unitType = getUnitType();
 
   const getUnitName = () => {
-    if (unitType === "divisi") return report?.division?.name;
-    if (unitType === "kancab") return report?.branch?.name;
-    return report?.region?.name;
+    if (unitType === "divisi") return `Divisi ${report?.division?.name}`;
+    if (unitType === "kancab") return `Kantor Cabang ${report?.branch?.name}`;
+    return `Kantor Wilayah ${report?.region?.name}`;
   };
 
   return (
@@ -86,19 +86,6 @@ export default function ApprovalHeader({
               </p>
               <p className="text-xs text-green-600">
                 Data kegiatan telah divalidasi Admin
-              </p>
-            </div>
-          </div>
-        )}
-        {report?.status === "REJECTED" && (
-          <div className="flex items-center gap-2.5 px-5 py-3 bg-red-50 border border-red-200 rounded-xl">
-            <FiXCircle className="w-5 h-5 text-red-600 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-red-800">
-                Upload Ditolak
-              </p>
-              <p className="text-xs text-red-600">
-                {report.notes || "Pengajuan Tidak Memenuhi Syarat"}
               </p>
             </div>
           </div>

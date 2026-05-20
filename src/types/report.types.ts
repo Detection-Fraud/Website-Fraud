@@ -8,9 +8,9 @@ export interface ActivityReportItem {
   status: string;
   createdAt: string;
   notes?: string | null;
-  region?: { name: string, id: string } | null;
-  branch?: { name: string, id: string } | null;
-  division?: { name: string, id: string } | null;
+  region?: { name: string; id: string } | null;
+  branch?: { name: string; id: string } | null;
+  division?: { name: string; id: string } | null;
   program?: { name: string } | null;
   photos?: {
     id: number;
@@ -19,6 +19,17 @@ export interface ActivityReportItem {
     publicId?: string | null;
   }[];
   updatedAt?: string;
+  logs?: ActivityLogItem[];
+}
+
+export interface ActivityLogItem {
+  id: string;
+  reportId: string;
+  action: "SUBMITTED" | "APPROVED" | "REJECTED" | "RESUBMITTED";
+  notes?: string | null;
+  actorName: string;
+  actorRole: string;
+  createdAt: string;
 }
 
 export interface PaginationInfo {

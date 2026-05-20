@@ -46,13 +46,23 @@ export async function PATCH(
       );
     }
 
-    const updatedReport = await prisma.activityReport.update({
-      where: { id },
-      data: {
-        status,
-        notes: status === "REJECTED" ? notes : null,
-      },
-    });
+    const [updatedReport, log] = await prisma.$transaction([
+      prisma.activityReport.update({
+        where: { id },
+        data: { status, notes: status === "REJECTED" ? notes : null },
+      }),
+      prisma.activityLog.create({
+        data: {
+          reportId: id,
+          action: status === "APPROVED" ? "APPROVED" : "REJECTED",
+          notes: status === "REJECTED" ? notes : null,
+
+          actorId: session.user.id,
+          actorName: session.user.name,
+          actorRole: session.user.role,
+        },
+      }),
+    ]);
 
     return NextResponse.json(
       successResponse(updatedReport, "Laporan berhasil diperbarui"),

@@ -235,7 +235,17 @@ export async function POST(request: Request) {
                 imageUrl: photo.imageUrl,
               })) || [],
           },
+          logs: {
+            create: {
+              action: "SUBMITTED",
+              notes: null,
+              actorId: user.id,
+              actorName: user.name,
+              actorRole: user.role,
+            },
+          },
         },
+
         include: {
           photos: true,
         },
