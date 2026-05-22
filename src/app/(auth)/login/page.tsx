@@ -69,7 +69,7 @@ export default function LoginPage() {
                     BULOG
                   </h1>
                   <h2 className="text-lg font-semibold text-blue-100 tracking-wide mt-1">
-                    Fraud Detection
+                    Aktivasi Budaya
                   </h2>
                 </div>
               </div>

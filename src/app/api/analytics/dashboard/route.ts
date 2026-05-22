@@ -67,7 +67,22 @@ export async function GET(request: NextRequest) {
           whereClause.regionId = regionId;
         }
         if (branchId) {
-          whereClause.branchId = branchId;
+          // Guard: pastikan branchId memang bagian dari regionId yang dipilih
+          // Ini mencegah data kanwil lain bocor masuk jika branchId tidak valid
+          if (regionId) {
+            const branchCheck = await prisma.branch.findFirst({
+              where: { id: branchId, regionId: regionId },
+              select: { id: true },
+            });
+            if (!branchCheck) {
+              // branchId tidak ada di kanwil yang dipilih — abaikan filter branchId
+              // (biarkan filter hanya pada regionId)
+            } else {
+              whereClause.branchId = branchId;
+            }
+          } else {
+            whereClause.branchId = branchId;
+          }
         }
         break;
       case "PIC":
@@ -437,68 +452,163 @@ export async function GET(request: NextRequest) {
     }
 
     // 8. Ranking wilayah
-    const rankingRaw = await prisma.activityReport.groupBy({
-      by: ["regionId"],
-      where: {
+    //
+    // Strategi:
+    // - Jika branchId spesifik dipilih → group by branchId (tampil per kancab)
+    // - Jika hanya regionId dipilih → group by regionId DENGAN filter ketat regionId
+    //   agar tidak ada data kanwil lain yang "bocor" masuk karena anomali data
+    // - Jika semua ALL → group by regionId, tampilkan semua kanwil
+
+    let rankingWilayah: {
+      rank: number;
+      name: string;
+      unit: number;
+      kegiatan: number;
+      disetujui: number;
+      approvalRate: number;
+      status: string;
+    }[] = [];
+
+    if (branchId) {
+      // === MODE: Filter per Kancab ===
+      // Group by branchId agar hanya kancab yang dipilih yang tampil
+      // Prisma groupBy tidak bisa order by field kalkulasi (approvalRate)
+      // jadi kita ambil semua data dulu, hitung approvalRate, lalu sort di JS
+      const rankingRawBranch = await prisma.activityReport.groupBy({
+        by: ["branchId"],
+        where: {
+          ...whereClause,
+          branchId: { not: null },
+        },
+        _count: { id: true },
+      });
+
+      const approvedRawBranch = await prisma.activityReport.groupBy({
+        by: ["branchId"],
+        where: {
+          ...whereClause,
+          branchId: { not: null },
+          status: "APPROVED",
+        },
+        _count: { id: true },
+      });
+
+      const branchIdsRanking = rankingRawBranch
+        .map((item) => item.branchId)
+        .filter(Boolean) as string[];
+
+      const branchesList = await prisma.branch.findMany({
+        where: { id: { in: branchIdsRanking } },
+        select: { id: true, name: true },
+      });
+
+      rankingWilayah = rankingRawBranch
+        .map((item) => {
+          const totalKegiatan = item._count.id;
+          const totalDisetujui =
+            approvedRawBranch.find((a) => a.branchId === item.branchId)?._count
+              .id || 0;
+
+          const approvalRate =
+            totalKegiatan > 0 ? (totalDisetujui / totalKegiatan) * 100 : 0;
+
+          let statusText = "Perlu Perhatian";
+          if (approvalRate >= 90) statusText = "Sangat Baik";
+          else if (approvalRate >= 80) statusText = "Baik";
+          else if (approvalRate >= 70) statusText = "Cukup";
+
+          return {
+            name:
+              branchesList.find((b) => b.id === item.branchId)?.name ||
+              "Unknown Kancab",
+            unit: 0,
+            kegiatan: totalKegiatan,
+            disetujui: totalDisetujui,
+            approvalRate: Number(approvalRate.toFixed(1)),
+            status: statusText,
+          };
+        })
+        // Sort by approvalRate desc, tie-break: kegiatan desc
+        .sort((a, b) => b.approvalRate - a.approvalRate || b.kegiatan - a.kegiatan)
+        .map((item, index) => ({ ...item, rank: index + 1 }));
+    } else {
+      // === MODE: Filter per Kanwil ===
+      // Jika regionId dipilih → filter KETAT hanya regionId tsb
+      // Jika ALL → tampilkan semua kanwil
+      const rankingWhereClause: any = {
         ...whereClause,
         regionId: { not: null },
-      },
-      _count: { id: true },
-      orderBy: { _count: { id: "desc" } },
-    });
-
-    const approvedRaw = await prisma.activityReport.groupBy({
-      by: ["regionId"],
-      where: {
-        ...whereClause,
-        regionId: { not: null },
-        status: "APPROVED",
-      },
-      _count: { id: true },
-    });
-
-    const regionIds = rankingRaw
-      .map((item) => item.regionId)
-      .filter(Boolean) as string[];
-
-    const regionsList = await prisma.region.findMany({
-      where: { id: { in: regionIds } },
-      select: { id: true, name: true },
-    });
-
-    const branchCounts = await prisma.branch.groupBy({
-      by: ["regionId"],
-      where: { regionId: { in: regionIds } },
-      _count: { id: true },
-    });
-
-    const rankingWilayah = rankingRaw.map((item, index) => {
-      const totalKegiatan = item._count.id;
-      const totalDisetujui =
-        approvedRaw.find((a) => a.regionId === item.regionId)?._count.id || 0;
-      const unitCount =
-        branchCounts.find((b) => b.regionId === item.regionId)?._count.id || 0;
-
-      const approvalRate =
-        totalKegiatan > 0 ? (totalDisetujui / totalKegiatan) * 100 : 0;
-
-      // Logic Penentuan Status
-      let statusText = "Perlu Perhatian";
-      if (approvalRate >= 90) statusText = "Sangat Baik";
-      else if (approvalRate >= 80) statusText = "Baik";
-      else if (approvalRate >= 70) statusText = "Cukup";
-
-      return {
-        rank: index + 1,
-        name:
-          regionsList.find((r) => r.id === item.regionId)?.name || "Unknown",
-        unit: unitCount,
-        kegiatan: totalKegiatan,
-        disetujui: totalDisetujui,
-        approvalRate: Number(approvalRate.toFixed(1)),
-        status: statusText,
       };
-    });
+
+      // Jika regionId spesifik dipilih, pastikan hanya regionId itu yang muncul
+      // (mencegah bocornya data dari kanwil lain akibat anomali data)
+      if (regionId) {
+        rankingWhereClause.regionId = regionId;
+      }
+
+      // Prisma groupBy tidak bisa order by field kalkulasi (approvalRate)
+      // jadi kita ambil semua data dulu, hitung approvalRate, lalu sort di JS
+      const rankingRaw = await prisma.activityReport.groupBy({
+        by: ["regionId"],
+        where: rankingWhereClause,
+        _count: { id: true },
+      });
+
+      const approvedRaw = await prisma.activityReport.groupBy({
+        by: ["regionId"],
+        where: {
+          ...rankingWhereClause,
+          status: "APPROVED",
+        },
+        _count: { id: true },
+      });
+
+      const regionIds = rankingRaw
+        .map((item) => item.regionId)
+        .filter(Boolean) as string[];
+
+      const regionsList = await prisma.region.findMany({
+        where: { id: { in: regionIds } },
+        select: { id: true, name: true },
+      });
+
+      const branchCounts = await prisma.branch.groupBy({
+        by: ["regionId"],
+        where: { regionId: { in: regionIds } },
+        _count: { id: true },
+      });
+
+      rankingWilayah = rankingRaw
+        .map((item) => {
+          const totalKegiatan = item._count.id;
+          const totalDisetujui =
+            approvedRaw.find((a) => a.regionId === item.regionId)?._count.id || 0;
+          const unitCount =
+            branchCounts.find((b) => b.regionId === item.regionId)?._count.id ||
+            0;
+
+          const approvalRate =
+            totalKegiatan > 0 ? (totalDisetujui / totalKegiatan) * 100 : 0;
+
+          let statusText = "Perlu Perhatian";
+          if (approvalRate >= 90) statusText = "Sangat Baik";
+          else if (approvalRate >= 80) statusText = "Baik";
+          else if (approvalRate >= 70) statusText = "Cukup";
+
+          return {
+            name:
+              regionsList.find((r) => r.id === item.regionId)?.name || "Unknown",
+            unit: unitCount,
+            kegiatan: totalKegiatan,
+            disetujui: totalDisetujui,
+            approvalRate: Number(approvalRate.toFixed(1)),
+            status: statusText,
+          };
+        })
+        // Sort by approvalRate desc, tie-break: kegiatan desc
+        .sort((a, b) => b.approvalRate - a.approvalRate || b.kegiatan - a.kegiatan)
+        .map((item, index) => ({ ...item, rank: index + 1 }));
+    }
 
     // 9. Return response
     return NextResponse.json(

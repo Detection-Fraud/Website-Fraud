@@ -98,7 +98,7 @@ export default function AnalyticTableRanking({
             Ranking Lengkap Unit Kerja per Wilayah
           </Card.Title>
           <Card.Description className="text-xs font-light">
-            Diurutkan berdasarkan jumlah kegiatan dan tingkat persetujuan
+            Diurutkan berdasarkan tingkat persetujuan tertinggi
           </Card.Description>
         </Card.Header>
       </div>

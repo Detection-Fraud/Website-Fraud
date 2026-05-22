@@ -1,7 +1,7 @@
 export interface ActivityReportItem {
   id: string;
   activityName: string;
-  tanggalKegiatan: string;
+  tanggalKegiatan: string | Date;
   lokasi: string;
   picKegiatan: string;
   description: string;
@@ -11,7 +11,7 @@ export interface ActivityReportItem {
   region?: { name: string; id: string } | null;
   branch?: { name: string; id: string } | null;
   division?: { name: string; id: string } | null;
-  program?: { name: string } | null;
+  program?: { name: string,  } | null;
   photos?: {
     id: number;
     originalName: string;

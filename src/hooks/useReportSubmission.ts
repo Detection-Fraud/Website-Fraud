@@ -3,6 +3,7 @@ import { useReportStore } from "@/store/useReportStore";
 import { toast } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { ReportFormData } from "@/types/report.types";
+import { unknown } from "zod";
 
 export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
   const { images, updateImageStatus, resetStore } = useReportStore();
@@ -141,9 +142,13 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
 
       router.push("/pic/dashboard");
       resetStore();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.danger("Proses submit gagal. Cek koneksi internetmu.");
+      if (error instanceof Error) {
+        toast.danger(error.message);
+      } else {
+        toast.danger("Terjadi kesalahan tidak terduga");
+      }
     } finally {
       setLoadingText("");
     }

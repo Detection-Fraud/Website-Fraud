@@ -26,7 +26,7 @@ export default function Navbar() {
           </Button>
           <div className="flex flex-col justify-center">
             <h1 className="text-sm sm:text-md md:text-xl font-bold text-gray-900 leading-tight">
-              BULOG Fraud Detection
+              BULOG Aktivasi Budaya
             </h1>
             <p className="text-xs text-gray-600 hidden md:block">
               Sistem Deteksi Keaslian Foto Kegiatan

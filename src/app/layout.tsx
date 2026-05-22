@@ -15,7 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BULOG Fraud Detection",
+  title: {
+    default: "BULOG Aktivasi Budaya",
+    template: "%s | BULOG Aktivasi Budaya",
+  },
   description: "Sistem Deteksi Keaslian Foto Kegiatan",
 };
 

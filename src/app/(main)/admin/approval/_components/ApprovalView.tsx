@@ -20,6 +20,9 @@ import SelectKancab from "@/components/ui/SelectKancab";
 import ApprovalSummaryCards from "./ApprovalSummaryCard"; // Pastikan namanya sesuai dengan file kamu
 
 import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
+import { FiAlertTriangle, FiImage } from "react-icons/fi";
+import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
+import SummaryCards from "@/components/ui/SummaryCard";
 
 export default function ApprovalView() {
   const {
@@ -37,6 +40,41 @@ export default function ApprovalView() {
     programFilter,
     summary,
   } = useReportList();
+
+  const summaryCards = [
+    {
+      title: "Total Upload",
+      value: summary.total,
+      description: "Semua Unggahan",
+      icon: FiImage,
+      style: "text-blue-600 bg-blue-100",
+      textColor: "text-[#0284c7]",
+    },
+    {
+      title: "Menunggu",
+      value: summary.pending,
+      description: "Total Menunggu",
+      icon: FiAlertTriangle,
+      style: "bg-orange-100 text-orange-600",
+      textColor: "text-[#d97706]",
+    },
+    {
+      title: "Disetujui",
+      value: summary.approved,
+      icon: BsCheck2Circle,
+      description: "Total Disetujui",
+      style: "bg-green-100 text-green-600",
+      textColor: "text-[#059669]",
+    },
+    {
+      title: "Ditolak",
+      value: summary.rejected,
+      icon: BsXCircle,
+      description: "Total Ditolak",
+      style: "bg-red-100 text-red-600",
+      textColor: "text-[#dc2626]",
+    },
+  ];
 
   const { regions } = useMasterWilayah();
 
@@ -75,7 +113,7 @@ export default function ApprovalView() {
       </div>
 
       {/* SUMMARY CARDS SECTION */}
-      <ApprovalSummaryCards summary={summary} />
+      <SummaryCards summary={summaryCards} />
 
       {/* DATA TABLE SECTION */}
       <Card className="rounded-lg shadow-md border-gray-200 p-0">

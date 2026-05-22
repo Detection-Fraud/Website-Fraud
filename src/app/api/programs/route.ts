@@ -25,13 +25,16 @@ export async function GET(req: Request) {
       whereClause.name = { contains: search, mode: "insensitive" };
     }
 
-    const [programs, activeCount, inactiveCount, totalCount, filteredCount] =
+    const [programs, activeCount, inactiveCount, totalCount, filteredCount, categoryCount, uncategorizedCount] =
       await Promise.all([
         prisma.programBudaya.findMany({
           where: whereClause,
           orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
           skip,
           take: limit,
+          include: {
+            category: true,
+          },
         }),
         prisma.programBudaya.count({
           where: { isActive: true },
@@ -41,6 +44,10 @@ export async function GET(req: Request) {
         }),
         prisma.programBudaya.count(),
         prisma.programBudaya.count({ where: whereClause }),
+        prisma.programCategory.count(), // <-- Hitung Total Kategori
+        prisma.programBudaya.count({    // <-- Hitung Tidak Berkategori
+          where: { categoryId: null },
+        }),
       ]);
 
     return NextResponse.json(
@@ -53,6 +60,8 @@ export async function GET(req: Request) {
           active: activeCount,
           inActive: inactiveCount,
           total: totalCount,
+          totalCategory: categoryCount,
+          uncategorized: uncategorizedCount,
         },
         pagination: {
           total: filteredCount,
@@ -83,7 +92,8 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    const { name, frequency, startDate, endDate } = body;
+    const { name, frequency, startDate, endDate, categoryId, description } =
+      body;
 
     if (!name || !frequency || !startDate || !endDate) {
       return NextResponse.json(errorResponse("Missing required fields", 400), {
@@ -107,6 +117,8 @@ export async function POST(req: Request) {
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         isActive: true,
+        categoryId: categoryId || null,
+        description: description || null,
       },
     });
 

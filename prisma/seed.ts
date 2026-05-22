@@ -21,9 +21,9 @@ async function main() {
     data: { name: "DKI Jakarta", kode: "DKI01" },
   });
 
-  // const regionJabar = await prisma.region.create({
-  //   data: { name: "Jawa Barat", kode: "JBR01" },
-  // });
+  const regionJabar = await prisma.region.create({
+    data: { name: "Jawa Barat", kode: "JBR01" },
+  });
 
   // 2. Buat Branch (Kancab)
   const branchJaksel = await prisma.branch.create({
@@ -31,9 +31,9 @@ async function main() {
   });
 
   // 3. Buat Division (Divisi Pusat)
-  // const divIT = await prisma.division.create({
-  //   data: { name: "Divisi Teknologi Informasi" },
-  // });
+  const divIT = await prisma.division.create({
+    data: { name: "Divisi Teknologi Informasi" },
+  });
 
   console.log("👤 Membuat Dummy Users...");
   const defaultPassword = await bcrypt.hash("password123", 10);
@@ -86,6 +86,75 @@ async function main() {
       branchId: branchJaksel.id,
     },
   });
+
+  // --- USER 5: PIC KANWIL (JAWA BARAT) ---
+  // Bisa submit laporan khusus region Jawa Barat
+  await prisma.user.create({
+    data: {
+      name: "Rusdi Kanwil",
+      username: "pic.jabar",
+      password: defaultPassword,
+      role: "PIC",
+      regionId: regionJabar.id,
+    },
+  });
+
+  // --- USER 6: VIEWER KANWIL (JAWA BARAT) ---
+  // Karyawan biasa, cuma bisa lihat-lihat laporan dan kalender
+  await prisma.user.create({
+    data: {
+      name: "Joko Pegawai Biasa",
+      username: "viewer.jabar",
+      password: defaultPassword,
+      role: "VIEWER",
+      regionId: regionJabar.id,
+    },
+  });
+
+  // --- USER 7: PIC DIVISI (TEKNOLOGI INFORMASI) ---
+  // Bisa submit laporan khusus divisi IT
+  await prisma.user.create({
+    data: {
+      name: "Putri PIC Divisi",
+      username: "pic.divisi",
+      password: defaultPassword,
+      role: "PIC",
+      divisionId: divIT.id,
+    },
+  });
+
+  // --- USER 8: VIEWER DIVISI (TEKNOLOGI INFORMASI) ---
+  // Karyawan biasa dari divisi IT
+  await prisma.user.create({
+    data: {
+      name: "Budi Viewer Divisi",
+      username: "viewer.divisi",
+      password: defaultPassword,
+      role: "VIEWER",
+      divisionId: divIT.id,
+    },
+  });
+
+  console.log("📂 Membuat Program Categories...");
+  const categoriesData = [
+    { name: "Amanah", color: "#3B82F6" }, // Blue
+    { name: "Kompeten", color: "#10B981" }, // Emerald/Green
+    { name: "Harmonis", color: "#EC4899" }, // Pink
+    { name: "Loyal", color: "#F97316" }, // Orange
+    { name: "Adaptif", color: "#8B5CF6" }, // Violet/Purple
+    { name: "Kolaboratif", color: "#F59E0B" }, // Amber/Yellow
+  ];
+
+  for (const cat of categoriesData) {
+    await prisma.programCategory.upsert({
+      where: { name: cat.name },
+      update: {},
+      create: {
+        name: cat.name,
+        color: cat.color,
+      },
+    });
+  }
 
   console.log("📂 Membuat Dummy Program Budaya...");
   const data1 = await prisma.programBudaya.create({

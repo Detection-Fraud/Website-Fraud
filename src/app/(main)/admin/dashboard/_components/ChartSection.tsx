@@ -162,7 +162,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                 Ranking Unit Kerja per Wilayah
               </Card.Title>
               <Card.Description className="text-xs text-gray-400 mt-0.5">
-                Berdasarkan tingkat persetujuan & jumlah kegiatan
+                Diurutkan berdasarkan tingkat persetujuan tertinggi
               </Card.Description>
             </div>
             <MdOutlineShield className="w-5 h-5 text-blue-500" />
@@ -170,9 +170,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
 
           <Card.Content className="space-y-6 pt-4">
             {charts?.rankingWilayah?.slice(0, 6).map((wilayah, index) => {
-              // 1. Menggunakan data asli dari API (bukan mock lagi)
-              const maxKegiatan = charts?.rankingWilayah?.[0]?.kegiatan || 1;
-              const progress = (wilayah.kegiatan / maxKegiatan) * 100;
+              // Progress bar menggunakan approvalRate langsung agar sinkron dengan angka yang ditampilkan
 
               // 2. Mapping warna sesuai data 'status' dari Backend
               let statusColor: "success" | "default" | "warning" | "danger" = "default";
@@ -231,7 +229,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full bg-blue-500`}
-                            style={{ width: `${progress}%` }}
+                            style={{ width: `${wilayah.approvalRate}%` }}
                           />
                         </div>
                       </div>

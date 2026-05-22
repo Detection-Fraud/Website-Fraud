@@ -89,6 +89,16 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+model ProgramCategory {
+  id String @id @default(uuid())
+  name String @unique
+  color String?
+  programs ProgramBudaya[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model ProgramBudaya {
   id String @id @default(uuid())
 
@@ -97,9 +107,11 @@ model ProgramBudaya {
   frequency Int
   startDate DateTime
   endDate DateTime
-
-
   isActive Boolean @default(true)
+
+  categoryId String?
+  category ProgramCategory? @relation(fields: [categoryId], references: [id])
+  description String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

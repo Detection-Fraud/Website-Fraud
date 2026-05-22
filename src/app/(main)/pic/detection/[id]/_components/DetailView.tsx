@@ -6,7 +6,13 @@ import { StatusType } from "@/types/status.types";
 import { Card, Chip, Skeleton } from "@heroui/react";
 import Image from "next/image";
 import Link from "next/link";
-import { FiArrowLeft, FiCalendar, FiImage, FiMapPin, FiUser } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiCalendar,
+  FiImage,
+  FiMapPin,
+  FiUser,
+} from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
 import StatusView from "./StatusView";
 import ActivityTimeline from "@/components/reports/ActivityTimeline";
@@ -14,10 +20,22 @@ import ActivityTimeline from "@/components/reports/ActivityTimeline";
 export default function DetailView({ id }: { id: string }) {
   const { report, loading, user } = useReportDetail(id);
 
+  // PIC bisa resubmit jika laporan milik unit mereka sendiri
+  // Cek ketiga kemungkinan: Kancab, Kanwil, atau Divisi
   const canResubmit =
-    !!user?.branchId &&
-    !!report?.branch?.id &&
-    user.branchId === report.branch.id;
+    // PIC Kancab
+    (!!user?.branchId &&
+      !!report?.branch?.id &&
+      user.branchId === report.branch.id) ||
+    // PIC Kanwil (laporan langsung di kanwil, tidak lewat kancab)
+    (!!user?.regionId &&
+      !user?.branchId &&
+      !!report?.region?.id &&
+      user.regionId === report.region.id) ||
+    // PIC Divisi
+    (!!user?.divisionId &&
+      !!report?.division?.id &&
+      user.divisionId === report.division.id);
 
   const textRole = report?.branch
     ? `Kantor Cabang : ${report.branch.name}`
@@ -117,10 +135,23 @@ export default function DetailView({ id }: { id: string }) {
                 <div className="bg-[#f8fafc] p-[14px] rounded-lg">
                   <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
                     <FiCalendar className="text-slate-500 w-3.5 h-3.5" />
-                    <p className="text-xs">Tanggal</p>
+                    <p className="text-xs">Tanggal Kegiatan</p>
                   </div>
                   <p className="font-semibold text-md text-[#314158]">
-                    {useFormatDate(report?.createdAt)}
+                    {typeof report?.tanggalKegiatan === "string"
+                      ? new Date(report?.tanggalKegiatan).toLocaleDateString(
+                          "id-ID",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          },
+                        )
+                      : report?.tanggalKegiatan?.toLocaleDateString("id-ID", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
                   </p>
                 </div>
 

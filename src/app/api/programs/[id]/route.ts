@@ -61,7 +61,8 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, frequency, startDate, endDate } = body;
+    const { name, frequency, startDate, endDate, categoryId, description } =
+      body;
 
     if (!name || !frequency || !startDate || !endDate) {
       return NextResponse.json(errorResponse("Missing required fields", 400), {
@@ -83,6 +84,8 @@ export async function PUT(
         frequency: parseInt(frequency),
         startDate: new Date(startDate),
         endDate: new Date(endDate),
+        categoryId: categoryId || null,
+        description: description || null,
       },
     });
 
