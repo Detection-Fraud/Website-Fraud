@@ -2,13 +2,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
-import { v2 as cloudinary } from "cloudinary";
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+import { unlink } from "fs/promises";
+import path from "path";
 
 export async function GET(
   request: NextRequest,
@@ -139,8 +134,18 @@ export async function PUT(
     if (photos && photos.length > 0) {
       // Delete dari Cloudinary menggunakan publicId
       for (const photo of existingReport.photos) {
-        if (photo.publicId) {
-          await cloudinary.uploader.destroy(photo.publicId);
+        if (photo.publicId && !photo.imageUrl.startsWith("http")) {
+          try {
+            const filePath = path.join(
+              process.cwd(),
+              "public",
+              "uploads",
+              photo.publicId,
+            );
+            await unlink(filePath);
+          } catch (err) {
+            console.warn(`[WARN] Gagal menghapus file lokal ${photo.publicId}`);
+          }
         }
       }
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -62,7 +63,9 @@ export async function POST(request: Request) {
 
     const referencesJson = references.map((item) => ({
       nama_asli: item.originalName,
-      url: item.imageUrl,
+      url: item.imageUrl.startsWith("http")
+        ? item.imageUrl
+        : `${BASE_URL}${item.imageUrl}`,
     }));
 
     const pythonFormData = new FormData();

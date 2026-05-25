@@ -216,6 +216,7 @@ export default function DetailView({ id }: { id: string }) {
                     alt={`Foto ${idx + 1}`}
                     width={500}
                     height={500}
+                    unoptimized={!photos.imageUrl.startsWith("http")}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
