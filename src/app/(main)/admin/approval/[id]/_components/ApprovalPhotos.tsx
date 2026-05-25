@@ -1,7 +1,7 @@
+import { ActivityReportItem } from "@/types/report.types";
 import { Card, Chip } from "@heroui/react";
 import Image from "next/image";
 import { FiImage } from "react-icons/fi";
-import { ActivityReportItem } from "@/hooks/useReportList";
 
 interface ApprovalPhotosProps {
   report: ActivityReportItem | null;

@@ -1,3 +1,5 @@
+import { UnitType } from "@generated/prisma";
+
 export interface ActivityReportItem {
   id: string;
   activityName: string;
@@ -8,10 +10,8 @@ export interface ActivityReportItem {
   status: string;
   createdAt: string;
   notes?: string | null;
-  region?: { name: string; id: string } | null;
-  branch?: { name: string; id: string } | null;
-  division?: { name: string; id: string } | null;
-  program?: { name: string,  } | null;
+  unit?: { name: string; id: string; type: UnitType } | null;
+  program?: { name: string; id: string } | null;
   photos?: {
     id: number;
     originalName: string;

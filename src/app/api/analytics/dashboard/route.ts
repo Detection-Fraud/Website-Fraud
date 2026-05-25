@@ -35,9 +35,9 @@ async function getDistribusiForRange(
     value: item._count.id,
   }));
 }
+
 export async function GET(request: NextRequest) {
   try {
-    // 1. Cek autentikasi
     const session = await auth();
     const user = session?.user;
 
@@ -47,51 +47,54 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 2. Ambil filter dari query params
     const searchParams = request.nextUrl.searchParams;
-    const regionId = searchParams.get("regionId") || undefined;
-    const branchId = searchParams.get("branchId") || undefined;
+    const kanwilId = searchParams.get("kanwilId") || undefined;
+    const kancabId = searchParams.get("kancabId") || undefined;
+    const divisiId = searchParams.get("divisiId") || undefined;
     const programId = searchParams.get("programId") || undefined;
     const year = parseInt(
       searchParams.get("year") || String(new Date().getFullYear()),
     );
-
     const periode = searchParams.get("periode") || "ALL";
 
-    // 3. Base where clause berdasarkan role
     let whereClause: any = {};
 
+    // 1. Role-based Scope & Filter
     switch (user.role) {
       case "ADMIN":
-        if (regionId) {
-          whereClause.regionId = regionId;
-        }
-        if (branchId) {
-          // Guard: pastikan branchId memang bagian dari regionId yang dipilih
-          // Ini mencegah data kanwil lain bocor masuk jika branchId tidak valid
-          if (regionId) {
-            const branchCheck = await prisma.branch.findFirst({
-              where: { id: branchId, regionId: regionId },
-              select: { id: true },
-            });
-            if (!branchCheck) {
-              // branchId tidak ada di kanwil yang dipilih — abaikan filter branchId
-              // (biarkan filter hanya pada regionId)
-            } else {
-              whereClause.branchId = branchId;
-            }
-          } else {
-            whereClause.branchId = branchId;
-          }
+        if (kancabId) {
+          whereClause.unitId = kancabId;
+        } else if (kanwilId) {
+          const childIds = await prisma.unit.findMany({
+            where: { parentId: kanwilId },
+            select: { id: true },
+          });
+          whereClause.unitId = {
+            in: [kanwilId, ...childIds.map((c) => c.id)],
+          };
+        } else if (divisiId) {
+          whereClause.unitId = divisiId;
         }
         break;
       case "PIC":
-        if (user.branchId) {
-          whereClause.branchId = user.branchId;
-        } else if (user.regionId) {
-          whereClause.regionId = user.regionId;
-        } else if (user.divisionId) {
-          whereClause.divisionId = user.divisionId;
+      case "VIEWER":
+        if (user.unitId) {
+          if (user.unitType === "KANTOR_WILAYAH") {
+            const childIds = await prisma.unit.findMany({
+              where: { parentId: user.unitId },
+              select: { id: true },
+            });
+            whereClause.unitId = {
+              in: [user.unitId, ...childIds.map((c) => c.id)],
+            };
+
+            // Terapkan filter tambahan jika PIC Kanwil memfilter kancab tertentu
+            if (kancabId && childIds.some((c) => c.id === kancabId)) {
+              whereClause.unitId = kancabId;
+            }
+          } else {
+            whereClause.unitId = user.unitId;
+          }
         }
         break;
       default:
@@ -104,7 +107,7 @@ export async function GET(request: NextRequest) {
       whereClause.programId = programId;
     }
 
-    // 4. Summary cards
+    // 2. Summary cards (Total, Approved, Pending, dll)
     let startMonth = 0;
     let endMonth = 11;
 
@@ -157,7 +160,6 @@ export async function GET(request: NextRequest) {
       59,
       59,
     );
-
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(
       now.getFullYear(),
@@ -175,9 +177,6 @@ export async function GET(request: NextRequest) {
       totalRejected,
       laporanBulanIni,
       laporanBulanLalu,
-      branchAktifRaw,
-      regionAktifRaw,
-      divisionAktifRaw,
     ] = await Promise.all([
       prisma.activityReport.count({ where: summaryWhereClause }),
       prisma.activityReport.count({
@@ -201,28 +200,18 @@ export async function GET(request: NextRequest) {
           createdAt: { gte: startOfLastMonth, lte: endOfLastMonth },
         },
       }),
-      prisma.activityReport.groupBy({
-        by: ["branchId"],
-        where: { ...whereClause, branchId: { not: null } },
-      }),
-      prisma.activityReport.groupBy({
-        by: ["regionId"],
-        where: { ...whereClause, regionId: { not: null }, branchId: null },
-      }),
-      prisma.activityReport.groupBy({
-        by: ["divisionId"],
-        where: { ...whereClause, divisionId: { not: null } },
-      }),
     ]);
 
-    const totalUnitAktif =
-      branchAktifRaw.length + regionAktifRaw.length + divisionAktifRaw.length;
+    // Menghitung total unit aktif untuk konteks user saat ini
+    const totalUnitAktifRaw = await prisma.activityReport.groupBy({
+      by: ["unitId"],
+      where: { ...whereClause, unitId: { not: null } },
+    });
+    const totalUnitAktif = totalUnitAktifRaw.length;
 
-    // 5. Kegiatan per bulan, triwulan, dan semester (SAFE COUNTING)
-
+    // 3. Kegiatan per bulan, triwulan, dan semester
     const prevYear = year - 1;
     const months = Array.from({ length: 12 }, (_, i) => i);
-    // Bikin array of promises untuk 12 bulan (Tahun ini & Tahun Lalu)
     const countsPromises = months.flatMap((month) => {
       const startThisYear = new Date(year, month, 1);
       const endThisYear = new Date(year, month + 1, 0, 23, 59, 59);
@@ -243,7 +232,7 @@ export async function GET(request: NextRequest) {
         }),
       ];
     });
-    // Jalankan semua query database secara bersamaan!
+
     const countsResults = await Promise.all(countsPromises);
     const namaBulan = [
       "Jan",
@@ -260,13 +249,12 @@ export async function GET(request: NextRequest) {
       "Des",
     ];
 
-    // --- A. GENERATE DATA BULANAN ---
     const kegiatanPerBulan = namaBulan.map((bulan, index) => ({
       periode: bulan,
-      tahunIni: countsResults[index * 2], // index Genap
-      tahunLalu: countsResults[index * 2 + 1], // index Ganjil
+      tahunIni: countsResults[index * 2],
+      tahunLalu: countsResults[index * 2 + 1],
     }));
-    // --- B. GENERATE DATA TRIWULAN ---
+
     const namaTriwulan = [
       "Triwulan 1",
       "Triwulan 2",
@@ -285,7 +273,7 @@ export async function GET(request: NextRequest) {
           .reduce((sum, item) => sum + item.tahunLalu, 0),
       };
     });
-    // --- C. GENERATE DATA SEMESTER ---
+
     const namaSemester = ["Semester 1", "Semester 2"];
     const kegiatanPerSemester = namaSemester.map((sem, index) => {
       const startIdx = index * 6;
@@ -300,96 +288,44 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 6. Top 5 unit teraktif (gabungan Branch, Region, dan Division)
-    // 6a. Group by Branch
-    const topBranchRaw = await prisma.activityReport.groupBy({
-      by: ["branchId"],
+    // 4. Top 5 unit teraktif
+    const topUnitRaw = await prisma.activityReport.groupBy({
+      by: ["unitId"],
       where: {
         ...whereClause,
-        branchId: { not: null },
+        unitId: { not: null },
       },
       _count: { id: true },
-    });
-
-    const branchIds = topBranchRaw
-      .map((item) => item.branchId)
-      .filter(Boolean) as string[];
-
-    const branches = await prisma.branch.findMany({
-      where: { id: { in: branchIds } },
-      select: { id: true, name: true },
-    });
-
-    const branchUnits = topBranchRaw.map((item) => ({
-      name:
-        branches.find((b) => b.id === item.branchId)?.name || "Unknown Branch",
-      jumlah: item._count.id,
-      type: "Kancab" as const,
-    }));
-
-    // 6b. Group by Region (laporan yang langsung di-assign ke Kanwil, tanpa branch)
-    const topRegionRaw = await prisma.activityReport.groupBy({
-      by: ["regionId"],
-      where: {
-        ...whereClause,
-        regionId: { not: null },
-        branchId: null, // Hanya yang langsung di Kanwil (bukan via kancab)
+      orderBy: {
+        _count: { id: "desc" },
       },
-      _count: { id: true },
+      take: 5,
     });
 
-    const topRegionIds = topRegionRaw
-      .map((item) => item.regionId)
+    const unitIds = topUnitRaw
+      .map((item) => item.unitId)
       .filter(Boolean) as string[];
-
-    const topRegions = await prisma.region.findMany({
-      where: { id: { in: topRegionIds } },
-      select: { id: true, name: true },
+    const unitsData = await prisma.unit.findMany({
+      where: { id: { in: unitIds } },
+      select: { id: true, name: true, type: true },
     });
 
-    const regionUnits = topRegionRaw.map((item) => ({
-      name:
-        topRegions.find((r) => r.id === item.regionId)?.name ||
-        "Unknown Region",
-      jumlah: item._count.id,
-      type: "Kanwil" as const,
-    }));
-
-    // 6c. Group by Division
-    const topDivisionRaw = await prisma.activityReport.groupBy({
-      by: ["divisionId"],
-      where: {
-        ...whereClause,
-        divisionId: { not: null },
-      },
-      _count: { id: true },
+    const topUnit = topUnitRaw.map((item) => {
+      const unitInfo = unitsData.find((u) => u.id === item.unitId);
+      return {
+        name: unitInfo?.name || "Unknown Unit",
+        jumlah: item._count.id,
+        type:
+          unitInfo?.type === "KANTOR_CABANG"
+            ? "Kancab"
+            : unitInfo?.type === "KANTOR_WILAYAH"
+              ? "Kanwil"
+              : "Divisi",
+      };
     });
 
-    const divisionIds = topDivisionRaw
-      .map((item) => item.divisionId)
-      .filter(Boolean) as string[];
-
-    const divisions = await prisma.division.findMany({
-      where: { id: { in: divisionIds } },
-      select: { id: true, name: true },
-    });
-
-    const divisionUnits = topDivisionRaw.map((item) => ({
-      name:
-        divisions.find((d) => d.id === item.divisionId)?.name ||
-        "Unknown Division",
-      jumlah: item._count.id,
-      type: "Divisi" as const,
-    }));
-
-    // 6d. Gabungkan semua, urutkan, ambil top 5
-    const topUnit = [...branchUnits, ...regionUnits, ...divisionUnits]
-      .sort((a, b) => b.jumlah - a.jumlah)
-      .slice(0, 5);
-
-    // 7. Distribusi program budaya
+    // 5. Distribusi program budaya
     let distribusiProgram: any[] = [];
-
     switch (periode) {
       case "TW1":
         distribusiProgram = await getDistribusiForRange(
@@ -397,7 +333,7 @@ export async function GET(request: NextRequest) {
           0,
           2,
           year,
-        ); // Jan-Mar
+        );
         break;
       case "TW2":
         distribusiProgram = await getDistribusiForRange(
@@ -405,7 +341,7 @@ export async function GET(request: NextRequest) {
           3,
           5,
           year,
-        ); // Apr-Jun
+        );
         break;
       case "TW3":
         distribusiProgram = await getDistribusiForRange(
@@ -413,7 +349,7 @@ export async function GET(request: NextRequest) {
           6,
           8,
           year,
-        ); // Jul-Sep
+        );
         break;
       case "TW4":
         distribusiProgram = await getDistribusiForRange(
@@ -421,7 +357,7 @@ export async function GET(request: NextRequest) {
           9,
           11,
           year,
-        ); // Okt-Des
+        );
         break;
       case "SM1":
         distribusiProgram = await getDistribusiForRange(
@@ -429,7 +365,7 @@ export async function GET(request: NextRequest) {
           0,
           5,
           year,
-        ); // Jan-Jun
+        );
         break;
       case "SM2":
         distribusiProgram = await getDistribusiForRange(
@@ -437,11 +373,10 @@ export async function GET(request: NextRequest) {
           6,
           11,
           year,
-        ); // Jul-Des
+        );
         break;
       case "ALL":
       default:
-        // Sepanjang tahun (Januari - Desember)
         distribusiProgram = await getDistribusiForRange(
           whereClause,
           0,
@@ -451,14 +386,7 @@ export async function GET(request: NextRequest) {
         break;
     }
 
-    // 8. Ranking wilayah
-    //
-    // Strategi:
-    // - Jika branchId spesifik dipilih → group by branchId (tampil per kancab)
-    // - Jika hanya regionId dipilih → group by regionId DENGAN filter ketat regionId
-    //   agar tidak ada data kanwil lain yang "bocor" masuk karena anomali data
-    // - Jika semua ALL → group by regionId, tampilkan semua kanwil
-
+    // 6. Ranking wilayah
     let rankingWilayah: {
       rank: number;
       name: string;
@@ -469,112 +397,56 @@ export async function GET(request: NextRequest) {
       status: string;
     }[] = [];
 
-    if (branchId) {
-      // === MODE: Filter per Kancab ===
-      // Group by branchId agar hanya kancab yang dipilih yang tampil
-      // Prisma groupBy tidak bisa order by field kalkulasi (approvalRate)
-      // jadi kita ambil semua data dulu, hitung approvalRate, lalu sort di JS
-      const rankingRawBranch = await prisma.activityReport.groupBy({
-        by: ["branchId"],
-        where: {
-          ...whereClause,
-          branchId: { not: null },
-        },
-        _count: { id: true },
-      });
+    if (kancabId || (user.unitType === "KANTOR_WILAYAH" && kancabId)) {
+      // Mode spesifik 1 kancab: hanya kancab tsb
+      const kancab = await prisma.unit.findUnique({ where: { id: kancabId } });
+      if (kancab) {
+        const totalKegiatanRaw = await prisma.activityReport.count({
+          where: { ...whereClause, unitId: kancabId },
+        });
+        const totalDisetujuiRaw = await prisma.activityReport.count({
+          where: { ...whereClause, unitId: kancabId, status: "APPROVED" },
+        });
+        const approvalRate =
+          totalKegiatanRaw > 0
+            ? (totalDisetujuiRaw / totalKegiatanRaw) * 100
+            : 0;
 
-      const approvedRawBranch = await prisma.activityReport.groupBy({
-        by: ["branchId"],
-        where: {
-          ...whereClause,
-          branchId: { not: null },
-          status: "APPROVED",
-        },
-        _count: { id: true },
-      });
+        let statusText = "Perlu Perhatian";
+        if (approvalRate >= 90) statusText = "Sangat Baik";
+        else if (approvalRate >= 80) statusText = "Baik";
+        else if (approvalRate >= 70) statusText = "Cukup";
 
-      const branchIdsRanking = rankingRawBranch
-        .map((item) => item.branchId)
-        .filter(Boolean) as string[];
-
-      const branchesList = await prisma.branch.findMany({
-        where: { id: { in: branchIdsRanking } },
-        select: { id: true, name: true },
-      });
-
-      rankingWilayah = rankingRawBranch
-        .map((item) => {
-          const totalKegiatan = item._count.id;
-          const totalDisetujui =
-            approvedRawBranch.find((a) => a.branchId === item.branchId)?._count
-              .id || 0;
-
-          const approvalRate =
-            totalKegiatan > 0 ? (totalDisetujui / totalKegiatan) * 100 : 0;
-
-          let statusText = "Perlu Perhatian";
-          if (approvalRate >= 90) statusText = "Sangat Baik";
-          else if (approvalRate >= 80) statusText = "Baik";
-          else if (approvalRate >= 70) statusText = "Cukup";
-
-          return {
-            name:
-              branchesList.find((b) => b.id === item.branchId)?.name ||
-              "Unknown Kancab",
-            unit: 0,
-            kegiatan: totalKegiatan,
-            disetujui: totalDisetujui,
-            approvalRate: Number(approvalRate.toFixed(1)),
-            status: statusText,
-          };
-        })
-        // Sort by approvalRate desc, tie-break: kegiatan desc
-        .sort((a, b) => b.approvalRate - a.approvalRate || b.kegiatan - a.kegiatan)
-        .map((item, index) => ({ ...item, rank: index + 1 }));
-    } else {
-      // === MODE: Filter per Kanwil ===
-      // Jika regionId dipilih → filter KETAT hanya regionId tsb
-      // Jika ALL → tampilkan semua kanwil
-      const rankingWhereClause: any = {
-        ...whereClause,
-        regionId: { not: null },
-      };
-
-      // Jika regionId spesifik dipilih, pastikan hanya regionId itu yang muncul
-      // (mencegah bocornya data dari kanwil lain akibat anomali data)
-      if (regionId) {
-        rankingWhereClause.regionId = regionId;
+        rankingWilayah.push({
+          rank: 1,
+          name: kancab.name,
+          unit: 0,
+          kegiatan: totalKegiatanRaw,
+          disetujui: totalDisetujuiRaw,
+          approvalRate: Number(approvalRate.toFixed(1)),
+          status: statusText,
+        });
       }
+    } else if (kanwilId || user.unitType === "KANTOR_WILAYAH") {
+      // Filter spesifik 1 Kanwil, list semua kancab di bawahnya
+      const activeKanwilId = kanwilId || user.unitId;
+      const kancabs = await prisma.unit.findMany({
+        where: { parentId: activeKanwilId, type: "KANTOR_CABANG" },
+      });
 
-      // Prisma groupBy tidak bisa order by field kalkulasi (approvalRate)
-      // jadi kita ambil semua data dulu, hitung approvalRate, lalu sort di JS
       const rankingRaw = await prisma.activityReport.groupBy({
-        by: ["regionId"],
-        where: rankingWhereClause,
+        by: ["unitId"],
+        where: { ...whereClause, unitId: { in: kancabs.map((k) => k.id) } },
         _count: { id: true },
       });
 
       const approvedRaw = await prisma.activityReport.groupBy({
-        by: ["regionId"],
+        by: ["unitId"],
         where: {
-          ...rankingWhereClause,
+          ...whereClause,
+          unitId: { in: kancabs.map((k) => k.id) },
           status: "APPROVED",
         },
-        _count: { id: true },
-      });
-
-      const regionIds = rankingRaw
-        .map((item) => item.regionId)
-        .filter(Boolean) as string[];
-
-      const regionsList = await prisma.region.findMany({
-        where: { id: { in: regionIds } },
-        select: { id: true, name: true },
-      });
-
-      const branchCounts = await prisma.branch.groupBy({
-        by: ["regionId"],
-        where: { regionId: { in: regionIds } },
         _count: { id: true },
       });
 
@@ -582,11 +454,7 @@ export async function GET(request: NextRequest) {
         .map((item) => {
           const totalKegiatan = item._count.id;
           const totalDisetujui =
-            approvedRaw.find((a) => a.regionId === item.regionId)?._count.id || 0;
-          const unitCount =
-            branchCounts.find((b) => b.regionId === item.regionId)?._count.id ||
-            0;
-
+            approvedRaw.find((a) => a.unitId === item.unitId)?._count.id || 0;
           const approvalRate =
             totalKegiatan > 0 ? (totalDisetujui / totalKegiatan) * 100 : 0;
 
@@ -596,21 +464,69 @@ export async function GET(request: NextRequest) {
           else if (approvalRate >= 70) statusText = "Cukup";
 
           return {
-            name:
-              regionsList.find((r) => r.id === item.regionId)?.name || "Unknown",
-            unit: unitCount,
+            name: kancabs.find((k) => k.id === item.unitId)?.name || "Unknown",
+            unit: 0, // 0 kancab bawahan karena ini sudah kancab
             kegiatan: totalKegiatan,
             disetujui: totalDisetujui,
             approvalRate: Number(approvalRate.toFixed(1)),
             status: statusText,
           };
         })
-        // Sort by approvalRate desc, tie-break: kegiatan desc
-        .sort((a, b) => b.approvalRate - a.approvalRate || b.kegiatan - a.kegiatan)
+        .sort(
+          (a, b) => b.approvalRate - a.approvalRate || b.kegiatan - a.kegiatan,
+        )
+        .map((item, index) => ({ ...item, rank: index + 1 }));
+    } else {
+      // Tampilkan semua Kanwil (beserta agregasi kancab di bawahnya)
+      const allKanwils = await prisma.unit.findMany({
+        where: { type: "KANTOR_WILAYAH" },
+        include: { children: true },
+      });
+
+      // Buat mapping kanwilId ke semua ID unit bawahannya (termasuk kanwil itu sendiri)
+      for (const kanwil of allKanwils) {
+        const unitIdsToAgg = [kanwil.id, ...kanwil.children.map((c) => c.id)];
+
+        const totalKegiatan = await prisma.activityReport.count({
+          where: { ...whereClause, unitId: { in: unitIdsToAgg } },
+        });
+
+        if (totalKegiatan > 0) {
+          const totalDisetujui = await prisma.activityReport.count({
+            where: {
+              ...whereClause,
+              unitId: { in: unitIdsToAgg },
+              status: "APPROVED",
+            },
+          });
+
+          const approvalRate =
+            totalKegiatan > 0 ? (totalDisetujui / totalKegiatan) * 100 : 0;
+
+          let statusText = "Perlu Perhatian";
+          if (approvalRate >= 90) statusText = "Sangat Baik";
+          else if (approvalRate >= 80) statusText = "Baik";
+          else if (approvalRate >= 70) statusText = "Cukup";
+
+          rankingWilayah.push({
+            rank: 0,
+            name: kanwil.name,
+            unit: kanwil.children.length, // Total kancab di kanwil ini
+            kegiatan: totalKegiatan,
+            disetujui: totalDisetujui,
+            approvalRate: Number(approvalRate.toFixed(1)),
+            status: statusText,
+          });
+        }
+      }
+
+      rankingWilayah = rankingWilayah
+        .sort(
+          (a, b) => b.approvalRate - a.approvalRate || b.kegiatan - a.kegiatan,
+        )
         .map((item, index) => ({ ...item, rank: index + 1 }));
     }
 
-    // 9. Return response
     return NextResponse.json(
       successResponse(
         {

@@ -76,12 +76,11 @@ export const authConfig: NextAuthConfig = {
         token.role = user.role as string;
         token.username = user.username as string;
         token.name = user.name as string;
-        token.regionId = user.regionId || null;
-        token.branchId = user.branchId || null;
-        token.divisionId = user.divisionId || null;
-        token.regionName = user.regionName || null;
-        token.branchName = user.branchName || null;
-        token.divisionName = user.divisionName || null;
+        token.unitId = user.unitId || null;
+        token.unitName = user.unitName || null;
+        token.unitType = user.unitType || null;
+        token.parentUnitId = user.parentUnitId || null;
+        token.parentUnitName = user.parentUnitName || null;
       }
       return token;
     },
@@ -93,12 +92,11 @@ export const authConfig: NextAuthConfig = {
         session.user.role = token.role as string;
         session.user.username = token.username as string;
         session.user.name = token.name as string;
-        session.user.regionId = token.regionId as string | null;
-        session.user.branchId = token.branchId as string | null;
-        session.user.divisionId = token.divisionId as string | null;
-        session.user.regionName = token.regionName as string | null;
-        session.user.branchName = token.branchName as string | null;
-        session.user.divisionName = token.divisionName as string | null;
+        session.user.unitId = token.unitId as string | null;
+        session.user.unitName = token.unitName as string | null;
+        session.user.unitType = token.unitType as string | null;
+        session.user.parentUnitId = token.parentUnitId as string | null;
+        session.user.parentUnitName = token.parentUnitName as string | null;
       }
       return session;
     },

@@ -3,9 +3,7 @@ export interface CalendarSubmission {
   tanggalKegiatan: string;
   status: "APPROVED" | "PENDING" | "REJECTED";
   programId: string | null;
-  regionId: string | null;
-  branchId: string | null;
-  divisionId: string | null;
+  unitId: string | null;
 }
 
 export interface ProgramBand {

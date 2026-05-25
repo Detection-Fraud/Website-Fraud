@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ActivityReportItem, SummaryStats } from "@/types/report.types";
@@ -32,7 +30,6 @@ export function useReportList() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  // Baca state dari URL
   const page = Number(searchParams.get("page") || "1");
   const limit = Number(searchParams.get("limit") || "10");
   const search = searchParams.get("search") || "";
@@ -40,16 +37,14 @@ export function useReportList() {
   const statusFilter = searchParams.get("status") || "ALL";
   const programFilter = searchParams.get("programId") || "ALL";
 
-  const regionFilter = searchParams.get("regionId") || "ALL";
-  const branchFilter = searchParams.get("branchId") || "ALL";
+  // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
+  const kanwilFilter = searchParams.get("kanwilId") || "ALL";
+  const kancabFilter = searchParams.get("kancabId") || "ALL";
 
-  // State lokal untuk search input (biar ga fetch setiap ketik)
   const [searchInput, setSearchInput] = useState(search);
 
-  // Helper untuk update URL search params
   const updateParams = (newParams: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
-
     Object.entries(newParams).forEach(([key, value]) => {
       if (value) {
         params.set(key, value);
@@ -60,24 +55,22 @@ export function useReportList() {
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  // Handler: trigger search dan reset ke page 1
   const handleSearch = () => {
     updateParams({ search: searchInput, page: "1" });
   };
 
-  // Handler: clear search
   const handleClearSearch = () => {
     setSearchInput("");
     updateParams({ search: "", page: "1" });
   };
 
-  // Fetch data setiap kali page/limit/search berubah
   useEffect(() => {
     const fetchReports = async () => {
       setIsLoading(true);
       try {
+        // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
         const response = await fetch(
-          `/api/reports?page=${page}&limit=${limit}&search=${search}&status=${statusFilter}&programId=${programFilter}&regionId=${regionFilter}&branchId=${branchFilter}`,
+          `/api/reports?page=${page}&limit=${limit}&search=${search}&status=${statusFilter}&programId=${programFilter}&kanwilId=${kanwilFilter}&kancabId=${kancabFilter}`,
         );
         const json = await response.json();
 
@@ -104,11 +97,10 @@ export function useReportList() {
     search,
     statusFilter,
     programFilter,
-    regionFilter,
-    branchFilter,
+    kanwilFilter, // dulunya regionFilter
+    kancabFilter, // dulunya branchFilter
   ]);
 
-  // Sync searchInput saat URL berubah (misal user klik Back)
   const [prevSearch, setPrevSearch] = useState(search);
   if (search !== prevSearch) {
     setPrevSearch(search);
@@ -116,28 +108,20 @@ export function useReportList() {
   }
 
   return {
-    // Data
     reports,
     pagination,
     isLoading,
     error,
-
-    // Search
     searchInput,
     setSearchInput,
     handleSearch,
     handleClearSearch,
-
-    // Pagination / URL
     updateParams,
-
     summary,
     statusFilter,
-    // Navigation
     router,
-
-    regionFilter,
-    branchFilter,
+    kanwilFilter, // dulunya regionFilter
+    kancabFilter, // dulunya branchFilter
     programFilter,
   };
 }

@@ -1,11 +1,12 @@
-export interface Branch {
+export interface UnitChild {
   id: string;
   name: string;
-  regionId: string;
+  type: string;
 }
 
 export interface RegionWithBranches {
   id: string;
   name: string;
-  branches: Branch[];
+  type?: string;
+  children: UnitChild[];
 }

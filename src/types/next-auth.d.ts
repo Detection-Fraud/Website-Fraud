@@ -8,24 +8,22 @@ declare module "next-auth" {
       role: string;
       username: string;
       name: string;
-      regionId: string | null;
-      branchId: string | null;
-      divisionId: string | null;
-      regionName: string | null;
-      branchName: string | null;
-      divisionName: string | null;
+      unitId: string | null;
+      unitName: string | null;
+      unitType: string | null;
+      parentUnitId: string | null;
+      parentUnitName: string | null;
     } & DefaultSession["user"];
   }
 
   interface User extends DefaultUser {
     role: string;
     username: string;
-    regionId: string | null;
-    branchId: string | null;
-    divisionId: string | null;
-    regionName: string | null;
-    branchName: string | null;
-    divisionName: string | null;
+    unitId: string | null;
+    unitName: string | null;
+    unitType: string | null;
+    parentUnitId: string | null;
+    parentUnitName: string | null;
   }
 }
 
@@ -35,11 +33,10 @@ declare module "next-auth/jwt" {
     role: string;
     username: string;
     name: string;
-    regionId: string | null;
-    branchId: string | null;
-    divisionId: string | null;
-    regionName: string | null;
-    branchName: string | null;
-    divisionName: string | null;
+    unitId: string | null;
+    unitName: string | null;
+    unitType: string | null;
+    parentUnitId: string | null;
+    parentUnitName: string | null;
   }
 }

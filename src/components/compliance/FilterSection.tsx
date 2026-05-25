@@ -1,36 +1,28 @@
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { FilterOption, TabUnitType } from "@/types/compliance.types";
-import {
-  Label,
-  ListBox,
-  Select,
-  Button,
-  TagGroup,
-  Tag,
-  Card,
-} from "@heroui/react";
-import { useEffect, useState } from "react";
+import { Button, Card, Tag, TagGroup } from "@heroui/react";
+import { useState } from "react";
 import { FiDownload, FiX } from "react-icons/fi";
 import FilterProgram from "../ui/FilterProgram";
-import SelectWilayah from "../ui/SelectWilayah";
 import SelectKancab from "../ui/SelectKancab";
+import SelectWilayah from "../ui/SelectWilayah";
 
 interface FilterSectionProps {
   filters: {
-    regionId: string;
-    branchId: string;
-    divisionId: string;
+    kanwilId: string;
+    kancabId: string;
+    divisiId: string;
     programId: string;
   };
   options: {
-    regionsList: FilterOption[];
-    divisionList: FilterOption[];
+    kanwilList: FilterOption[];
+    divisiList: FilterOption[];
     programList: FilterOption[];
-    branchList: FilterOption[];
+    kancabList?: FilterOption[];
   };
-  handleRegionChange: (value: string) => void;
-  handleBranchChange: (value: string) => void;
-  handleDivisionChange: (value: string) => void;
+  handleKanwilChange: (value: string) => void;
+  handleKancabChange: (value: string) => void;
+  handleDivisiChange: (value: string) => void;
   handleProgramChange: (value: string) => void;
   isFilterActive: boolean;
   activeTab: TabUnitType;
@@ -39,44 +31,42 @@ interface FilterSectionProps {
 export default function FilterSection({
   filters,
   options,
-  handleBranchChange,
-  handleDivisionChange,
+  handleKancabChange,
+  handleDivisiChange,
   handleProgramChange,
-  handleRegionChange,
+  handleKanwilChange,
   isFilterActive,
   activeTab,
   handleTabChange,
 }: FilterSectionProps) {
   const { user } = useCurrentUser();
 
-  const isPICBranch = user?.role === "PIC" && user.branchId;
-  const isPICDivision = user?.role === "PIC" && user.divisionId;
-  const isPICRegion = user?.role === "PIC" && user.regionId && !user.branchId;
+  const isPICKancab = user?.role === "PIC" && user.unitType === "KANTOR_CABANG";
+  const isPICDivisi = user?.role === "PIC" && user.unitType === "DIVISI";
+  const isPICKanwil =
+    user?.role === "PIC" && user.unitType === "KANTOR_WILAYAH";
 
-  const hideTags = isPICBranch || isPICDivision;
+  const hideTags = isPICKancab || isPICDivisi;
 
-  const hideTagNasional = isPICRegion;
-  const hideTagPusat = isPICRegion;
+  const hideTagNasional = isPICKanwil;
+  const hideTagPusat = isPICKanwil;
 
-  const hideSelectWilayah = isPICBranch || isPICDivision || isPICRegion;
-  const hideSelectKancab = isPICBranch || isPICDivision;
-  const hideSelectDivisi = isPICBranch || isPICRegion;
+  const hideSelectWilayah = isPICKancab || isPICDivisi || isPICKanwil;
+  const hideSelectKancab = isPICKancab || isPICDivisi;
 
-  const [prevIsPICRegion, setPrevIsPICRegion] = useState(isPICRegion);
+  const [prevIsPICKanwil, setPrevIsPICKanwil] = useState(isPICKanwil);
   const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
 
-  if (isPICRegion !== prevIsPICRegion || activeTab !== prevActiveTab) {
-    setPrevIsPICRegion(isPICRegion);
+  if (isPICKanwil !== prevIsPICKanwil || activeTab !== prevActiveTab) {
+    setPrevIsPICKanwil(isPICKanwil);
     setPrevActiveTab(activeTab);
-    if (isPICRegion && activeTab === "NASIONAL") {
-      handleTabChange("REGION_AND_BRANCH");
+    if (isPICKanwil && activeTab === "NASIONAL") {
+      handleTabChange("KANWIL_AND_KANCAB");
     }
   }
   return (
     <Card>
-      <Card.Header>
-        <Card.Title>Filter</Card.Title>
-      </Card.Header>
+      <Card.Header>{!hideTags && <Card.Title>Filter</Card.Title>}</Card.Header>
       <Card.Content className="space-y-4">
         {!hideTags && (
           <div>
@@ -93,11 +83,11 @@ export default function FilterSection({
                 {!hideTagNasional && (
                   <Tag id={"NASIONAL"}>Nasional (Semua)</Tag>
                 )}
-                <Tag id={"REGION_AND_BRANCH"}>Kanwil & Kancab</Tag>
-                <Tag id={"REGION"}>Kantor Wilayah</Tag>
-                <Tag id={"BRANCH"}>Kantor Cabang</Tag>
+                <Tag id={"KANWIL_AND_KANCAB"}>Kanwil & Kancab</Tag>
+                <Tag id={"KANWIL"}>Kantor Wilayah</Tag>
+                <Tag id={"KANCAB"}>Kantor Cabang</Tag>
 
-                {!hideTagPusat && <Tag id={"DIVISION"}>Kantor Pusat</Tag>}
+                {!hideTagPusat && <Tag id={"DIVISI"}>Kantor Pusat</Tag>}
               </TagGroup.List>
             </TagGroup>
           </div>
@@ -108,25 +98,25 @@ export default function FilterSection({
             onChange={(val) => handleProgramChange(val)}
           />
           {!hideSelectWilayah &&
-            (activeTab === "REGION_AND_BRANCH" ||
-              activeTab === "REGION" ||
-              activeTab === "BRANCH") && (
+            (activeTab === "KANWIL_AND_KANCAB" ||
+              activeTab === "KANWIL" ||
+              activeTab === "KANCAB") && (
               <SelectWilayah
-                regions={options?.regionsList || []}
-                value={filters.regionId}
-                onChange={(val) => handleRegionChange(val)}
+                regions={options?.kanwilList || []}
+                value={filters.kanwilId}
+                onChange={(val) => handleKanwilChange(val)}
                 className="w-48"
               />
             )}
 
-          {!hideSelectKancab && activeTab === "BRANCH" && (
+          {!hideSelectKancab && activeTab === "KANCAB" && (
             <SelectKancab
-              branches={options?.branchList || []}
-              value={filters.branchId}
+              branches={options?.kancabList || []}
+              value={filters.kancabId}
               isDisabled={
-                !options?.branchList || options.branchList.length === 0
+                !options?.kancabList || options.kancabList.length === 0
               }
-              onChange={(val) => handleBranchChange(val)}
+              onChange={(val) => handleKancabChange(val)}
               className="w-59"
             />
           )}
@@ -137,11 +127,11 @@ export default function FilterSection({
               variant="danger-soft"
               size="sm"
               onPress={() => {
-                handleBranchChange("ALL");
-                handleDivisionChange("ALL");
+                handleKancabChange("ALL");
+                handleDivisiChange("ALL");
                 handleProgramChange("ALL");
-                handleRegionChange("ALL");
-                handleTabChange(isPICRegion ? "REGION_AND_BRANCH" : "NASIONAL");
+                handleKanwilChange("ALL");
+                handleTabChange(isPICKanwil ? "KANWIL_AND_KANCAB" : "NASIONAL");
               }}
             >
               <FiX />

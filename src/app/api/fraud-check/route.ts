@@ -28,16 +28,22 @@ export async function POST(request: Request) {
 
     switch (user.role) {
       case "ADMIN":
-        // Admin bisa cek fraud terhadap semua foto
         break;
       case "PIC":
-        // PIC hanya cek fraud dari foto di level penempatannya
-        if (user.branchId) {
-          reportWhereClause = { branchId: user.branchId };
-        } else if (user.regionId) {
-          reportWhereClause = { regionId: user.regionId, branchId: null };
-        } else if (user.divisionId) {
-          reportWhereClause = { divisionId: user.divisionId };
+        if (user.unitId) {
+          if (user.unitType === "KANTOR_WILAYAH") {
+            const childIds = await prisma.unit.findMany({
+              where: { parentId: user.unitId },
+              select: { id: true },
+            });
+            reportWhereClause = {
+              unitId: {
+                in: [user.unitId, ...childIds.map((c) => c.id)],
+              },
+            };
+          } else {
+            reportWhereClause = { unitId: user.unitId };
+          }
         }
         break;
       case "VIEWER":

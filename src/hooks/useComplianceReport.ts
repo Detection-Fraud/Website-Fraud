@@ -9,32 +9,41 @@ import { useCurrentUser } from "./useCurrentUser";
 
 export function useComplianceReport() {
   const { user } = useCurrentUser();
-  // --- 1. STATE FILTER REGION, BRANCH, DIVISION AND PROGRAM ---
-  const [regionId, setRegionId] = useState<string>("ALL");
-  const [branchId, setBranchId] = useState<string>("ALL");
-  const [divisionId, setDivisionId] = useState<string>("ALL");
+
+  // === PERUBAHAN: regionId/branchId/divisionId → kanwilId/kancabId/divisiId ===
+  const [kanwilId, setKanwilId] = useState<string>("ALL");
+  const [kancabId, setKancabId] = useState<string>("ALL");
+  const [divisiId, setDivisiId] = useState<string>("ALL");
   const [programId, setProgramId] = useState<string>("ALL");
 
   const [activeTab, setActiveTab] = useState<TabUnitType>("NASIONAL");
 
-  //   --- 2. STATE FOR FILTER VALUES FROM API ---
+  useEffect(() => {
+    if (user?.role === "PIC" && activeTab === "NASIONAL") {
+      if (user.unitType === "KANTOR_WILAYAH") {
+        setActiveTab("KANWIL_AND_KANCAB");
+      } else if (user.unitType === "KANTOR_CABANG") {
+        setActiveTab("KANCAB");
+      } else if (user.unitType === "DIVISI") {
+        setActiveTab("DIVISI")
+      }
+    }
+  }, [user?.role, user?.unitType, activeTab]);
   const [options, setOptions] = useState<ComplianceFilterOptions>({
-    regionsList: [],
-    divisionList: [],
+    kanwilList: [], // dulunya regionsList
+    divisiList: [], // dulunya divisionList
+    kancabList: [],
     programList: [],
   });
 
-  // --- 3. STATE FOR BRANCH LIST AND DATA FROM FILTER ---
-  const [branchList, setBranchList] = useState<FilterOption[]>([]);
+  const [kancabList, setKancabList] = useState<FilterOption[]>([]);
   const [data, setData] = useState<ComplianceResponse | null>(null);
 
-  //  --- 4. FOR LOADING STATE & ERROR STATE ---
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false);
-  const [isLoadingBranches, setIsLoadingBranches] = useState<boolean>(false);
+  const [isLoadingKancab, setIsLoadingKancab] = useState<boolean>(false);
   const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  //   --- 5. FETCH OPTION DATA FROM API ---
   useEffect(() => {
     async function fetchInitialOptions() {
       try {
@@ -56,25 +65,26 @@ export function useComplianceReport() {
     fetchInitialOptions();
   }, []);
 
-  // --- 6. FETCH BRANCH LIST BASED ON REGION ATAU USER REGION ID ---
+  // === PERUBAHAN: fetch kancab berdasarkan kanwilId (parentId) ===
   useEffect(() => {
-    async function fetchBranches() {
-      // Jika Admin dan belum milih region, jangan fetch
-      // Jika PIC Kanwil, regionId dari user otomatis dipakai
-      const effectiveRegionId = user?.role === "PIC" && user?.regionId ? user.regionId : regionId;
+    async function fetchKancab() {
+      const effectiveKanwilId =
+        user?.role === "PIC" && user?.unitType === "KANTOR_WILAYAH"
+          ? user.unitId
+          : kanwilId;
 
-      if (effectiveRegionId === "ALL" || !effectiveRegionId) {
-        setBranchList([]);
+      if (effectiveKanwilId === "ALL" || !effectiveKanwilId) {
+        setKancabList([]);
         return;
       }
       try {
-        setIsLoadingBranches(true);
+        setIsLoadingKancab(true);
         const res = await fetch(
-          `/api/reports/filter-options/kancab?regionId=${effectiveRegionId}`,
+          `/api/reports/filter-options/kancab?kanwilId=${effectiveKanwilId}`,
         );
         const json = await res.json();
         if (!json.error && json.data) {
-          setBranchList(json.data);
+          setKancabList(json.data);
         } else {
           setError(json.message || "Gagal memuat daftar cabang");
         }
@@ -82,13 +92,11 @@ export function useComplianceReport() {
         console.error("GAGAL MEMUAT KANCAB!: ", error);
         setError("Error saat memuat data cabang");
       } finally {
-        setIsLoadingBranches(false);
+        setIsLoadingKancab(false);
       }
     }
-    fetchBranches();
-  }, [regionId, user?.role, user?.regionId]);
-
-  //   --- 7. FETCH COMPLIANCE DATA ---
+    fetchKancab();
+  }, [kanwilId, user?.role, user?.unitId, user?.unitType]);
 
   const fetchComplianceData = useCallback(async () => {
     try {
@@ -98,9 +106,9 @@ export function useComplianceReport() {
       const params = new URLSearchParams();
       if (activeTab !== "NASIONAL") params.append("unitType", activeTab);
       if (programId !== "ALL") params.append("programId", programId);
-      if (regionId !== "ALL") params.append("regionId", regionId);
-      if (branchId !== "ALL") params.append("branchId", branchId);
-      if (divisionId !== "ALL") params.append("divisionId", divisionId);
+      if (kanwilId !== "ALL") params.append("kanwilId", kanwilId);
+      if (kancabId !== "ALL") params.append("kancabId", kancabId);
+      if (divisiId !== "ALL") params.append("divisiId", divisiId);
 
       const res = await fetch(`/api/reports/compliance?${params.toString()}`);
       const json = await res.json();
@@ -117,7 +125,7 @@ export function useComplianceReport() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [programId, regionId, branchId, divisionId, activeTab]);
+  }, [programId, kanwilId, kancabId, divisiId, activeTab]);
 
   useEffect(() => {
     let active = true;
@@ -131,22 +139,22 @@ export function useComplianceReport() {
     };
   }, [fetchComplianceData]);
 
-  //   --- 8. RESET FILTER WHEN USER CLEAR THE FILTER
-  const handleRegionChange = (newRegionId: string) => {
-    setRegionId(newRegionId);
-    setBranchId("ALL");
-    setDivisionId("ALL");
+  // === PERUBAHAN: Cascading filter — Kanwil/Kancab mutually exclusive dengan Divisi ===
+  const handleKanwilChange = (newKanwilId: string) => {
+    setKanwilId(newKanwilId);
+    setKancabId("ALL");
+    setDivisiId("ALL");
   };
 
-  const handleBranchChange = (newBranchId: string) => {
-    setBranchId(newBranchId);
-    setDivisionId("ALL");
+  const handleKancabChange = (newKancabId: string) => {
+    setKancabId(newKancabId);
+    setDivisiId("ALL");
   };
 
-  const handleDivisionChange = (newDivisionId: string) => {
-    setDivisionId(newDivisionId);
-    setRegionId("ALL");
-    setBranchId("ALL");
+  const handleDivisiChange = (newDivisiId: string) => {
+    setDivisiId(newDivisiId);
+    setKanwilId("ALL");
+    setKancabId("ALL");
   };
 
   const handleProgramChange = (newProgramId: string) => {
@@ -155,38 +163,32 @@ export function useComplianceReport() {
 
   const handleTabChange = (newTab: TabUnitType) => {
     setActiveTab(newTab);
-    setRegionId("ALL");
-    setBranchId("ALL");
-    setDivisionId("ALL");
+    setKanwilId("ALL");
+    setKancabId("ALL");
+    setDivisiId("ALL");
   };
 
   return {
-    // STATE FILTER ACTIVE
     activeTab,
     handleTabChange,
     filters: {
-      regionId,
-      branchId,
-      divisionId,
+      kanwilId, // dulunya regionId
+      kancabId, // dulunya branchId
+      divisiId, // dulunya divisionId
       programId,
     },
-    // OPSI FOR DROPDOWN
     options: {
       ...options,
-      branchList,
+      kancabList, // dulunya branchList
     },
-    // DATA COMPLIANCE
     data,
-    // STATUS
     isLoading: isLoadingOptions || isLoadingData,
-    isLoadingBranches,
+    isLoadingKancab, // dulunya isLoadingBranches
     error,
-    // HANDLERS
-    handleRegionChange,
-    handleBranchChange,
-    handleDivisionChange,
+    handleKanwilChange, // dulunya handleRegionChange
+    handleKancabChange, // dulunya handleBranchChange
+    handleDivisiChange, // dulunya handleDivisionChange
     handleProgramChange,
-    // REFETCH TRIGGER
     refetch: fetchComplianceData,
   };
 }

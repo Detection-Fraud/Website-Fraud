@@ -21,18 +21,19 @@ export async function GET(req: Request) {
       searchParams.get("year") || new Date().getFullYear().toString(),
     );
 
-    const regionId =
-      searchParams.get("regionId") === "ALL"
+    // === PERUBAHAN: kanwilId/kancabId/divisiId (bukan regionId/branchId/divisionId) ===
+    const kanwilId =
+      searchParams.get("kanwilId") === "ALL"
         ? null
-        : searchParams.get("regionId");
-    const branchId =
-      searchParams.get("branchId") === "ALL"
+        : searchParams.get("kanwilId");
+    const kancabId =
+      searchParams.get("kancabId") === "ALL"
         ? null
-        : searchParams.get("branchId");
-    const divisionId =
-      searchParams.get("divisionId") === "ALL"
+        : searchParams.get("kancabId");
+    const divisiId =
+      searchParams.get("divisiId") === "ALL"
         ? null
-        : searchParams.get("divisionId");
+        : searchParams.get("divisiId");
 
     const startDate = new Date(year, month, 1);
     const endDate = new Date(year, month + 1, 0, 23, 59, 59);
@@ -44,34 +45,35 @@ export async function GET(req: Request) {
       },
     };
 
-    const userRole = user.role;
-    const userRegion = user.regionId;
-    const userBranch = user.branchId;
-    const userDivision = user.divisionId;
-
-    if (userRole === "PIC" || userRole === "VIEWER") {
-      if (userDivision) {
-        whereClause.divisionId = userDivision;
-      } else if (userBranch) {
-        whereClause.branchId = userBranch;
-      } else if (userRegion) {
-        whereClause.regionId = userRegion;
-        if (branchId) whereClause.branchId = branchId;
-      } else {
-        // PIC Pusat / Kantor Pusat
-        if (divisionId) {
-          whereClause.divisionId = divisionId;
-        } else if (regionId) {
-          whereClause.regionId = regionId;
-          if (branchId) whereClause.branchId = branchId;
+    // === PERUBAHAN: role-based scope menggunakan unitId ===
+    if (user.role === "PIC" || user.role === "VIEWER") {
+      if (user.unitId) {
+        if (user.unitType === "KANWIL") {
+          const childIds = await prisma.unit.findMany({
+            where: { parentId: user.unitId },
+            select: { id: true },
+          });
+          whereClause.unitId = {
+            in: [user.unitId, ...childIds.map((c) => c.id)],
+          };
+        } else {
+          whereClause.unitId = user.unitId;
         }
       }
-    } else if (userRole === "ADMIN") {
-      if (divisionId) {
-        whereClause.divisionId = divisionId;
-      } else if (regionId) {
-        whereClause.regionId = regionId;
-        if (branchId) whereClause.branchId = branchId;
+    } else if (user.role === "ADMIN") {
+      // Admin: terapkan filter manual jika dipilih
+      if (kancabId) {
+        whereClause.unitId = kancabId;
+      } else if (kanwilId) {
+        const childIds = await prisma.unit.findMany({
+          where: { parentId: kanwilId },
+          select: { id: true },
+        });
+        whereClause.unitId = {
+          in: [kanwilId, ...childIds.map((c) => c.id)],
+        };
+      } else if (divisiId) {
+        whereClause.unitId = divisiId;
       }
     }
 
@@ -82,9 +84,7 @@ export async function GET(req: Request) {
         tanggalKegiatan: true,
         status: true,
         programId: true,
-        regionId: true,
-        branchId: true,
-        divisionId: true,
+        unitId: true,
       },
     });
 

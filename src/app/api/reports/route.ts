@@ -19,38 +19,35 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, parseInt(searchParams.get("limit") || "10"));
     const search = searchParams.get("search") || "";
 
-    // FILTER STATUS & PROGRAM
     const statusFilter = searchParams.get("status") || "ALL";
     const programFilter = searchParams.get("programId") || "ALL";
 
-    // FILTER WILAYAH
-    const regionFilter = searchParams.get("regionId") || "ALL";
-    const branchFilter = searchParams.get("branchId") || "ALL";
+    // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
+    const kanwilFilter = searchParams.get("kanwilId") || "ALL";
+    const kancabFilter = searchParams.get("kancabId") || "ALL";
 
     let whereClause: any = {};
 
+    // === PERUBAHAN: Role-based filter menggunakan unitId + unitType ===
     switch (user.role) {
       case "ADMIN":
-        // Admin bisa lihat semua laporan
         break;
       case "PIC":
-        // PIC filter berdasarkan branchId (jika ada), jika tidak, regionId
-        if (user.branchId) {
-          whereClause = { branchId: user.branchId };
-        } else if (user.regionId) {
-          whereClause = { regionId: user.regionId };
-        } else if (user.divisionId) {
-          whereClause = { divisionId: user.divisionId };
-        }
-        break;
       case "VIEWER":
-        // Viewer hanya bisa lihat laporan sesuai level penempatannya
-        if (user.branchId) {
-          whereClause = { branchId: user.branchId };
-        } else if (user.regionId) {
-          whereClause = { regionId: user.regionId };
-        } else if (user.divisionId) {
-          whereClause = { divisionId: user.divisionId };
+        if (user.unitId) {
+          if (user.unitType === "KANWIL") {
+            // Kanwil: lihat laporan unit sendiri + semua kancab di bawahnya
+            const childIds = await prisma.unit.findMany({
+              where: { parentId: user.unitId },
+              select: { id: true },
+            });
+            whereClause.unitId = {
+              in: [user.unitId, ...childIds.map((c) => c.id)],
+            };
+          } else {
+            // Kancab / Divisi: hanya unit sendiri
+            whereClause.unitId = user.unitId;
+          }
         }
         break;
       default:
@@ -60,12 +57,18 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    if (regionFilter !== "ALL") {
-      whereClause.regionId = regionFilter;
-    }
-
-    if (branchFilter !== "ALL") {
-      whereClause.branchId = branchFilter;
+    // === PERUBAHAN: Filter wilayah menggunakan unitId ===
+    if (kancabFilter !== "ALL") {
+      whereClause.unitId = kancabFilter;
+    } else if (kanwilFilter !== "ALL") {
+      // Kanwil: tampilkan laporan kanwil + semua kancab di bawahnya
+      const childIds = await prisma.unit.findMany({
+        where: { parentId: kanwilFilter },
+        select: { id: true },
+      });
+      whereClause.unitId = {
+        in: [kanwilFilter, ...childIds.map((c) => c.id)],
+      };
     }
 
     if (programFilter !== "ALL") {
@@ -91,15 +94,12 @@ export async function GET(request: NextRequest) {
     const summaryTotal = await prisma.activityReport.count({
       where: baseWhereClause,
     });
-
     const summaryPending = await prisma.activityReport.count({
       where: { ...baseWhereClause, status: "PENDING" },
     });
-
     const summaryApproved = await prisma.activityReport.count({
       where: { ...baseWhereClause, status: "APPROVED" },
     });
-
     const summaryRejected = await prisma.activityReport.count({
       where: { ...baseWhereClause, status: "REJECTED" },
     });
@@ -107,18 +107,20 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const [total, reports] = await Promise.all([
-      prisma.activityReport.count({
-        where: whereClause,
-      }),
+      prisma.activityReport.count({ where: whereClause }),
       prisma.activityReport.findMany({
         where: whereClause,
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: { createdAt: "desc" },
+        // === PERUBAHAN: include unit + parent ===
         include: {
-          region: { select: { name: true } },
-          branch: { select: { name: true } },
-          division: { select: { name: true } },
+          unit: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              parent: { select: { id: true, name: true } },
+            },
+          },
           program: { select: { name: true } },
         },
         skip,
@@ -224,9 +226,8 @@ export async function POST(request: Request) {
           description,
           picKegiatan,
           programId: programId || null,
-          regionId: user.regionId || null,
-          branchId: user.branchId || null,
-          divisionId: user.divisionId || null,
+          // === PERUBAHAN: regionId/branchId/divisionId → unitId ===
+          unitId: user.unitId || null,
 
           photos: {
             create:
@@ -245,7 +246,6 @@ export async function POST(request: Request) {
             },
           },
         },
-
         include: {
           photos: true,
         },

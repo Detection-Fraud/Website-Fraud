@@ -3,7 +3,6 @@
 import { DashboardData } from "@/types/analytics.type";
 import { useEffect, useState } from "react";
 
-// 1. Buat tipe spesifik untuk filter periode agar auto-complete jalan
 export type PeriodeFilter =
   | "ALL"
   | "TW1"
@@ -18,11 +17,11 @@ export function useDashboardAnalytics() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State untuk Query Params (Backend Filters)
   const [year, setYear] = useState(new Date().getFullYear());
-  const [regionId, setRegionId] = useState<string>("ALL");
+  // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
+  const [kanwilId, setKanwilId] = useState<string>("ALL");
   const [programId, setProgramId] = useState<string>("ALL");
-  const [branchId, setBranchId] = useState<string>("ALL");
+  const [kancabId, setKancabId] = useState<string>("ALL");
 
   const [periode, setPeriode] = useState<PeriodeFilter>("ALL");
 
@@ -35,9 +34,9 @@ export function useDashboardAnalytics() {
         const params = new URLSearchParams();
         params.set("year", String(year));
         params.set("periode", periode);
-        if (regionId !== "ALL") params.set("regionId", regionId);
+        if (kanwilId !== "ALL") params.set("kanwilId", kanwilId);
         if (programId !== "ALL") params.set("programId", programId);
-        if (branchId !== "ALL") params.set("branchId", branchId);
+        if (kancabId !== "ALL") params.set("kancabId", kancabId);
 
         const response = await fetch(
           `/api/analytics/dashboard?${params.toString()}`,
@@ -57,79 +56,59 @@ export function useDashboardAnalytics() {
       }
     };
 
-    // 'periode' masuk ke dep array karena distribusiProgram harus di-refetch saat periode berubah
     fetchDashboard();
-  }, [year, regionId, programId, periode, branchId]);
+  }, [year, kanwilId, programId, periode, kancabId]);
 
-  // 3. Helper cerdas penyedia data grafik yang udah mateng
   const getAreaChartData = () => {
     const dataBulanan = data?.charts.kegiatanPerBulan;
     if (!dataBulanan) return [];
-
     switch (periode) {
       case "TW1":
-        return dataBulanan.slice(0, 3); // Jan, Feb, Mar
+        return dataBulanan.slice(0, 3);
       case "TW2":
-        return dataBulanan.slice(3, 6); // Apr, Mei, Jun
+        return dataBulanan.slice(3, 6);
       case "TW3":
-        return dataBulanan.slice(6, 9); // Jul, Agu, Sep
+        return dataBulanan.slice(6, 9);
       case "TW4":
-        return dataBulanan.slice(9, 12); // Okt, Nov, Des
+        return dataBulanan.slice(9, 12);
       case "SM1":
-        return dataBulanan.slice(0, 6); // Jan - Jun
+        return dataBulanan.slice(0, 6);
       case "SM2":
-        return dataBulanan.slice(6, 12); // Jul - Des
-      case "ALL":
+        return dataBulanan.slice(6, 12);
       default:
         return dataBulanan;
     }
   };
 
-  const getPieChartData = () => {
-    // API sudah mem-filter berdasarkan periode, tinggal return langsung
-    return data?.charts.distribusiProgram ?? [];
-  };
+  const getPieChartData = () => data?.charts.distribusiProgram ?? [];
 
   const calculateDynamicSummary = () => {
     const chartData = getAreaChartData();
-
     const currentTotal = chartData.reduce(
       (acc, curr) => acc + curr.tahunIni,
       0,
     );
     const prevTotal = chartData.reduce((acc, curr) => acc + curr.tahunLalu, 0);
-
-    return {
-      currentValue: currentTotal,
-      previousValue: prevTotal,
-    };
+    return { currentValue: currentTotal, previousValue: prevTotal };
   };
 
   return {
     data,
     summary: data?.summary ?? null,
     charts: data?.charts ?? null,
-
-    // Export data yang udah difilter, UI tinggal nerima beres
     areaChartData: getAreaChartData(),
     pieChartData: getPieChartData(),
-
     dynamicSummary: calculateDynamicSummary(),
-
     isLoading,
     error,
-
     year,
     setYear,
-    regionId,
-    setRegionId,
+    kanwilId, // dulunya regionId
+    setKanwilId, // dulunya setRegionId
     programId,
     setProgramId,
-
-    branchId,
-    setBranchId,
-
-    // Export state periode buat di-binding ke Dropdown HeroUI
+    kancabId, // dulunya branchId
+    setKancabId, // dulunya setBranchId
     periode,
     setPeriode,
   };

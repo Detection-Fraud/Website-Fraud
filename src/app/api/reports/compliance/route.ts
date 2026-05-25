@@ -27,143 +27,134 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const programId = searchParams.get("programId") || "ALL";
-    const regionId = searchParams.get("regionId") || "ALL";
-    const branchId = searchParams.get("branchId") || "ALL";
-    const divisionId = searchParams.get("divisionId") || "ALL";
+    const kanwilId = searchParams.get("kanwilId") || "ALL";
+    const kancabId = searchParams.get("kancabId") || "ALL";
+    const divisiId = searchParams.get("divisiId") || "ALL";
 
-    const unitType = searchParams.get("unitType") || "NASIONAL";
+    // "NASIONAL" | "KANWIL" | "KANCAB" | "DIVISI" | "KANWIL_AND_KANCAB"
+    const unitTypeFilter = searchParams.get("unitType") || "NASIONAL";
 
     let activeUnits: Array<{
       id: string;
       name: string;
-      type: UnitType;
+      type: string;
       wilayah: string;
-      regionId?: string;
+      parentId?: string | null;
     }> = [];
 
     const hasPIC = { users: { some: { role: "PIC" as const } } };
 
-    if (divisionId !== "ALL") {
-      const div = await prisma.division.findFirst({
-        where: { id: divisionId, ...hasPIC },
+    // 1. Ambil Unit yang aktif (memiliki PIC)
+    if (divisiId !== "ALL") {
+      const div = await prisma.unit.findFirst({
+        where: { id: divisiId, type: "DIVISI", ...hasPIC },
       });
       if (div)
         activeUnits.push({
           id: div.id,
           name: div.name,
-          type: "DIVISION",
+          type: "DIVISI",
           wilayah: "Kantor Pusat",
         });
-    } else if (branchId !== "ALL") {
-      const branch = await prisma.branch.findFirst({
-        where: { id: branchId, ...hasPIC },
-        include: { region: true },
+    } else if (kancabId !== "ALL") {
+      const kancab = await prisma.unit.findFirst({
+        where: { id: kancabId, type: "KANTOR_CABANG", ...hasPIC },
+        include: { parent: true },
       });
-      if (branch)
+      if (kancab)
         activeUnits.push({
-          id: branch.id,
-          name: branch.name,
-          type: "BRANCH",
-          wilayah: branch.region.name,
-          regionId: branch.regionId,
+          id: kancab.id,
+          name: kancab.name,
+          type: "KANTOR_CABANG",
+          wilayah: kancab.parent?.name || "Unknown",
+          parentId: kancab.parentId,
         });
-    } else if (regionId !== "ALL") {
-      const region = await prisma.region.findFirst({
-        where: { id: regionId, ...hasPIC },
+    } else if (kanwilId !== "ALL") {
+      const kanwil = await prisma.unit.findFirst({
+        where: { id: kanwilId, type: "KANTOR_WILAYAH", ...hasPIC },
       });
-      const branches = await prisma.branch.findMany({
-        where: { regionId, ...hasPIC },
-        include: { region: true },
+      const kancabs = await prisma.unit.findMany({
+        where: { parentId: kanwilId, type: "KANTOR_CABANG", ...hasPIC },
+        include: { parent: true },
       });
-      if (region)
+      if (kanwil)
         activeUnits.push({
-          id: region.id,
-          name: region.name,
-          type: "REGION",
-          wilayah: region.name,
-          regionId: region.id,
+          id: kanwil.id,
+          name: kanwil.name,
+          type: "KANTOR_WILAYAH",
+          wilayah: kanwil.name,
+          parentId: kanwil.id, // Untuk referensi
         });
-      branches.forEach((b) =>
+      kancabs.forEach((b) =>
         activeUnits.push({
           id: b.id,
           name: b.name,
-          type: "BRANCH",
-          wilayah: b.region.name,
-          regionId: b.regionId,
+          type: "KANTOR_CABANG",
+          wilayah: b.parent?.name || "Unknown",
+          parentId: b.parentId,
         }),
       );
     } else {
-      const [regions, branches, division] = await Promise.all([
-        prisma.region.findMany({ where: hasPIC }),
-        prisma.branch.findMany({ where: hasPIC, include: { region: true } }),
-        prisma.division.findMany({ where: hasPIC }),
-      ]);
-      regions.forEach((r) =>
+      const units = await prisma.unit.findMany({
+        where: hasPIC,
+        include: { parent: true },
+      });
+
+      units.forEach((u) => {
+        let wilayah = "";
+        if (u.type === "DIVISI") wilayah = "Kantor Pusat";
+        else if (u.type === "KANTOR_WILAYAH") wilayah = u.name;
+        else if (u.type === "KANTOR_CABANG")
+          wilayah = u.parent?.name || "Unknown";
+
         activeUnits.push({
-          id: r.id,
-          name: r.name,
-          type: "REGION",
-          wilayah: r.name,
-          regionId: r.id,
-        }),
-      );
-      branches.forEach((b) =>
-        activeUnits.push({
-          id: b.id,
-          name: b.name,
-          type: "BRANCH",
-          wilayah: b.region.name,
-          regionId: b.regionId,
-        }),
-      );
-      division.forEach((d) =>
-        activeUnits.push({
-          id: d.id,
-          name: d.name,
-          type: "DIVISION",
-          wilayah: "Kantor Pusat",
-        }),
-      );
+          id: u.id,
+          name: u.name,
+          type: u.type,
+          wilayah,
+          parentId: u.parentId,
+        });
+      });
     }
 
+    // 2. Terapkan batasan role
     if (user.role === "PIC" || user.role === "VIEWER") {
-      if (user.branchId) {
-        activeUnits = activeUnits.filter((unit) => unit.id === user.branchId);
-      } else if (user.regionId) {
-        activeUnits = activeUnits.filter(
-          (u) =>
-            u.id === user.regionId ||
-            u.regionId === user.regionId ||
-            u.wilayah === user.regionName,
-        );
-      } else if (user.divisionId) {
-        activeUnits = activeUnits.filter((u) => u.id === user.divisionId);
+      if (user.unitId) {
+        if (user.unitType === "KANTOR_WILAYAH") {
+          activeUnits = activeUnits.filter(
+            (u) => u.id === user.unitId || u.parentId === user.unitId,
+          );
+        } else {
+          activeUnits = activeUnits.filter((u) => u.id === user.unitId);
+        }
       }
     }
 
-    if (unitType === "REGION") {
-      activeUnits = activeUnits.filter((u) => u.type === "REGION");
-    } else if (unitType === "BRANCH") {
-      activeUnits = activeUnits.filter((u) => u.type === "BRANCH");
-    } else if (unitType === "DIVISION") {
-      activeUnits = activeUnits.filter((u) => u.type === "DIVISION");
-    } else if (unitType === "REGION_AND_BRANCH") {
+    // 3. Terapkan filter tipe unit
+    if (unitTypeFilter === "KANWIL") {
+      activeUnits = activeUnits.filter((u) => u.type === "KANTOR_WILAYAH");
+    } else if (unitTypeFilter === "KANCAB") {
+      activeUnits = activeUnits.filter((u) => u.type === "KANTOR_CABANG");
+    } else if (unitTypeFilter === "DIVISI") {
+      activeUnits = activeUnits.filter((u) => u.type === "DIVISI");
+    } else if (unitTypeFilter === "KANWIL_AND_KANCAB") {
       activeUnits = activeUnits.filter(
-        (u) => u.type === "REGION" || u.type === "BRANCH",
+        (u) => u.type === "KANTOR_WILAYAH" || u.type === "KANTOR_CABANG",
       );
     }
 
+    // 4. Ambil program dan aggregasi laporan
     const [programs, submissions] = await Promise.all([
-      // Ambil program
       prisma.programBudaya.findMany({
         where: { isActive: true },
         orderBy: { createdAt: "asc" },
       }),
       prisma.activityReport.groupBy({
-        by: ["regionId", "branchId", "divisionId", "programId"],
+        by: ["unitId", "programId"],
         where: {
           status: "APPROVED",
           ...(programId !== "ALL" && { programId }),
+          unitId: { not: null },
         },
         _count: { id: true },
       }),
@@ -176,32 +167,22 @@ export async function GET(req: Request) {
       color: PROGRAM_COLORS[i % PROGRAM_COLORS.length],
     }));
 
-    const getUnitSubmissions = (
-      unitId: string,
-      unitType: UnitType,
-      progId: string,
-    ) => {
+    const getUnitSubmissions = (unitId: string, progId: string) => {
       let sum = 0;
       for (const sub of submissions) {
-        if (sub.programId !== progId) continue;
-        if (
-          unitType === "REGION" &&
-          sub.regionId === unitId &&
-          sub.branchId === null
-        )
+        if (sub.programId === progId && sub.unitId === unitId) {
           sum += sub._count.id;
-        if (unitType === "BRANCH" && sub.branchId === unitId)
-          sum += sub._count.id;
-        if (unitType === "DIVISION" && sub.divisionId === unitId)
-          sum += sub._count.id;
+        }
       }
       return sum;
     };
 
+    // 5. Kalkulasi compliance per unit
     const tableData = activeUnits.map((unit) => {
       const programCompliance = programInfoList.map((prog) => {
-        const submitted = getUnitSubmissions(unit.id, unit.type, prog.id);
+        const submitted = getUnitSubmissions(unit.id, prog.id);
         const target = prog.frequency;
+        // Rumus compliance = (submitted / target) * 100
         const pct = Math.round((submitted / target) * 100);
         return {
           programId: prog.id,
@@ -217,6 +198,8 @@ export async function GET(req: Request) {
           : programCompliance
               .filter((p) => p.programId === programId)
               .map((p) => p.pct);
+
+      // Avg per unit (filter = semua) -> AVG(compliance % across all active programs)
       const avg =
         relevantPct.length > 0
           ? Math.round(
@@ -237,11 +220,14 @@ export async function GET(req: Request) {
       row.rank = index + 1;
     });
 
+    // 6. Hitung statistik keseluruhan
     const totalUnit = tableData.length;
     const avgCompliance =
       totalUnit > 0
         ? Math.round(tableData.reduce((sum, u) => sum + u.avg, 0) / totalUnit)
         : 0;
+
+    // Status threshold: On Track >= 50% | Behind 25-49% | At Risk < 25%
     const unitOnTrack = tableData.filter((u) => u.avg >= 50).length;
     const waspada = tableData.filter((u) => u.avg >= 25 && u.avg < 50).length;
     const perluPerhatian = tableData.filter((u) => u.avg < 25).length;
@@ -264,7 +250,7 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (error) {
-    console.log("ERROR GET /api/reports/compliance", error);
+    console.error("ERROR GET /api/reports/compliance", error);
     return NextResponse.json(errorResponse("Internal Server Error"), {
       status: 500,
     });

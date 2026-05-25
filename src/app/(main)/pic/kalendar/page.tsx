@@ -29,8 +29,8 @@ export default function KalendarPage() {
   const { submissions, isLoading: loadSub } = useCalendarSubmissions({
     month: currentDate.getMonth(),
     year: currentDate.getFullYear(),
-    regionId: "ALL",
-    branchId: "ALL",
+    kanwilId: "ALL",
+    kancabId: "ALL",
     divisionId: "ALL",
   });
 

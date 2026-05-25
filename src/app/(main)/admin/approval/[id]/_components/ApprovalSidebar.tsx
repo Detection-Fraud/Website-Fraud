@@ -10,14 +10,7 @@ interface ApprovalSidebarProps {
 }
 
 export default function ApprovalSidebar({ report }: ApprovalSidebarProps) {
-  const getUnitType = () => {
-    if (report?.division) return "divisi";
-    if (report?.branch) return "kancab";
-    if (report?.region) return "kanwil";
-    return "kanwil";
-  };
-
-  const unitType = getUnitType();
+  const unitType = report?.unit?.type.toLowerCase() || "kanwil";
 
   const getUnitStyle = () => {
     const map: Record<
@@ -47,10 +40,8 @@ export default function ApprovalSidebar({ report }: ApprovalSidebarProps) {
   };
 
   const getUnitNameOnly = () => {
-    if (report?.division?.name) return `Divisi ${report.division.name}`;
-    if (report?.branch?.name) return `Kantor Cabang ${report.branch.name}`;
-    if (report?.region?.name) return `Kantor Wilayah ${report.region.name}`;
-    return "Memuat Unit...";
+    if (!report?.unit) return "Memuat Unit...";
+    return report.unit.name;
   };
 
   return (
