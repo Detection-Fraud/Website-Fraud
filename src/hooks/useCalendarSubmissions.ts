@@ -1,21 +1,21 @@
 import { CalendarSubmission } from "@/types/calendar.types";
 import { useEffect, useState } from "react";
-import { useStackId } from "recharts/types/cartesian/BarStack";
 
 interface Params {
   month: number;
   year: number;
-  regionId: string;
-  branchId: string;
-  divisionId: string;
+  // === PERUBAHAN: regionId/branchId/divisionId → kanwilId/kancabId/divisiId ===
+  kanwilId: string;
+  kancabId: string;
+  divisiId: string;
 }
 
 export function useCalendarSubmissions({
   month,
   year,
-  regionId,
-  branchId,
-  divisionId,
+  kanwilId,
+  kancabId,
+  divisiId,
 }: Params) {
   const [submissions, setSubmissions] = useState<CalendarSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,9 +27,9 @@ export function useCalendarSubmissions({
         const params = new URLSearchParams({
           month: month.toString(),
           year: year.toString(),
-          regionId,
-          branchId,
-          divisionId,
+          kanwilId,
+          kancabId,
+          divisiId,
         });
 
         const res = await fetch(
@@ -45,7 +45,7 @@ export function useCalendarSubmissions({
       }
     }
     fetchSubmissions();
-  }, [month, year, regionId, branchId, divisionId]);
+  }, [month, year, kanwilId, kancabId, divisiId]);
 
   return { submissions, isLoading };
 }

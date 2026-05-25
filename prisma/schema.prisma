@@ -34,34 +34,37 @@ enum ActivityAction {
 }
 
 // --- MASTER DATA WILAYAH ---
-model Region {
-  id       String        @id @default(uuid())
-  name     String
-  kode     String     @unique
-  users User[]
-  branches Branch[]
-  activityReports ActivityReport[]
+// NEW ENUM : UNIT TYPE
+enum UnitType {
+  DIVISI
+  KANTOR_WILAYAH
+  KANTOR_CABANG
 }
 
-model Branch {
+// NEW MODEL UNIT
+model Unit {
   id String @id @default(uuid())
   name String
+  type UnitType
 
-  regionId String
-  region Region @relation(fields: [regionId], references: [id])
+  kodeDolog String
+  kodeSubdolog String
+  kodeOrg String
+  kodeDivisi String?
 
-  activityReports ActivityReport[]
-
-  users User[]
-}
-
-model Division {
-  id String @id @default(uuid())
-  name String
-
-  activityReports ActivityReport[]
+  parentId     String?
+  parent       Unit?    @relation("UnitHierarchy", fields: [parentId], references: [id])
+  children     Unit[]   @relation("UnitHierarchy")
 
   users User[]
+  activityReport ActivityReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([kodeDolog, kodeSubdolog])
+  @@index([parentId])
 }
 
 model User {
@@ -76,14 +79,9 @@ model User {
   
   role Role @default(VIEWER)
 
-  regionId String?
-  region Region? @relation(fields: [regionId], references: [id])
+  unitId String?
+  unit Unit? @relation(fields: [unitId], references: [id])
 
-  branchId String?
-  branch Branch? @relation(fields: [branchId], references: [id])
-
-  divisionId String?
-  division Division? @relation(fields: [divisionId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -122,14 +120,8 @@ model ProgramBudaya {
 model ActivityReport {
   id String @id @default(uuid())
 
-  regionId String?
-  region Region? @relation(fields: [regionId], references: [id])
-
-  branchId String?
-  branch Branch? @relation(fields: [branchId], references: [id])
-
-  divisionId String?
-  division Division? @relation(fields: [divisionId], references: [id])
+  unitId String?
+  unit Unit? @relation(fields: [unitId], references: [id])
 
   programId String?
   program ProgramBudaya? @relation(fields: [programId], references: [id])
@@ -156,9 +148,7 @@ model ActivityReport {
 
   logs ActivityLog[]
 
-  @@index([regionId])
-  @@index([branchId])
-  @@index([divisionId])
+  @@index([unitId])
 }
 
 model ActivityLog {

@@ -30,9 +30,9 @@ export default function KalendarPage() {
   const { submissions, isLoading: loadSub } = useCalendarSubmissions({
     month: currentDate.getMonth(),
     year: currentDate.getFullYear(),
-    regionId: "ALL",
-    branchId: "ALL",
-    divisionId: "ALL",
+    kanwilId: "ALL",
+    kancabId: "ALL",
+    divisiId: "ALL",
   });
 
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>(

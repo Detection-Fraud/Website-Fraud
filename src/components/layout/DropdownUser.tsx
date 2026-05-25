@@ -7,12 +7,9 @@ import { FaArrowRightToBracket } from "react-icons/fa6";
 export interface UserData {
   name?: string | null;
   role?: string;
-  regionName?: string | null;
-  branchName?: string | null;
-  divisionName?: string | null;
-  regionId?: string;
-  branchId?: string;
-  divisionId?: string;
+  unitId?: string | null;
+  unitName?: string | null;
+  unitType?: string | null;
 }
 
 export default function DropdownUser({ user }: { user: UserData }) {
@@ -22,13 +19,13 @@ export default function DropdownUser({ user }: { user: UserData }) {
 
   let unitName = "";
 
-  if (user?.branchId) {
-    unitName = user?.branchName || "Kantor Cabang";
-  } else if (user?.regionId) {
-    unitName = `Kanwil ${user?.regionName || "Kantor Wilayah"}`;
-  } else if (user?.divisionId || user?.divisionName) {
-    unitName = `Divisi ${user?.divisionName || "Pusat"}`;
-  } else if (user?.role === "ADMIN") {
+  if (user.unitType === "KANTOR_CABANG") {
+    unitName = user.unitName || "Kantor Cabang";
+  } else if (user.unitType === "KANTOR_WILAYAH") {
+    unitName = user.unitName || "Kantor Wilayah";
+  } else if (user.unitType === "DIVISI") {
+    unitName = user.unitName || "Divisi";
+  } else if (user.role === "ADMIN") {
     unitName = "Administrator Pusat";
   }
 

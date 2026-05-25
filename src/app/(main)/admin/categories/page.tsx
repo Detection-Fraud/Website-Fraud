@@ -12,28 +12,28 @@ export default function CategoriesPage() {
 
   const summaryCards = [
     {
-      value: summary?.totalCategory,
+      value: summary?.totalCategory ?? 0,
       description: "Total Kategori",
       icon: PiStack,
       style: "text-blue-600 bg-blue-100",
       textColor: "text-[#0284c7]",
     },
     {
-      value: summary?.totalPrograms,
+      value: summary?.totalPrograms ?? 0,
       description: "Total Program",
       icon: IoBookOutline,
       style: "bg-green-100 text-green-600",
       textColor: "text-[#059669]",
     },
     {
-      value: summary?.activePrograms,
+      value: summary?.activePrograms ?? 0,
       icon: BsCheck,
       description: "Program Aktif",
       style: "bg-orange-100 text-orange-600",
       textColor: "text-[#d97706]",
     },
     {
-      value: summary?.uncategorized,
+      value: summary?.uncategorized ?? 0,
       icon: FiAlertTriangle,
       description: "Tidak Berkategori",
       style: "bg-red-100 text-red-600",

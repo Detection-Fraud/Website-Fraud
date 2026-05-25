@@ -17,19 +17,13 @@ export default function ApprovalHeader({
   onApprove,
   onReject,
 }: ApprovalHeaderProps) {
-  const getUnitType = () => {
-    if (report?.division) return "divisi";
-    if (report?.branch) return "kancab";
-    if (report?.region) return "kanwil";
-    return "kanwil";
-  };
-
-  const unitType = getUnitType();
-
   const getUnitName = () => {
-    if (unitType === "divisi") return `Divisi ${report?.division?.name}`;
-    if (unitType === "kancab") return `Kantor Cabang ${report?.branch?.name}`;
-    return `Kantor Wilayah ${report?.region?.name}`;
+    if (!report?.unit) return "Memuat...";
+    const unit = report.unit;
+    if (unit.type === "DIVISI") return unit.name;
+    if (unit.type === "KANTOR_CABANG") return `Kantor Cabang ${unit.name}`;
+    if (unit.type === "KANTOR_WILAYAH") return `Kantor Wilayah ${unit.name}`;
+    return unit.name;
   };
 
   return (

@@ -47,18 +47,9 @@ export const renderReportCell = (
         </div>
       );
     case "unit":
-      const getUnitType = () => {
-        if (item.division) return "Divisi";
-        if (item.branch) return "Kancab";
-        if (item.region) return "Kanwil";
-        return "Kanwil";
-      };
-
-      const unitType = getUnitType();
       const getUnitTypeLabel = () => {
-        if (unitType === "Divisi") return item.division?.name;
-        if (unitType === "Kancab") return item.branch?.name;
-        if (unitType === "Kanwil") return item.region?.name;
+        if (!item.unit) return "-";
+        return item.unit.name;
       };
       return (
         <div className="flex flex-row items-center gap-2">

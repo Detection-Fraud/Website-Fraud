@@ -8,17 +8,7 @@ import ChartSection from "./_components/ChartSection";
 import SummaryCard from "./_components/SummaryCard";
 
 export default function DashboardAdmin() {
-  const {
-    summary,
-    charts,
-    isLoading,
-    year,
-    setYear,
-    regionId,
-    setRegionId,
-    programId,
-    setProgramId,
-  } = useDashboardAnalytics();
+  const { summary, charts, year } = useDashboardAnalytics();
 
   const currentMonthName = new Intl.DateTimeFormat("id-ID", {
     month: "long",

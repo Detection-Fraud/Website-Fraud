@@ -20,22 +20,20 @@ export default function AnalyticsAdmin() {
     areaChartData,
     periode,
     setPeriode,
+    kanwilId,
+    setKanwilId,
+    kancabId,
+    setKancabId,
     year,
-    regionId,
-    setRegionId,
     pieChartData,
     dynamicSummary,
-    branchId,
-    setBranchId,
   } = useDashboardAnalytics();
 
-  const { regions } = useMasterWilayah();
+  const { kanwilList } = useMasterWilayah();
 
   const currentMonth = summary?.laporanBulanIni || 0;
   const lastMonth = summary?.laporanBulanLalu || 0;
 
-
- 
   const diff = dynamicSummary.currentValue - dynamicSummary.previousValue;
   const dynamicSubText =
     diff >= 0 ? `+${diff} vs tahun lalu` : `${diff} vs tahun lalu`;
@@ -44,9 +42,8 @@ export default function AnalyticsAdmin() {
     100
   ).toFixed(2);
 
-  const selectedRegion = regions.find((r) => r.id === regionId);
-
-  const branches = selectedRegion ? selectedRegion.branches : [];
+  const selectedKanwil = kanwilList.find((k) => k.id === kanwilId);
+  const kancabChildren = selectedKanwil ? selectedKanwil.children : [];
 
   return (
     <div className="space-y-8">
@@ -57,24 +54,24 @@ export default function AnalyticsAdmin() {
         {/* Select Filter Wilayah */}
         <div>
           <SelectWilayah
-            regions={regions}
-            value={regionId}
+            regions={kanwilList}
+            value={kanwilId}
             onChange={(val) => {
-              setRegionId(val);
-              setBranchId("ALL");
+              setKanwilId(val);
+              setKancabId("ALL");
             }}
-            className="w-48"
+            className="w-62"
           />
         </div>
 
         {/* Select Filter Kantor Cabang */}
         <div>
           <SelectKancab
-            branches={branches}
-            value={branchId}
-            isDisabled={regionId === "ALL"}
-            onChange={setBranchId}
-            className="w-52"
+            branches={kancabChildren}
+            value={kancabId}
+            isDisabled={kanwilId === "ALL"}
+            onChange={setKancabId}
+            className="w-62"
           />
         </div>
 

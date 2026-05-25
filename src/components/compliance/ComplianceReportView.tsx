@@ -16,20 +16,21 @@ export default function ComplianceReportView() {
     options,
     data,
     isLoading,
-    handleBranchChange,
-    handleDivisionChange,
+    handleKancabChange,
+    handleDivisiChange,
     handleProgramChange,
-    handleRegionChange,
+    handleKanwilChange,
   } = useComplianceReport();
 
   const { user } = useCurrentUser();
-  const isPICRegion = user?.role === "PIC" && user?.regionId && !user?.branchId;
-  const defaultTab = isPICRegion ? "REGION_AND_BRANCH" : "NASIONAL";
+  const isPICKanwil =
+    user?.role === "PIC" && user?.unitType === "KANTOR_WILAYAH";
+  const defaultTab = isPICKanwil ? "KANWIL_AND_KANCAB" : "NASIONAL";
 
   const isFilterActive =
-    filters.regionId !== "ALL" ||
-    filters.branchId !== "ALL" ||
-    filters.divisionId !== "ALL" ||
+    filters.kanwilId !== "ALL" ||
+    filters.kancabId !== "ALL" ||
+    filters.divisiId !== "ALL" ||
     filters.programId !== "ALL" ||
     activeTab !== defaultTab;
 
@@ -49,10 +50,10 @@ export default function ComplianceReportView() {
         <FilterSection
           filters={filters}
           options={options}
-          handleBranchChange={handleBranchChange}
-          handleDivisionChange={handleDivisionChange}
+          handleKancabChange={handleKancabChange}
+          handleDivisiChange={handleDivisiChange}
           handleProgramChange={handleProgramChange}
-          handleRegionChange={handleRegionChange}
+          handleKanwilChange={handleKanwilChange}
           isFilterActive={isFilterActive}
           activeTab={activeTab}
           handleTabChange={handleTabChange}

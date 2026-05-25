@@ -23,37 +23,13 @@ export default function DetailView({ id }: { id: string }) {
   // PIC bisa resubmit jika laporan milik unit mereka sendiri
   // Cek ketiga kemungkinan: Kancab, Kanwil, atau Divisi
   const canResubmit =
-    // PIC Kancab
-    (!!user?.branchId &&
-      !!report?.branch?.id &&
-      user.branchId === report.branch.id) ||
-    // PIC Kanwil (laporan langsung di kanwil, tidak lewat kancab)
-    (!!user?.regionId &&
-      !user?.branchId &&
-      !!report?.region?.id &&
-      user.regionId === report.region.id) ||
-    // PIC Divisi
-    (!!user?.divisionId &&
-      !!report?.division?.id &&
-      user.divisionId === report.division.id);
+    !!user?.unitId && !!report?.unit?.id && user.unitId === report.unit.id;
 
-  const textRole = report?.branch
-    ? `Kantor Cabang : ${report.branch.name}`
-    : report?.region
-      ? `Kantor Wilayah : ${report.region.name}`
-      : `Divisi : ${report?.division?.name || "Tidak Diketahui"}`;
+  const textRole = report?.unit
+    ? `${report.unit.type === "DIVISI" ? "Divisi" : report.unit.type === "KANTOR_CABANG" ? "Kantor Cabang" : "Kantor Wilayah"} : ${report.unit.name}`
+    : "Tidak Diketahui";
 
-  const unitRole = report?.branch
-    ? `Kantor Cabang`
-    : report?.region
-      ? `Kantor Wilayah`
-      : `Divisi`;
-
-  const unitText = report?.branch
-    ? `${report.branch.name}`
-    : report?.region
-      ? `${report.region.name}`
-      : `${report?.division?.name}`;
+  const unitText = report?.unit?.name || "Memuat...";
 
   if (loading) {
     return (

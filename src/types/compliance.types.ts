@@ -5,27 +5,28 @@ export interface FilterOption {
 
 export type TabUnitType =
   | "NASIONAL"
-  | "REGION_AND_BRANCH"
-  | "REGION"
-  | "BRANCH"
-  | "DIVISION";
+  | "KANWIL_AND_KANCAB"
+  | "KANWIL"
+  | "KANCAB"
+  | "DIVISI";
 
 export interface ProgramFilterOption extends FilterOption {
   color: string;
 }
 
 export interface ComplianceFilterOptions {
-  regionsList: FilterOption[];
-  divisionList: FilterOption[];
+  kanwilList: FilterOption[];
+  divisiList: FilterOption[];
+  kancabList: FilterOption[];
   programList: ProgramFilterOption[];
 }
 
-export type UnitType = "REGION" | "BRANCH" | "DIVISION";
+export type UnitType = "KANTOR_WILAYAH" | "KANTOR_CABANG" | "DIVISI";
 
 export interface UnitInfo {
   id: string;
   name: string;
-  type: UnitType;
+  type: UnitType | string;
   wilayah: string;
 }
 

@@ -15,22 +15,22 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const regionId = searchParams.get("regionId");
+    const kanwilId = searchParams.get("kanwilId");
 
-    if (!regionId) {
-      return NextResponse.json(errorResponse("regionId diperlukan", 400), {
+    if (!kanwilId) {
+      return NextResponse.json(errorResponse("kanwilId diperlukan", 400), {
         status: 400,
       });
     }
 
-    const branches = await prisma.branch.findMany({
-      where: { regionId },
+    const kancabList = await prisma.unit.findMany({
+      where: { parentId: kanwilId, type: "KANTOR_CABANG" },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
 
     return NextResponse.json(
-      successResponse(branches, "Berhasil mengambil data kantor cabang"),
+      successResponse(kancabList, "Berhasil mengambil data kantor cabang"),
       { status: 200 },
     );
   } catch (error) {

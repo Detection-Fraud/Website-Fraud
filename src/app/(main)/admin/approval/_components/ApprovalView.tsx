@@ -33,10 +33,10 @@ export default function ApprovalView() {
     handleSearch,
     handleClearSearch,
     updateParams,
+    kanwilFilter,
+    kancabFilter,
     router,
     statusFilter,
-    regionFilter,
-    branchFilter,
     programFilter,
     summary,
   } = useReportList();
@@ -76,10 +76,10 @@ export default function ApprovalView() {
     },
   ];
 
-  const { regions } = useMasterWilayah();
+  const { kanwilList } = useMasterWilayah();
 
-  const selectedRegion = regions.find((r) => r.id === regionFilter);
-  const branches = selectedRegion ? selectedRegion.branches : [];
+  const selectedKanwil = kanwilList.find((k) => k.id === kanwilFilter);
+  const kancabList = selectedKanwil ? selectedKanwil.children : [];
 
   return (
     <div className="space-y-8 mb-10">
@@ -97,18 +97,18 @@ export default function ApprovalView() {
         />
 
         <SelectWilayah
-          regions={regions}
-          value={regionFilter}
+          regions={kanwilList}
+          value={kanwilFilter}
           onChange={(val) =>
-            updateParams({ regionId: val, branchId: "ALL", page: "1" })
+            updateParams({ kanwilId: val, kancabId: "ALL", page: "1" })
           }
         />
 
         <SelectKancab
-          branches={branches}
-          value={branchFilter}
-          isDisabled={regionFilter === "ALL" || !selectedRegion}
-          onChange={(val) => updateParams({ branchId: val, page: "1" })}
+          branches={kancabList}
+          value={kancabFilter}
+          isDisabled={kanwilFilter === "ALL" || !selectedKanwil}
+          onChange={(val) => updateParams({ kancabId: val, page: "1" })}
         />
       </div>
 

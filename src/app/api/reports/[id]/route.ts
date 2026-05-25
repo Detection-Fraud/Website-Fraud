@@ -23,9 +23,16 @@ export async function GET(
     const report = await prisma.activityReport.findUnique({
       where: { id },
       include: {
-        region: { select: { id: true, name: true } },
-        branch: { select: { id: true, name: true } },
-        division: { select: { id: true, name: true } },
+        // === PERUBAHAN: region/branch/division → unit + parent ===
+        unit: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            parentId: true,
+            parent: { select: { id: true, name: true } },
+          },
+        },
         program: { select: { name: true } },
         photos: { select: { id: true, originalName: true, imageUrl: true } },
         logs: {
@@ -48,19 +55,20 @@ export async function GET(
       });
     }
 
-    // Non-admin hanya bisa melihat laporan dari unit yang sama persis
+    // === PERUBAHAN: Access check menggunakan unitId ===
     if (user?.role !== "ADMIN") {
       let hasAccess = false;
 
-      if (user?.branchId) {
-        // User level kancab → hanya bisa lihat laporan kancab yang sama
-        hasAccess = report.branchId === user.branchId;
-      } else if (user?.regionId) {
-        // User level kanwil → hanya bisa lihat laporan kanwil yang sama
-        hasAccess = report.regionId === user.regionId;
-      } else if (user?.divisionId) {
-        // User level divisi → hanya bisa lihat laporan divisi yang sama
-        hasAccess = report.divisionId === user.divisionId;
+      if (user.unitId) {
+        if (user.unitType === "KANWIL") {
+          // PIC Kanwil: bisa lihat laporan unitnya sendiri + kancab di bawahnya
+          hasAccess =
+            report.unitId === user.unitId ||
+            report.unit?.parentId === user.unitId;
+        } else {
+          // PIC Kancab/Divisi: hanya bisa lihat laporan unit sendiri
+          hasAccess = report.unitId === user.unitId;
+        }
       }
 
       if (!hasAccess) {
@@ -73,16 +81,12 @@ export async function GET(
 
     return NextResponse.json(
       successResponse(report, "Berhasil mengambil data laporan"),
-      {
-        status: 200,
-      },
+      { status: 200 },
     );
   } catch (error) {
     return NextResponse.json(
       errorResponse("Gagal mengambil data laporan", 500),
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }
@@ -123,16 +127,15 @@ export async function PUT(
       });
     }
 
-    if (session.user.branchId !== existingReport.branchId) {
+    // === PERUBAHAN: branchId → unitId ===
+    if (session.user.unitId !== existingReport.unitId) {
       return NextResponse.json(
         errorResponse("Anda tidak memiliki akses ke laporan ini", 403),
         { status: 403 },
       );
     }
 
-    // Hapus foto lama dari Cloudinary & DB jika ada foto baru yang dikirim
     if (photos && photos.length > 0) {
-      // Delete dari Cloudinary menggunakan publicId
       for (const photo of existingReport.photos) {
         if (photo.publicId && !photo.imageUrl.startsWith("http")) {
           try {
@@ -149,7 +152,6 @@ export async function PUT(
         }
       }
 
-      // Hapus dari database
       await prisma.activityPhoto.deleteMany({
         where: { reportId: id },
       });

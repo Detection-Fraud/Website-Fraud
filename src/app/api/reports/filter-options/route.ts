@@ -24,12 +24,14 @@ export async function GET() {
       });
     }
 
-    const [regions, divisions, programs] = await Promise.all([
-      prisma.region.findMany({
+    const [kanwilList, divisiList, programs] = await Promise.all([
+      prisma.unit.findMany({
+        where: { type: "KANTOR_WILAYAH" },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
-      prisma.division.findMany({
+      prisma.unit.findMany({
+        where: { type: "DIVISI" },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
@@ -49,9 +51,9 @@ export async function GET() {
     return NextResponse.json(
       successResponse(
         {
-          regionsList: regions,
-          divisionList: divisions,
-          programList: programList,
+          kanwilList,
+          divisiList,
+          programList,
         },
         "Berhasil mengambil opsi filter",
       ),

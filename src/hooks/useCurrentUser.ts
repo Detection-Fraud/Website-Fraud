@@ -10,8 +10,8 @@ import { useSession } from "next-auth/react";
  *
  * Data tersedia langsung dari session JWT, tanpa perlu query DB lagi:
  *   - user.name, user.role, user.username
- *   - user.regionName, user.branchName, user.divisionName
- *   - user.regionId, user.branchId, user.divisionId
+ *   - user.unitId, user.unitName, user.unitType
+ *   - user.parentUnitId, user.parentUnitName
  */
 export function useCurrentUser() {
   const { data: session, status } = useSession();
