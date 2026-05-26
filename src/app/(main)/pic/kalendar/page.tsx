@@ -31,7 +31,7 @@ export default function KalendarPage() {
     year: currentDate.getFullYear(),
     kanwilId: "ALL",
     kancabId: "ALL",
-    divisionId: "ALL",
+    divisiId: "ALL",
   });
 
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>(
