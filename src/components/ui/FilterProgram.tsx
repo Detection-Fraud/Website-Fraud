@@ -6,9 +6,14 @@ import { Label, ListBox, Select } from "@heroui/react";
 interface FilterProgramProps {
   value: string;
   onChange: (value: string) => void;
+  labelOff?: boolean;
 }
 
-export default function FilterProgram({ value, onChange }: FilterProgramProps) {
+export default function FilterProgram({
+  value,
+  onChange,
+  labelOff = false,
+}: FilterProgramProps) {
   const { programs } = useProgramList();
 
   return (
@@ -19,7 +24,7 @@ export default function FilterProgram({ value, onChange }: FilterProgramProps) {
         value={value}
         onChange={(key) => onChange(key as string)}
       >
-        <Label>Program</Label>
+        <Label className={labelOff ? "sr-only" : ""}>Program</Label>
         <Select.Trigger>
           <Select.Value />
           <Select.Indicator />

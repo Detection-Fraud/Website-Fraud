@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       case "PIC":
       case "VIEWER":
         if (user.unitId) {
-          if (user.unitType === "KANWIL") {
+          if (user.unitType === "KANTOR_WILAYAH") {
             // Kanwil: lihat laporan unit sendiri + semua kancab di bawahnya
             const childIds = await prisma.unit.findMany({
               where: { parentId: user.unitId },

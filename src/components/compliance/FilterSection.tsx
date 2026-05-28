@@ -51,6 +51,13 @@ export default function FilterSection({
   const hideTagNasional = isPICKanwil;
   const hideTagPusat = isPICKanwil;
 
+  let defaultTab: TabUnitType = "NASIONAL";
+  if (user?.role === "PIC") {
+    if (user.unitType === "KANTOR_WILAYAH") defaultTab = "KANWIL_AND_KANCAB";
+    else if (user.unitType === "KANTOR_CABANG") defaultTab = "KANCAB";
+    else if (user.unitType === "DIVISI") defaultTab = "DIVISI";
+  }
+
   const hideSelectWilayah = isPICKancab || isPICDivisi || isPICKanwil;
   const hideSelectKancab = isPICKancab || isPICDivisi;
 
@@ -131,7 +138,7 @@ export default function FilterSection({
                 handleDivisiChange("ALL");
                 handleProgramChange("ALL");
                 handleKanwilChange("ALL");
-                handleTabChange(isPICKanwil ? "KANWIL_AND_KANCAB" : "NASIONAL");
+                handleTabChange(defaultTab);
               }}
             >
               <FiX />

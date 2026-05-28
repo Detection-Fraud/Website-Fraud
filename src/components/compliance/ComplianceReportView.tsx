@@ -23,9 +23,12 @@ export default function ComplianceReportView() {
   } = useComplianceReport();
 
   const { user } = useCurrentUser();
-  const isPICKanwil =
-    user?.role === "PIC" && user?.unitType === "KANTOR_WILAYAH";
-  const defaultTab = isPICKanwil ? "KANWIL_AND_KANCAB" : "NASIONAL";
+  let defaultTab = "NASIONAL";
+  if (user?.role === "PIC") {
+    if (user.unitType === "KANTOR_WILAYAH") defaultTab = "KANWIL_AND_KANCAB";
+    else if (user.unitType === "KANTOR_CABANG") defaultTab = "KANCAB";
+    else if (user.unitType === "DIVISI") defaultTab = "DIVISI";
+  }
 
   const isFilterActive =
     filters.kanwilId !== "ALL" ||

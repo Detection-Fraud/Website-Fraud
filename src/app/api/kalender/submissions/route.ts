@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     // === PERUBAHAN: role-based scope menggunakan unitId ===
     if (user.role === "PIC" || user.role === "VIEWER") {
       if (user.unitId) {
-        if (user.unitType === "KANWIL") {
+        if (user.unitType === "KANTOR_WILAYAH") {
           const childIds = await prisma.unit.findMany({
             where: { parentId: user.unitId },
             select: { id: true },

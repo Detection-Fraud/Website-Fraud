@@ -60,7 +60,7 @@ export async function GET(
       let hasAccess = false;
 
       if (user.unitId) {
-        if (user.unitType === "KANWIL") {
+        if (user.unitType === "KANTOR_WILAYAH") {
           // PIC Kanwil: bisa lihat laporan unitnya sendiri + kancab di bawahnya
           hasAccess =
             report.unitId === user.unitId ||

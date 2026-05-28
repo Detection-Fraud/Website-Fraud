@@ -2,7 +2,7 @@
 import type { NextAuthConfig } from "next-auth";
 import { getDashboardByRole } from "@/lib/routes";
 
-const PUBLIC_ROUTES = ["/login"];
+const PUBLIC_ROUTES = ["/login", "/login/sso"];
 
 // Map each role → path prefixes they're allowed to access
 const ROLE_PREFIXES: Record<string, string[]> = {

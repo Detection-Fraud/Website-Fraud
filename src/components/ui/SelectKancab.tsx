@@ -9,6 +9,7 @@ interface SelectKancabProps {
   onChange: (value: string) => void;
   isDisabled?: boolean;
   className?: string;
+  labelOff?: boolean;
 }
 
 export default function SelectKancab({
@@ -17,6 +18,7 @@ export default function SelectKancab({
   onChange,
   isDisabled = false,
   className = "w-52",
+  labelOff = false,
 }: SelectKancabProps) {
   return (
     <Select
@@ -27,7 +29,7 @@ export default function SelectKancab({
       value={value}
       onChange={(key) => onChange((key ?? "ALL") as string)}
     >
-      <Label>Kantor Cabang</Label>
+      <Label className={labelOff ? "sr-only" : ""}>Kantor Cabang</Label>
       <Select.Trigger>
         <Select.Value />
         <Select.Indicator />

@@ -14,15 +14,34 @@ import {
   toast,
 } from "@heroui/react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { BsEye, BsEyeSlash } from "react-icons/bs";
 import { CiCircleInfo, CiLock, CiLogin } from "react-icons/ci";
 import { FaRegUser } from "react-icons/fa";
 
+const SSO_ERROR_MESSAGES: Record<string, string> = {
+  NotRegisteredPIC:
+    "Akun Anda belum terdaftar sebagai PIC. Silakan hubungi Administrator.",
+  SSOFailed: "Gagal memvalidasi SSO Bulog. Silakan coba lagi.",
+  InvalidSAMLResponse: "Response SSO tidak valid. Silakan coba lagi.",
+  MissingNIP:
+    "NIP tidak ditemukan dari data SSO. Silakan hubungi Administrator.",
+  InvalidSSOToken:
+    "Token SSO tidak valid atau sudah expired. Silakan login ulang.",
+  CSRFValidationFailed:
+    "Sesi SSO tidak valid (CSRF). Silakan coba login ulang dari awal.",
+  TokenAlreadyUsed:
+    "Token SSO sudah digunakan. Silakan login ulang dari halaman utama.",
+};
+
 export default function LoginForm() {
   const [isVisible, setIsVisible] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const searchParams = useSearchParams();
+  const ssoError = searchParams.get("error");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -88,7 +107,15 @@ export default function LoginForm() {
       </Card.Header>
 
       <Card.Content>
-        <Form className="space-y-5" onSubmit={handleSubmit}>
+        {ssoError && SSO_ERROR_MESSAGES[ssoError] && (
+          <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-5">
+            <CiCircleInfo className="text-red-400 text-lg mt-0.5 shrink-0" />
+            <p className="text-red-300 text-sm">
+              {SSO_ERROR_MESSAGES[ssoError]}
+            </p>
+          </div>
+        )}
+        <Form className="space-y-5" onSubmit={handleSubmit} validationBehavior="aria" method="post">
           <TextField
             isRequired
             name="username"
@@ -151,7 +178,7 @@ export default function LoginForm() {
             {!isPending && <CiLogin className="mr-2 text-xl" />}
             {isPending ? (
               <div className="flex items-center gap-2">
-                <Spinner size="sm" className="text-white"/>
+                <Spinner size="sm" className="text-white" />
                 <span>Memeriksa...</span>
               </div>
             ) : (
@@ -172,6 +199,9 @@ export default function LoginForm() {
           size="lg"
           variant="outline"
           className="border border-white/20 text-white bg-white/5 hover:bg-white/10 font-medium transition-all"
+          onPress={() => {
+            window.location.href = "/api/auth/sso/login";
+          }}
         >
           <Image
             src="/assets/images/logo-bulog.png"

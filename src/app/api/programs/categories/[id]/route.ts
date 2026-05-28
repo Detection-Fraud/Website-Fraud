@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await auth();
@@ -17,7 +17,7 @@ export async function PUT(
       });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { name, color } = body;
 
@@ -40,7 +40,7 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await auth();
@@ -52,7 +52,7 @@ export async function DELETE(
       });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const programCount = await prisma.programBudaya.count({
       where: { categoryId: id },
