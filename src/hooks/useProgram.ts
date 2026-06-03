@@ -3,6 +3,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 import { ProgramBudaya } from "@generated/prisma";
 import { useOverlayState } from "@heroui/react";
+import { useUrlParams } from "./useUrlParams";
 
 export type ProgramSummary = {
   active: number;
@@ -18,14 +19,20 @@ export type PaginationData = {
 };
 
 export function useProgram() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const {
+    updateParams,
+    getParam,
+    router,
+    searchInput,
+    handleSearch,
+    handleClearSearch,
+    setSearchInput,
+  } = useUrlParams();
 
   // --- BACA STATE DARI URL (source of truth) ---
-  const page = Number(searchParams.get("page") || "1");
-  const limit = Number(searchParams.get("limit") || "10");
-  const search = searchParams.get("search") || "";
+  const page = Number(getParam("page") || "1");
+  const limit = Number(getParam("limit") || "10");
+  const search = getParam("search") || "";
 
   // --- STATE DATA ---
   const [programs, setPrograms] = useState<ProgramBudaya[]>([]);
@@ -49,35 +56,14 @@ export function useProgram() {
 
   // --- STATE LOKAL UNTUK INPUT SEARCH ---
   // (lokal agar tidak fetch tiap ketik, baru update URL saat handleSearch)
-  const [searchInput, setSearchInput] = useState(search);
 
   // Helper: update URL params tanpa reload halaman
-  const updateParams = (newParams: Record<string, string>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(newParams).forEach(([key, value]) => {
-      if (value) params.set(key, value);
-      else params.delete(key);
-    });
-    router.push(`${pathname}?${params.toString()}`);
-  };
 
   // Handler: trigger search dan reset ke page 1
-  const handleSearch = () => {
-    updateParams({ search: searchInput, page: "1" });
-  };
 
   // Handler: clear search
-  const handleClearSearch = () => {
-    setSearchInput("");
-    updateParams({ search: "", page: "1" });
-  };
 
   // Sync searchInput saat URL berubah (misal user klik Back)
-  const [prevSearch, setPrevSearch] = useState(search);
-  if (search !== prevSearch) {
-    setPrevSearch(search);
-    setSearchInput(search);
-  }
 
   // Fetch data setiap kali page/limit/search dari URL berubah
   useEffect(() => {

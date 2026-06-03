@@ -1,32 +1,28 @@
 "use client";
 
 import AppBar from "@/components/layout/Appbar";
-import DataTable, { TableColumn } from "@/components/layout/DataTable";
+import DataTable from "@/components/layout/DataTable";
 import {
-  Button,
   Card,
-  Chip,
   SearchField,
   SearchFieldGroup,
-  TagGroup,
   Tag,
+  TagGroup,
 } from "@heroui/react";
-import { FaEye } from "react-icons/fa";
 
 import { ListBox, Select } from "@heroui/react";
 import { useSearchParams } from "next/navigation";
+import { FiFilter } from "react-icons/fi";
 
-import { useProgram } from "@/hooks/useProgram";
-import { useReportList } from "@/hooks/useReportList";
-import { ActivityReportItem } from "@/types/report.types";
-import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
-import FilterStatus from "@/components/ui/FilterStatus";
 import FilterProgram from "@/components/ui/FilterProgram";
 import SelectKancab from "@/components/ui/SelectKancab";
-import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useMasterWilayah } from "@/hooks/useMasterWilayah";
-import { useProgramList } from "@/hooks/useProgramList";
+import { useReportList } from "@/hooks/useReportList";
+import { useState } from "react";
+import StatusTagGroup from "@/components/ui/StatusTagGroup";
+import ReportSearchBar from "@/components/ui/ReportSearchBar";
 
 export default function PicView() {
   const {
@@ -43,8 +39,7 @@ export default function PicView() {
     summary,
   } = useReportList();
 
-  const { data: session } = useSession();
-  const user = session?.user;
+  const { user } = useCurrentUser();
   const isKanwil = user?.unitType === "KANTOR_WILAYAH";
 
   const [unitLevel, setUnitLevel] = useState<"KANWIL" | "KANCAB">("KANWIL");
@@ -65,10 +60,11 @@ export default function PicView() {
       />
 
       <Card className="shadow-sm rounded-xl hover:shadow-md transition-shadow">
-        <Card.Header>
-          <Card.Title>Filter</Card.Title>
-        </Card.Header>
-        <Card.Content className="flex flex-row gap-4">
+        <Card.Content className="flex flex-row items-center gap-4">
+          <div className="flex items-center gap-2">
+            <FiFilter className="size-5 text-gray-500" />
+            <p className="text-sm font-medium text-gray-600">Filter :</p>
+          </div>
           {isKanwil && (
             <div className="flex items-center gap-4">
               <Select
@@ -139,59 +135,19 @@ export default function PicView() {
 
           <div className="flex flex-row items-center justify-center gap-6">
             <div>
-              <SearchField>
-                <SearchFieldGroup className="shadow-sm bg-[#f8fafc]">
-                  <SearchField.SearchIcon />
-                  <SearchField.Input
-                    placeholder="Search..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch?.()}
-                  />
-                  <SearchField.ClearButton
-                    onClick={() => handleClearSearch?.()}
-                  />
-                </SearchFieldGroup>
-              </SearchField>
+              <ReportSearchBar
+                value={searchInput}
+                onChange={setSearchInput}
+                onSearch={handleSearch}
+                onClear={handleClearSearch}
+              />
             </div>
 
             <div>
-              <TagGroup
-                selectedKeys={new Set([statusFilter])}
-                onSelectionChange={(keys) => {
-                  const selected = Array.from(keys)[0] as string;
-                  updateParams({ status: selected, page: "1" });
-                }}
-                aria-label="Filter"
-                selectionMode="single"
-              >
-                <TagGroup.List>
-                  <Tag
-                    id="ALL"
-                    className="data-[selected=true]:bg-sky-500 data-[selected=true]:text-white px-3 py-1"
-                  >
-                    Semua
-                  </Tag>
-                  <Tag
-                    id="PENDING"
-                    className="data-[selected=true]:bg-amber-500 data-[selected=true]:text-white px-3 py-1"
-                  >
-                    Pending
-                  </Tag>
-                  <Tag
-                    id="APPROVED"
-                    className="data-[selected=true]:bg-green-500 data-[selected=true]:text-white px-3 py-1"
-                  >
-                    Approved
-                  </Tag>
-                  <Tag
-                    id="REJECTED"
-                    className="data-[selected=true]:bg-red-500 data-[selected=true]:text-white px-3 py-1"
-                  >
-                    Rejected
-                  </Tag>
-                </TagGroup.List>
-              </TagGroup>
+              <StatusTagGroup
+                value={statusFilter}
+                onChange={(status) => updateParams({ status, page: "1" })}
+              />
             </div>
           </div>
         </div>
@@ -200,7 +156,7 @@ export default function PicView() {
           column={REPORT_COLUMNS}
           renderCell={(item, key) =>
             renderReportCell(item, key, (id) =>
-              router.push(`/admin/approval/${id}`),
+              router.push(`/pic/approval/${id}`),
             )
           }
           data={reports}

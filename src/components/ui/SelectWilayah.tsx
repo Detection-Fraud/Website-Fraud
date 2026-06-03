@@ -32,7 +32,7 @@ export default function SelectWilayah({
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover>
+      <Select.Popover className={"w-fit max-w-64"}>
         <ListBox>
           <ListBox.Item id="ALL" textValue="Semua Wilayah">
             Semua Wilayah

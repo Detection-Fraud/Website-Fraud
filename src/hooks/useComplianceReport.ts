@@ -25,13 +25,13 @@ export function useComplianceReport() {
       } else if (user.unitType === "KANTOR_CABANG") {
         setActiveTab("KANCAB");
       } else if (user.unitType === "DIVISI") {
-        setActiveTab("DIVISI")
+        setActiveTab("DIVISI");
       }
     }
   }, [user?.role, user?.unitType, activeTab]);
   const [options, setOptions] = useState<ComplianceFilterOptions>({
-    kanwilList: [], // dulunya regionsList
-    divisiList: [], // dulunya divisionList
+    kanwilList: [],
+    divisiList: [],
     kancabList: [],
     programList: [],
   });
@@ -172,22 +172,22 @@ export function useComplianceReport() {
     activeTab,
     handleTabChange,
     filters: {
-      kanwilId, // dulunya regionId
-      kancabId, // dulunya branchId
-      divisiId, // dulunya divisionId
+      kanwilId,
+      kancabId,
+      divisiId,
       programId,
     },
     options: {
       ...options,
-      kancabList, // dulunya branchList
+      kancabList,
     },
     data,
     isLoading: isLoadingOptions || isLoadingData,
-    isLoadingKancab, // dulunya isLoadingBranches
+    isLoadingKancab,
     error,
-    handleKanwilChange, // dulunya handleRegionChange
-    handleKancabChange, // dulunya handleBranchChange
-    handleDivisiChange, // dulunya handleDivisionChange
+    handleKanwilChange,
+    handleKancabChange,
+    handleDivisiChange,
     handleProgramChange,
     refetch: fetchComplianceData,
   };

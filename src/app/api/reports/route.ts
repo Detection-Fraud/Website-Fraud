@@ -1,6 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import { UploadedPhoto } from "@/types/photo.types";
+import { Prisma, ReportStatus } from "@generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -26,42 +28,19 @@ export async function GET(request: NextRequest) {
     const kanwilFilter = searchParams.get("kanwilId") || "ALL";
     const kancabFilter = searchParams.get("kancabId") || "ALL";
 
-    let whereClause: any = {};
+    let whereClause: Prisma.ActivityReportWhereInput = {};
 
-    // === PERUBAHAN: Role-based filter menggunakan unitId + unitType ===
-    switch (user.role) {
-      case "ADMIN":
-        break;
-      case "PIC":
-      case "VIEWER":
-        if (user.unitId) {
-          if (user.unitType === "KANTOR_WILAYAH") {
-            // Kanwil: lihat laporan unit sendiri + semua kancab di bawahnya
-            const childIds = await prisma.unit.findMany({
-              where: { parentId: user.unitId },
-              select: { id: true },
-            });
-            whereClause.unitId = {
-              in: [user.unitId, ...childIds.map((c) => c.id)],
-            };
-          } else {
-            // Kancab / Divisi: hanya unit sendiri
-            whereClause.unitId = user.unitId;
-          }
-        }
-        break;
-      default:
-        return NextResponse.json(
-          errorResponse("Akses ditolak - Role tidak dikenali", 403),
-          { status: 403 },
-        );
+    if (user.role !== "ADMIN" && user.role !== "PIC" && user.role !== "VIEWER") {
+      return NextResponse.json(
+        errorResponse("Akses ditolak - Role tidak dikenali", 403),
+        { status: 403 },
+      );
     }
 
-    // === PERUBAHAN: Filter wilayah menggunakan unitId ===
+    // Prioritas filter: Kancab (spesifik) -> Kanwil -> Default scope user
     if (kancabFilter !== "ALL") {
       whereClause.unitId = kancabFilter;
     } else if (kanwilFilter !== "ALL") {
-      // Kanwil: tampilkan laporan kanwil + semua kancab di bawahnya
       const childIds = await prisma.unit.findMany({
         where: { parentId: kanwilFilter },
         select: { id: true },
@@ -69,6 +48,20 @@ export async function GET(request: NextRequest) {
       whereClause.unitId = {
         in: [kanwilFilter, ...childIds.map((c) => c.id)],
       };
+    } else if (user.role === "PIC" || user.role === "VIEWER") {
+      if (user.unitId) {
+        if (user.unitType === "KANTOR_WILAYAH") {
+          const childIds = await prisma.unit.findMany({
+            where: { parentId: user.unitId },
+            select: { id: true },
+          });
+          whereClause.unitId = {
+            in: [user.unitId, ...childIds.map((c) => c.id)],
+          };
+        } else {
+          whereClause.unitId = user.unitId;
+        }
+      }
     }
 
     if (programFilter !== "ALL") {
@@ -88,21 +81,26 @@ export async function GET(request: NextRequest) {
     }
 
     if (statusFilter !== "ALL") {
-      whereClause.status = statusFilter;
+      whereClause.status = statusFilter as ReportStatus;
     }
 
-    const summaryTotal = await prisma.activityReport.count({
+    const statusCounts = await prisma.activityReport.groupBy({
+      by: ["status"],
       where: baseWhereClause,
+      _count: true,
     });
-    const summaryPending = await prisma.activityReport.count({
-      where: { ...baseWhereClause, status: "PENDING" },
-    });
-    const summaryApproved = await prisma.activityReport.count({
-      where: { ...baseWhereClause, status: "APPROVED" },
-    });
-    const summaryRejected = await prisma.activityReport.count({
-      where: { ...baseWhereClause, status: "REJECTED" },
-    });
+
+    let summaryTotal = 0;
+    let summaryPending = 0;
+    let summaryApproved = 0;
+    let summaryRejected = 0;
+
+    for (const group of statusCounts) {
+      summaryTotal += group._count;
+      if (group.status === "PENDING") summaryPending = group._count;
+      if (group.status === "APPROVED") summaryApproved = group._count;
+      if (group.status === "REJECTED") summaryRejected = group._count;
+    }
 
     const skip = (page - 1) * limit;
 
@@ -231,7 +229,7 @@ export async function POST(request: Request) {
 
           photos: {
             create:
-              uploadedPhotos?.map((photo: any) => ({
+              uploadedPhotos?.map((photo: UploadedPhoto) => ({
                 originalName: photo.originalName,
                 imageUrl: photo.imageUrl,
               })) || [],

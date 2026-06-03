@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardData } from "@/types/analytics.type";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 export type PeriodeFilter =
   | "ALL"
@@ -18,7 +18,6 @@ export function useDashboardAnalytics() {
   const [error, setError] = useState<string | null>(null);
 
   const [year, setYear] = useState(new Date().getFullYear());
-  // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
   const [kanwilId, setKanwilId] = useState<string>("ALL");
   const [programId, setProgramId] = useState<string>("ALL");
   const [kancabId, setKancabId] = useState<string>("ALL");
@@ -59,7 +58,7 @@ export function useDashboardAnalytics() {
     fetchDashboard();
   }, [year, kanwilId, programId, periode, kancabId]);
 
-  const getAreaChartData = () => {
+  const areaChartData = useMemo(() => {
     const dataBulanan = data?.charts.kegiatanPerBulan;
     if (!dataBulanan) return [];
     switch (periode) {
@@ -78,37 +77,42 @@ export function useDashboardAnalytics() {
       default:
         return dataBulanan;
     }
-  };
+  }, [data, periode]);
 
-  const getPieChartData = () => data?.charts.distribusiProgram ?? [];
+  const pieChartData = useMemo(
+    () => data?.charts.distribusiProgram ?? [],
+    [data],
+  );
 
-  const calculateDynamicSummary = () => {
-    const chartData = getAreaChartData();
-    const currentTotal = chartData.reduce(
+  const dynamicSummary = useMemo(() => {
+    const currentTotal = areaChartData.reduce(
       (acc, curr) => acc + curr.tahunIni,
       0,
     );
-    const prevTotal = chartData.reduce((acc, curr) => acc + curr.tahunLalu, 0);
+    const prevTotal = areaChartData.reduce(
+      (acc, curr) => acc + curr.tahunLalu,
+      0,
+    );
     return { currentValue: currentTotal, previousValue: prevTotal };
-  };
+  }, [areaChartData]);
 
   return {
     data,
     summary: data?.summary ?? null,
     charts: data?.charts ?? null,
-    areaChartData: getAreaChartData(),
-    pieChartData: getPieChartData(),
-    dynamicSummary: calculateDynamicSummary(),
+    areaChartData,
+    pieChartData,
+    dynamicSummary,
     isLoading,
     error,
     year,
     setYear,
-    kanwilId, // dulunya regionId
-    setKanwilId, // dulunya setRegionId
+    kanwilId,
+    setKanwilId,
     programId,
     setProgramId,
-    kancabId, // dulunya branchId
-    setKancabId, // dulunya setBranchId
+    kancabId,
+    setKancabId,
     periode,
     setPeriode,
   };

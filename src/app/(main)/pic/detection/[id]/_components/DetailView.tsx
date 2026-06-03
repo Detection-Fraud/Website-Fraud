@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormatDate } from "@/hooks/useFormatDate";
+import { formatDate } from "@/lib/formatDate";
 import { useReportDetail } from "@/hooks/useReportDetail";
 import { StatusType } from "@/types/status.types";
 import { Card, Chip, Skeleton } from "@heroui/react";
@@ -80,9 +80,9 @@ export default function DetailView({ id }: { id: string }) {
       <div>
         <StatusView
           status={report?.status as StatusType}
-          sentDate={useFormatDate(report?.createdAt)}
+          sentDate={formatDate(report?.createdAt)}
           note={report?.notes || ""}
-          updatedAt={useFormatDate(report?.updatedAt)}
+          updatedAt={formatDate(report?.updatedAt)}
           reportId={report?.id ?? ""}
           canResubmit={canResubmit}
         />

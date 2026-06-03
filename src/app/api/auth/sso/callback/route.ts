@@ -1,6 +1,7 @@
 import { saml } from "@/lib/saml";
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,6 +9,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const relayState = formData.get("RelayState") as string;
     const storedState = request.cookies.get("sso_csrf_state")?.value;
+
+    const isDev = process.env.NODE_ENV === "development";
 
     if (!relayState || !storedState) {
       console.error(
@@ -28,7 +31,6 @@ export async function POST(request: NextRequest) {
       return redirectWithError(request, "CSRFValidationFailed");
     }
 
-    const crypto = await import("crypto");
     if (!crypto.timingSafeEqual(relayBuf, storedBuf)) {
       console.error(
         "[SSO CALLBACK] CSRF state content mismatch - possible CSRF attact",
@@ -45,13 +47,27 @@ export async function POST(request: NextRequest) {
       return redirectWithError(request, "InvalidSAMLResponse");
     }
 
+    if (isDev) {
+      try {
+        const decodedXml = Buffer.from(samlResponse, "base64").toString("utf8");
+        console.log("[SSO DEBUG] ====== RAW SAML RESPONSE XML ======");
+        console.log(decodedXml);
+        console.log("[SSO DEBUG] ====== END SAML RESPONSE XML ======");
+      } catch (decodeErr) {
+        console.error(
+          "[SSO DEBUG] Gagal decode SAMLResponse base64:",
+          decodeErr,
+        );
+      }
+    }
+
     const { profile } = await saml.validatePostResponseAsync({
       SAMLResponse: samlResponse,
     });
 
     // STEP 4: EXTRACT NIP DARI SAML PROFILE
 
-    if (process.env.NODE_ENV === "development") {
+    if (isDev) {
       console.log(
         "[SSO DEBUG] Full SAML profile:",
         JSON.stringify(profile, null, 2),
@@ -88,14 +104,14 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60,
-      path: "/login/sso",
+      path: "/api/auth/sso",
     });
 
     // clear csrf state cookie
     response.cookies.set("sso_csrf_state", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
       maxAge: 0,
       path: "/",
     });
@@ -104,8 +120,26 @@ export async function POST(request: NextRequest) {
 
     // TIMING SAFE E
   } catch (error) {
-    console.error("[SSO CALLBACK] Error saat validate post response:", error);
-    return redirectWithError(request, "InvalidSAMLResponse");
+    const err = error as Error;
+    console.error("[SSO CALLBACK] ❌ SAML Validation FAILED!");
+    console.error("[SSO CALLBACK] Error name:", err.name);
+    console.error("[SSO CALLBACK] Error message:", err.message);
+    console.error("[SSO CALLBACK] Error stack:", err.stack);
+
+    // Berikan error code yang lebih spesifik berdasarkan pesan error
+    let errorCode = "InvalidSAMLResponse";
+    if (err.message?.includes("expired")) {
+      errorCode = "SAMLAssertionExpired";
+    } else if (err.message?.includes("signature")) {
+      errorCode = "InvalidSignature";
+    } else if (err.message?.includes("Audience")) {
+      errorCode = "AudienceMismatch";
+    }
+
+    console.error("[SSO CALLBACK] → Redirecting with error code:", errorCode);
+    // ======================== END TAMBAHAN ========================
+
+    return redirectWithError(request, errorCode);
   }
 }
 
@@ -118,8 +152,8 @@ function redirectWithError(request: Request, errorCode: string): NextResponse {
   // clean up csrf cookies on error
   response.cookies.set("sso_csrf_state", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none",
     maxAge: 0,
     path: "/",
   });

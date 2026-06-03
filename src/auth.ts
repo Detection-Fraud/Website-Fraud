@@ -78,6 +78,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const user = await prisma.user.findFirst({
             where: {
               OR: [{ username: nip }, { samlNameId: nip }],
+              role: "PIC",
             },
             include: {
               unit: {

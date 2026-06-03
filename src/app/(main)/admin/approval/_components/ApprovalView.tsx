@@ -4,25 +4,21 @@ import AppBar from "@/components/layout/Appbar";
 import DataTable from "@/components/layout/DataTable";
 import { useReportList } from "@/hooks/useReportList";
 import {
-  Card,
-  SearchField,
-  SearchFieldGroup,
-  Tag,
-  TagGroup,
+  Card
 } from "@heroui/react";
 
-import { useProgramList } from "@/hooks/useProgramList";
 import { useMasterWilayah } from "@/hooks/useMasterWilayah";
 
 import FilterProgram from "@/components/ui/FilterProgram";
-import SelectWilayah from "@/components/ui/SelectWilayah";
 import SelectKancab from "@/components/ui/SelectKancab";
-import ApprovalSummaryCards from "./ApprovalSummaryCard"; // Pastikan namanya sesuai dengan file kamu
+import SelectWilayah from "@/components/ui/SelectWilayah";
 
-import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
-import { FiAlertTriangle, FiImage } from "react-icons/fi";
-import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
+import ReportSearchBar from "@/components/ui/ReportSearchBar";
+import StatusTagGroup from "@/components/ui/StatusTagGroup";
 import SummaryCards from "@/components/ui/SummaryCard";
+import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
+import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
+import { FiAlertTriangle, FiImage } from "react-icons/fi";
 
 export default function ApprovalView() {
   const {
@@ -99,6 +95,7 @@ export default function ApprovalView() {
         <SelectWilayah
           regions={kanwilList}
           value={kanwilFilter}
+          className="w-70"
           onChange={(val) =>
             updateParams({ kanwilId: val, kancabId: "ALL", page: "1" })
           }
@@ -129,59 +126,19 @@ export default function ApprovalView() {
 
           <div className="flex flex-row items-center justify-center gap-6">
             <div>
-              <SearchField>
-                <SearchFieldGroup className="shadow-sm bg-[#f8fafc]">
-                  <SearchField.SearchIcon />
-                  <SearchField.Input
-                    placeholder="Search..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch?.()}
-                  />
-                  <SearchField.ClearButton
-                    onClick={() => handleClearSearch?.()}
-                  />
-                </SearchFieldGroup>
-              </SearchField>
+              <ReportSearchBar
+                value={searchInput}
+                onChange={setSearchInput}
+                onSearch={handleSearch}
+                onClear={handleClearSearch}
+              />
             </div>
 
             <div>
-              <TagGroup
-                selectedKeys={new Set([statusFilter])}
-                onSelectionChange={(keys) => {
-                  const selected = Array.from(keys)[0] as string;
-                  updateParams({ status: selected, page: "1" });
-                }}
-                aria-label="Filter"
-                selectionMode="single"
-              >
-                <TagGroup.List>
-                  <Tag
-                    id="ALL"
-                    className="data-[selected=true]:bg-sky-500 data-[selected=true]:text-white px-3 py-1"
-                  >
-                    Semua
-                  </Tag>
-                  <Tag
-                    id="PENDING"
-                    className="data-[selected=true]:bg-amber-500 data-[selected=true]:text-white px-3 py-1"
-                  >
-                    Pending
-                  </Tag>
-                  <Tag
-                    id="APPROVED"
-                    className="data-[selected=true]:bg-green-500 data-[selected=true]:text-white px-3 py-1"
-                  >
-                    Approved
-                  </Tag>
-                  <Tag
-                    id="REJECTED"
-                    className="data-[selected=true]:bg-red-500 data-[selected=true]:text-white px-3 py-1"
-                  >
-                    Rejected
-                  </Tag>
-                </TagGroup.List>
-              </TagGroup>
+              <StatusTagGroup
+                value={statusFilter}
+                onChange={(status) => updateParams({ status, page: "1" })}
+              />
             </div>
           </div>
         </div>

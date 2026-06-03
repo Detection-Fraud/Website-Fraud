@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { useReportStore } from "@/store/useReportStore";
+import { ReportFormData } from "@/types/report.types";
 import { toast } from "@heroui/react";
 import { useRouter } from "next/navigation";
-import { ReportFormData } from "@/types/report.types";
-import { unknown } from "zod";
+import { useState } from "react";
 
 export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
   const { images, updateImageStatus, resetStore } = useReportStore();
@@ -66,7 +65,6 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
   };
 
   const tanganiSubmitFinal = async (dataForm: ReportFormData) => {
-    console.log("DEBUG dataForm:", dataForm);
     if (
       !dataForm.activityName ||
       !dataForm.programId ||

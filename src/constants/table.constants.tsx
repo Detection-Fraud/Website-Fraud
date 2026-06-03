@@ -1,5 +1,5 @@
 import { TableColumn } from "@/components/layout/DataTable";
-import { useFormatDate } from "@/hooks/useFormatDate";
+import { formatDate } from "@/lib/formatDate";
 import { ActivityReportItem } from "@/types/report.types";
 import { Avatar, Button, Chip } from "@heroui/react";
 import { FaEye } from "react-icons/fa";

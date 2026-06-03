@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ActivityReportItem, SummaryStats } from "@/types/report.types";
+import { useUrlParams } from "./useUrlParams";
 
 export interface PaginationInfo {
   total: number;
@@ -26,43 +27,26 @@ export function useReportList() {
     rejected: 0,
   });
 
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const {
+    updateParams,
+    getParam,
+    router,
+    searchInput,
+    handleSearch,
+    handleClearSearch,
+    setSearchInput,
+  } = useUrlParams();
 
-  const page = Number(searchParams.get("page") || "1");
-  const limit = Number(searchParams.get("limit") || "10");
-  const search = searchParams.get("search") || "";
+  const page = Number(getParam("page") || "1");
+  const limit = Number(getParam("limit") || "10");
+  const search = getParam("search") || "";
 
-  const statusFilter = searchParams.get("status") || "ALL";
-  const programFilter = searchParams.get("programId") || "ALL";
+  const statusFilter = getParam("status") || "ALL";
+  const programFilter = getParam("programId") || "ALL";
 
   // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
-  const kanwilFilter = searchParams.get("kanwilId") || "ALL";
-  const kancabFilter = searchParams.get("kancabId") || "ALL";
-
-  const [searchInput, setSearchInput] = useState(search);
-
-  const updateParams = (newParams: Record<string, string>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(newParams).forEach(([key, value]) => {
-      if (value) {
-        params.set(key, value);
-      } else {
-        params.delete(key);
-      }
-    });
-    router.push(`${pathname}?${params.toString()}`);
-  };
-
-  const handleSearch = () => {
-    updateParams({ search: searchInput, page: "1" });
-  };
-
-  const handleClearSearch = () => {
-    setSearchInput("");
-    updateParams({ search: "", page: "1" });
-  };
+  const kanwilFilter = getParam("kanwilId") || "ALL";
+  const kancabFilter = getParam("kancabId") || "ALL";
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -97,15 +81,9 @@ export function useReportList() {
     search,
     statusFilter,
     programFilter,
-    kanwilFilter, // dulunya regionFilter
-    kancabFilter, // dulunya branchFilter
+    kanwilFilter,
+    kancabFilter,
   ]);
-
-  const [prevSearch, setPrevSearch] = useState(search);
-  if (search !== prevSearch) {
-    setPrevSearch(search);
-    setSearchInput(search);
-  }
 
   return {
     reports,
@@ -120,8 +98,8 @@ export function useReportList() {
     summary,
     statusFilter,
     router,
-    kanwilFilter, // dulunya regionFilter
-    kancabFilter, // dulunya branchFilter
+    kanwilFilter,
+    kancabFilter,
     programFilter,
   };
 }

@@ -2,7 +2,6 @@
 
 import { Spinner } from "@heroui/react";
 import { signIn } from "next-auth/react";
-import { redirect } from "next/dist/server/api-utils";
 import { useEffect, useRef, useState } from "react";
 
 export default function SSOCallbackPage() {
@@ -26,9 +25,8 @@ export default function SSOCallbackPage() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
 
-        // Bedakan antara "token expired/missing" vs "token already used (replay)"
         if (res.status === 401) {
-          const isReplay = body?.error?.includes("sudah digunakan");
+          const isReplay = body?.code === "TOKEN_REPLAYED";
           if (isReplay) {
             setError(
               "Token SSO sudah digunakan. Silakan login ulang melalui halaman utama.",
@@ -60,7 +58,7 @@ export default function SSOCallbackPage() {
         redirect: false,
       });
 
-      if (result.error) {
+      if (result?.error) {
         setError(
           "Akun anda belum terdaftar sebagai PIC. Silahkan hubungi Administrator",
         );
@@ -98,7 +96,7 @@ export default function SSOCallbackPage() {
       ) : (
         // Tampilan loading
         <div className="text-center space-y-3">
-          <Spinner size="lg" />
+          <Spinner size="sm" />
           <p className="text-blue-100/70 text-sm">
             Memproses kredensial SSO Anda, mohon tunggu...
           </p>

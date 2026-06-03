@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
     );
 
     const errorResponse = NextResponse.json(
-      { error: "Token sudah pernah digunakan" },
-      { status: 400 },
+      { error: "Token sudah pernah digunakan", code: "TOKEN_REPLAYED" },
+      { status: 401 },
     );
 
     // clean up expired cookie
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 0,
-      path: "/login/sso",
+      path: "/api/auth/sso",
     });
     return errorResponse;
   }
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 0,
-    path: "/login/sso",
+    path: "/api/auth/sso",
   });
 
   return response;

@@ -7,8 +7,8 @@ export async function GET() {
     const state = crypto.randomBytes(32).toString("hex");
 
     const authUrl = await saml.getAuthorizeUrlAsync(
-      state,
-      "fraud-detection-app",
+      state, // RelayState — CSRF nonce
+      "", // host — biarkan kosong, issuer sudah dikonfigurasi di saml.ts
       {},
     );
 
@@ -16,17 +16,22 @@ export async function GET() {
 
     response.cookies.set("sso_csrf_state", state, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
       maxAge: 300,
       path: "/",
     });
 
     return response;
   } catch (error) {
-    console.error("[SSO] Gagal generate SAML AuthRequest URL: ", error);
+    const err = error as Error;
+    console.error(
+      "[SSO] Gagal generate SAML AuthRequest URL:",
+      err.message,
+      err.stack,
+    );
     return NextResponse.json(
-      { error: "Gagal terhubung ke SSO Bulog" },
+      { error: "Gagal terhubung ke SSO Bulog", detail: err.message },
       { status: 500 },
     );
   }

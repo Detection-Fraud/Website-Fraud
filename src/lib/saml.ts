@@ -11,15 +11,14 @@ import { SAML } from "@node-saml/node-saml";
 
 export const saml = new SAML({
   entryPoint: process.env.SAML_ENTRY_POINT || "",
-  issuer: "fraud-detection-app", // Entity ID aplikasi kita
+  issuer: "aktivasi-budaya-app",
   callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/sso/callback`,
-  idpCert: process.env.SAML_IDP_CERT || "dummy", // Diwajibkan oleh @node-saml v5+
+  idpCert: process.env.SAML_IDP_CERT || "dummy",
 
-  // === Signature Verification ===
-  // Disable sementara untuk development (certificate IdP kosong)
-  // ⚠️ PRODUCTION: ubah ke true dan pastikan SAML_IDP_CERT di .env valid
   wantAssertionsSigned: false,
   wantAuthnResponseSigned: false,
+  audience: false,
+  acceptedClockSkewMs: -1,
 });
 
 if (process.env.NODE_ENV === "production") {

@@ -34,7 +34,7 @@ export default function SelectKancab({
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover>
+      <Select.Popover className={"w-fit max-w-64"}>
         <ListBox>
           <ListBox.Item id="ALL" textValue="Semua Kantor Cabang">
             Semua Cabang
