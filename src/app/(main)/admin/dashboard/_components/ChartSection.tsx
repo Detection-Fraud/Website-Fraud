@@ -1,12 +1,7 @@
-import {
-  DashboardCharts,
-  DashboardSummary
-} from "@/types/analytics.type";
+import { DashboardCharts, DashboardSummary } from "@/types/analytics.type";
 import { Card, Chip, Link, ProgressBar, Tabs } from "@heroui/react";
 import { BiAward, BiLineChart } from "react-icons/bi";
-import {
-  FiBarChart2
-} from "react-icons/fi";
+import { FiBarChart2 } from "react-icons/fi";
 import { GoArrowUpRight, GoTrophy } from "react-icons/go";
 import { LuMedal } from "react-icons/lu";
 import { MdOutlineShield } from "react-icons/md";
@@ -31,12 +26,12 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
     );
   return (
     <div className="space-y-8 mb-12">
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
         <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-3">
           {/* Tabs membungkus SELURUH isi Card */}
           <Tabs>
             {/* Baris Header: Title (kiri) + Tab Buttons (kanan) */}
-            <div className="mb-4 flex flex-row justify-between items-center">
+            <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <div>
                 <h2 className="font-bold text-gray-900">
                   Grafik Kegiatan per Bulan
@@ -140,7 +135,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
         <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-2">
           <Card.Header>
             <Card.Title className="font-bold text-gray-900">
@@ -173,7 +168,8 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
               // Progress bar menggunakan approvalRate langsung agar sinkron dengan angka yang ditampilkan
 
               // 2. Mapping warna sesuai data 'status' dari Backend
-              let statusColor: "success" | "default" | "warning" | "danger" = "default";
+              let statusColor: "success" | "default" | "warning" | "danger" =
+                "default";
               if (wilayah.status === "Sangat Baik") statusColor = "success";
               else if (wilayah.status === "Baik") statusColor = "default";
               else if (wilayah.status === "Cukup") statusColor = "warning";
@@ -223,7 +219,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                     </div>
 
                     {/* Baris Bawah: Progress Bar & Teks Detail Asli */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                       <div className="flex-1">
                         {/* Progress Bar diubah biar pake color bawaan Tailwind/Hex kalau HeroUI ngaco valuenya */}
                         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -233,7 +229,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                           />
                         </div>
                       </div>
-                      <div className="text-[11px] text-gray-400 whitespace-nowrap font-medium">
+                      <div className="text-[11px] text-gray-400 font-medium">
                         {wilayah.kegiatan} kegiatan • {wilayah.unit} unit
                       </div>
                     </div>

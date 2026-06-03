@@ -152,9 +152,9 @@ export default function DataTable<T>({
       </Table.ScrollContainer>
 
       {showPagination && (
-        <Table.Footer className="bg-white">
+        <Table.Footer className="bg-white px-w sm:px-4">
           <Pagination>
-            <Pagination.Summary className="text-xs">
+            <Pagination.Summary className="text-xs hidden sm:block">
               Menampilkan {(pagination.page - 1) * pagination.limit + 1}-
               {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
               dari {pagination.total} data
@@ -166,7 +166,7 @@ export default function DataTable<T>({
                   onPress={() => onPageChange?.(pagination.page - 1)}
                 >
                   <Pagination.PreviousIcon />
-                  <span>Previous</span>
+                  <span className="hidden sm:inline">Previous</span>
                 </Pagination.Previous>
               </Pagination.Item>
 
@@ -197,7 +197,7 @@ export default function DataTable<T>({
                   isDisabled={pagination.page >= pagination.totalPages}
                   onPress={() => onPageChange?.(pagination.page + 1)}
                 >
-                  <span>Next</span>
+                  <span className="hidden sm:inline">Next</span>
                   <Pagination.NextIcon />
                 </Pagination.Next>
               </Pagination.Item>

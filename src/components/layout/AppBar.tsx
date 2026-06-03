@@ -16,9 +16,9 @@ export default function AppBar({
   textAddButton = "Buat Laporan",
 }: PropTypes) {
   return (
-    <div className="flex flex-row justify-between items-center">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
       <div>
-        <h1 className="font-semibold text-lg">
+        <h1 className="font-semibold text-base sm:text-lg">
           {title || "Dashboard Kantor Wilayah"}
         </h1>
         <p className="text-xs text-muted">
@@ -30,8 +30,8 @@ export default function AppBar({
           <Button
             onClick={onAdd}
             variant="primary"
-            size="lg"
-            className={"px-6 rounded-xl"}
+            size="md"
+            className={"px-4 sm:px-6 rounded-xl w-full sm:w-auto"}
           >
             <IoMdAdd />
             {textAddButton || "Buat Laporan"}

@@ -48,7 +48,7 @@ export default function KalendarPage() {
       />
 
       {/* FILTER AREA */}
-      <div className="flex gap-4 p-4 bg-white border rounded-xl shadow-sm">
+      <div className="flex flex-wrap gap-3 p-4 bg-white border rounded-xl shadow-sm">
         <TagGroup
           selectionMode="multiple"
           selectedKeys={new Set(selectedProgramIds)}
@@ -79,9 +79,9 @@ export default function KalendarPage() {
         </TagGroup>
       </div>
 
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* KALENDER (GRID) */}
-        <div className="flex-1 bg-white p-4 border rounded-xl shadow-sm">
+        <div className="w-full lg:flex-1 bg-white p-4 border rounded-xl shadow-sm">
           {/* -- HEADER NAVIGASI BULAN -- */}
           <div className="flex items-center justify-between mb-4">
             <Button isIconOnly variant="ghost" onPress={handlePrevMonth}>

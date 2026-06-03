@@ -1,8 +1,5 @@
 import { PeriodeFilter } from "@/hooks/useDashboardAnalytics";
-import {
-  DistribusiProgram,
-  KegiatanPerPeriode
-} from "@/types/analytics.type";
+import { DistribusiProgram, KegiatanPerPeriode } from "@/types/analytics.type";
 import { Card, Chip } from "@heroui/react";
 import { BiTrendingUp } from "react-icons/bi";
 import AnalyticAreaChart from "./AnalyticAreaChart";
@@ -44,7 +41,7 @@ export default function AnlyticChart({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 ">
       <Card className="p-4 bg-white border-gray-200 shadow-sm lg:col-span-2 rounded-2xl ">
-        <div className="mb-4 flex flex-row justify-between items-center">
+        <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <Card.Header>
             <Card.Title className="font-bold text-md">
               Tren Kegiatan Per {formatTitle()}

@@ -52,7 +52,7 @@ export default function DetectionPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 w-full max-w-5xl mx-auto gap-6 px-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 w-full max-w-5xl mx-auto gap-4 lg:gap-6 px-4 items-start">
         {/* KOLOM KIRI (Besar): DROPZONE & PREVIEW */}
         <Card className="w-full p-6 lg:col-span-2 shadow-sm" variant="default">
           <Card.Content>

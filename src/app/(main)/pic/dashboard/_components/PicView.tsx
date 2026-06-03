@@ -60,7 +60,7 @@ export default function PicView() {
       />
 
       <Card className="shadow-sm rounded-xl hover:shadow-md transition-shadow">
-        <Card.Content className="flex flex-row items-center gap-4">
+        <Card.Content className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <FiFilter className="size-5 text-gray-500" />
             <p className="text-sm font-medium text-gray-600">Filter :</p>
@@ -80,7 +80,7 @@ export default function PicView() {
                     updateParams({ kancabId: "", page: "1" });
                   }
                 }}
-                className="w-48"
+                className="w-full sm:w-56 lg:w-70"
               >
                 <Select.Trigger className="shadow-sm bg-white border border-gray-200">
                   <Select.Value />
@@ -106,6 +106,7 @@ export default function PicView() {
                   value={searchParams.get("kancabId") || ""}
                   isDisabled={false}
                   labelOff
+                  className="w-full sm:w-56 lg:w-70"
                   onChange={(val) => updateParams({ kancabId: val, page: "1" })}
                 />
               )}
@@ -115,6 +116,7 @@ export default function PicView() {
           <FilterProgram
             value={currentProgram}
             labelOff
+            className="w-full sm:w-56 lg:w-70"
             onChange={(key) =>
               updateParams({ programId: String(key), page: "1" })
             }
@@ -123,7 +125,7 @@ export default function PicView() {
       </Card>
 
       <Card className="rounded-lg shadow-md border-gray-200 p-0">
-        <div className="flex flex-row w-full items-center justify-between pr-4">
+        <div className="flex flex-col md:flex-row w-full items-start md:items-center justify-between gap-3 p-4">
           <Card.Header className="p-4">
             <Card.Title className="font-semibold text-md">
               Daftar Laporan
@@ -133,7 +135,7 @@ export default function PicView() {
             </Card.Description>
           </Card.Header>
 
-          <div className="flex flex-row items-center justify-center gap-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
             <div>
               <ReportSearchBar
                 value={searchInput}

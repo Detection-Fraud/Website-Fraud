@@ -3,9 +3,7 @@
 import AppBar from "@/components/layout/Appbar";
 import DataTable from "@/components/layout/DataTable";
 import { useReportList } from "@/hooks/useReportList";
-import {
-  Card
-} from "@heroui/react";
+import { Card } from "@heroui/react";
 
 import { useMasterWilayah } from "@/hooks/useMasterWilayah";
 
@@ -13,12 +11,12 @@ import FilterProgram from "@/components/ui/FilterProgram";
 import SelectKancab from "@/components/ui/SelectKancab";
 import SelectWilayah from "@/components/ui/SelectWilayah";
 
-import ReportSearchBar from "@/components/ui/ReportSearchBar";
-import StatusTagGroup from "@/components/ui/StatusTagGroup";
 import SummaryCards from "@/components/ui/SummaryCard";
 import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
 import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
 import { FiAlertTriangle, FiImage } from "react-icons/fi";
+import ReportSearchBar from "@/components/ui/ReportSearchBar";
+import StatusTagGroup from "@/components/ui/StatusTagGroup";
 
 export default function ApprovalView() {
   const {
@@ -86,16 +84,17 @@ export default function ApprovalView() {
       />
 
       {/* FILTER SECTION */}
-      <div className="flex flex-row gap-2 justify-start items-center">
+      <div className="flex flex-col  sm:flex-row flex-wrap gap-3 justify-start items-stretch sm:items-center">
         <FilterProgram
           value={programFilter}
+          className="w-full sm:w-56 lg:w-70"
           onChange={(val) => updateParams({ programId: val, page: "1" })}
         />
 
         <SelectWilayah
           regions={kanwilList}
           value={kanwilFilter}
-          className="w-70"
+          className="w-full sm:w-56 lg:w-70"
           onChange={(val) =>
             updateParams({ kanwilId: val, kancabId: "ALL", page: "1" })
           }
@@ -104,6 +103,7 @@ export default function ApprovalView() {
         <SelectKancab
           branches={kancabList}
           value={kancabFilter}
+          className="w-full sm:w-56 lg:w-70"
           isDisabled={kanwilFilter === "ALL" || !selectedKanwil}
           onChange={(val) => updateParams({ kancabId: val, page: "1" })}
         />
@@ -114,7 +114,7 @@ export default function ApprovalView() {
 
       {/* DATA TABLE SECTION */}
       <Card className="rounded-lg shadow-md border-gray-200 p-0">
-        <div className="flex flex-row w-full items-center justify-between pr-4">
+        <div className="flex flex-col md:flex-row w-full items-start md:items-center justify-between gap-3 p-4">
           <Card.Header className="p-4">
             <Card.Title className="font-semibold text-md">
               Daftar Laporan
@@ -124,7 +124,7 @@ export default function ApprovalView() {
             </Card.Description>
           </Card.Header>
 
-          <div className="flex flex-row items-center justify-center gap-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
             <div>
               <ReportSearchBar
                 value={searchInput}

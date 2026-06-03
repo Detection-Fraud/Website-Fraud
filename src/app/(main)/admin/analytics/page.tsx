@@ -47,12 +47,12 @@ export default function AnalyticsAdmin() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
         <BiFilterAlt className="w-4 h-4 text-gray-500" />
         <p className="text-gray-500 font-medium">Filter: </p>
 
         {/* Select Filter Wilayah */}
-        <div>
+        <div className="w-full sm:w-auto">
           <SelectWilayah
             regions={kanwilList}
             value={kanwilId}
@@ -60,29 +60,29 @@ export default function AnalyticsAdmin() {
               setKanwilId(val);
               setKancabId("ALL");
             }}
-            className="w-62"
+            className="w-full sm:w-52 lg:w-62"
           />
         </div>
 
         {/* Select Filter Kantor Cabang */}
-        <div>
+        <div className="w-full sm:w-auto">
           <SelectKancab
             branches={kancabChildren}
             value={kancabId}
             isDisabled={kanwilId === "ALL"}
             onChange={setKancabId}
-            className="w-62"
+            className="w-full sm:w-52 lg:w-62"
           />
         </div>
 
         {/* Select Filter Periode */}
-        <div>
+        <div className="w-full sm:w-auto">
           <Select
             aria-label="Filter Periode Waktu"
             placeholder="Pilih Periode"
             value={periode}
             onChange={(key) => setPeriode((key ?? "ALL") as PeriodeFilter)}
-            className="w-48"
+            className="w-full sm:w-48 lg:w-62"
           >
             <Label>Periode</Label>
             <Select.Trigger className="shadow-sm bg-white border border-gray-200">

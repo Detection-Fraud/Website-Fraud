@@ -1,7 +1,4 @@
-import { SummaryStats } from "@/types/report.types";
 import { Card } from "@heroui/react";
-import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
-import { FiAlertTriangle, FiImage } from "react-icons/fi";
 
 interface ApprovalSummaryCardsProps {
   summary: {
@@ -16,9 +13,9 @@ interface ApprovalSummaryCardsProps {
 
 export default function SummaryCards({ summary }: ApprovalSummaryCardsProps) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {summary.map((item, index) => (
-        <div key={index}>
+        <div key={index} className="min-w-0">
           <Card className="rounded-xl shadow-sm border-gray-200 hover:shadow-md transition-shadow">
             <Card.Header className="flex flex-row items-start gap-4">
               <div

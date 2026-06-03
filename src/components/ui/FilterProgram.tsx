@@ -1,23 +1,26 @@
 "use client";
 
 import { useProgramList } from "@/hooks/useProgramList";
+import { cn } from "@/lib/utils";
 import { Label, ListBox, Select } from "@heroui/react";
 
 interface FilterProgramProps {
   value: string;
   onChange: (value: string) => void;
   labelOff?: boolean;
+  className?: string;
 }
 
 export default function FilterProgram({
   value,
   onChange,
   labelOff = false,
+  className,
 }: FilterProgramProps) {
   const { programs } = useProgramList();
 
   return (
-    <div className="w-48">
+    <div className={cn("w-48", className)}>
       <Select
         aria-label="Filter Program"
         placeholder="Semua Program"
