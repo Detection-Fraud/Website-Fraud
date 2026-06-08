@@ -1,9 +1,8 @@
 "use client";
 
 import AppBar from "@/components/layout/Appbar";
-import DataTable from "@/components/layout/DataTable";
 import { useReportList } from "@/hooks/useReportList";
-import { Card } from "@heroui/react";
+import { Button, Card, useOverlayState } from "@heroui/react";
 
 import { useMasterWilayah } from "@/hooks/useMasterWilayah";
 
@@ -11,12 +10,19 @@ import FilterProgram from "@/components/ui/FilterProgram";
 import SelectKancab from "@/components/ui/SelectKancab";
 import SelectWilayah from "@/components/ui/SelectWilayah";
 
-import SummaryCards from "@/components/ui/SummaryCard";
-import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
-import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
-import { FiAlertTriangle, FiImage } from "react-icons/fi";
 import ReportSearchBar from "@/components/ui/ReportSearchBar";
 import StatusTagGroup from "@/components/ui/StatusTagGroup";
+import SummaryCards from "@/components/ui/SummaryCard";
+import { useApproval } from "@/hooks/useApproval";
+import { ActivityReportItem } from "@/types/report.types";
+import { useState } from "react";
+import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
+import { CiSaveDown1 } from "react-icons/ci";
+import { FiAlertTriangle, FiImage } from "react-icons/fi";
+import ModalNotes from "../[id]/_components/ModalNotes";
+import CardApproval from "./CardApproval";
+import PaginationFooter from "./PaginationFooter";
+import ModalLogs from "./ModalLogs";
 
 export default function ApprovalView() {
   const {
@@ -33,7 +39,46 @@ export default function ApprovalView() {
     statusFilter,
     programFilter,
     summary,
+    refetch,
   } = useReportList();
+
+  const { handleApprove, isLoading: isApproving } = useApproval();
+
+  const state = useOverlayState();
+  const logsModalState = useOverlayState();
+
+  const [selectedReport, setSelectedReport] =
+    useState<ActivityReportItem | null>(null);
+
+  const [selectedLogsReport, setSelectedLogsReport] =
+    useState<ActivityReportItem | null>(null);
+
+  const handleOpenRejectModal = (report: ActivityReportItem) => {
+    setSelectedReport(report);
+    state.open();
+  };
+
+  const handleCloseRejectModal = () => {
+    setSelectedReport(null);
+    state.close();
+  };
+
+  const handleOpenLogsModal = (report: ActivityReportItem) => {
+    setSelectedLogsReport(report);
+    logsModalState.open();
+  };
+
+  const handleCloseLogsModal = () => {
+    setSelectedLogsReport(null);
+    logsModalState.close();
+  };
+
+  const handleApproveReport = async (id: string) => {
+    const success = await handleApprove(id);
+    if (success) {
+      refetch();
+    }
+  };
 
   const summaryCards = [
     {
@@ -112,16 +157,25 @@ export default function ApprovalView() {
       {/* SUMMARY CARDS SECTION */}
       <SummaryCards summary={summaryCards} />
 
-      {/* DATA TABLE SECTION */}
-      <Card className="rounded-lg shadow-md border-gray-200 p-0">
-        <div className="flex flex-col md:flex-row w-full items-start md:items-center justify-between gap-3 p-4">
-          <Card.Header className="p-4">
-            <Card.Title className="font-semibold text-md">
-              Daftar Laporan
-            </Card.Title>
-            <Card.Description className="text-xs text-gray-500">
-              {summary.total} data
-            </Card.Description>
+      {/* CARD FILTER & SEARCH */}
+      <Card className="shadow-sm border border-gray-200 rounded-lg">
+        <div className="flex flex-col md:flex-row w-full items-start md:items-center justify-between gap-3 p-2">
+          <Card.Header>
+            <div className="flex flex-col gap-0.5 items-start">
+              <Card.Title className="font-semibold text-md">
+                Daftar Laporan
+              </Card.Title>
+              <Card.Description className="text-xs text-gray-500">
+                {summary.total} data
+              </Card.Description>
+
+              <div>
+                <StatusTagGroup
+                  value={statusFilter}
+                  onChange={(status) => updateParams({ status, page: "1" })}
+                />
+              </div>
+            </div>
           </Card.Header>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
@@ -133,28 +187,63 @@ export default function ApprovalView() {
                 onClear={handleClearSearch}
               />
             </div>
-
             <div>
-              <StatusTagGroup
-                value={statusFilter}
-                onChange={(status) => updateParams({ status, page: "1" })}
-              />
+              <Button variant="outline" className={"rounded-xl"}>
+                <CiSaveDown1 />
+                Export
+              </Button>
             </div>
           </div>
         </div>
-
-        <DataTable
-          column={REPORT_COLUMNS}
-          renderCell={(item, key) =>
-            renderReportCell(item, key, (id) =>
-              router.push(`/admin/approval/${id}`),
-            )
-          }
-          data={reports}
-          pagination={pagination}
-          onPageChange={(page) => updateParams({ page: String(page) })}
-        />
       </Card>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {reports.length > 0 ? (
+          reports.map((report) => (
+            <CardApproval
+              key={report.id}
+              report={report}
+              onApprove={handleApproveReport}
+              onOpenModal={() => handleOpenRejectModal(report)}
+              onOpenLogs={() => handleOpenLogsModal(report)}
+            />
+          ))
+        ) : (
+          <div className="col-span-full text-center py-10 text-slate-400 text-sm">
+            Tidak ada laporan
+          </div>
+        )}
+      </div>
+
+      {selectedReport && (
+        <ModalNotes
+          isOpen={state.isOpen}
+          onClose={handleCloseRejectModal}
+          id={selectedReport.id}
+          namaPic={selectedReport.picKegiatan}
+          onSuccess={refetch}
+        />
+      )}
+
+      {selectedLogsReport && (
+        <ModalLogs
+          isOpen={logsModalState.isOpen}
+          onClose={handleCloseLogsModal}
+          reportId={selectedLogsReport.id}
+          activityName={selectedLogsReport.activityName}
+        />
+      )}
+      <PaginationFooter
+        page={pagination.page}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.total}
+        itemsPerPage={pagination.limit}
+        onPageChange={(pageNumber) =>
+          updateParams({
+            page: pageNumber.toString(),
+          })
+        }
+      />
     </div>
   );
 }

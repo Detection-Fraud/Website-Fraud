@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
         parent: {
           select: { id: true, name: true },
         },
+        _count: {
+          select: { users: { where: { role: "PIC" } } },
+        },
       },
       orderBy: { name: "asc" },
     });

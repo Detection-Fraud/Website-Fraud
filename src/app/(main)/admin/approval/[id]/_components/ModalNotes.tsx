@@ -8,19 +8,27 @@ interface PropTypes {
   onClose: () => void;
   namaPic?: string;
   id: string;
+  onSuccess?: () => void;
 }
-export default function ModalNotes({ isOpen, onClose, namaPic, id }: PropTypes) {
+export default function ModalNotes({
+  isOpen,
+  onClose,
+  namaPic,
+  id,
+  onSuccess,
+}: PropTypes) {
   const { handleReject, isLoading } = useApproval();
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const notes = formData.get("notes") as string;
-    
+
     if (!notes?.trim()) return;
 
     const success = await handleReject(id, notes);
     if (success) {
+      onSuccess?.();
       onClose();
     }
   };
@@ -73,9 +81,9 @@ export default function ModalNotes({ isOpen, onClose, namaPic, id }: PropTypes) 
                   >
                     Batal
                   </Button>
-                  <Button 
-                    variant={"danger"} 
-                    className="flex-1" 
+                  <Button
+                    variant={"danger"}
+                    className="flex-1"
                     type="submit"
                     isPending={isLoading}
                   >

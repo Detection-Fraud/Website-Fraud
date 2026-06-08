@@ -30,7 +30,11 @@ export async function GET(request: NextRequest) {
 
     let whereClause: Prisma.ActivityReportWhereInput = {};
 
-    if (user.role !== "ADMIN" && user.role !== "PIC" && user.role !== "VIEWER") {
+    if (
+      user.role !== "ADMIN" &&
+      user.role !== "PIC" &&
+      user.role !== "VIEWER"
+    ) {
       return NextResponse.json(
         errorResponse("Akses ditolak - Role tidak dikenali", 403),
         { status: 403 },
@@ -120,6 +124,13 @@ export async function GET(request: NextRequest) {
             },
           },
           program: { select: { name: true } },
+          photos: {
+            select: {
+              id: true,
+              originalName: true,
+              imageUrl: true,
+            },
+          },
         },
         skip,
         take: limit,

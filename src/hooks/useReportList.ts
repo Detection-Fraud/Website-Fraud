@@ -17,7 +17,7 @@ export function useReportList() {
   const [pagination, setPagination] = useState<PaginationInfo>({
     total: 0,
     page: 1,
-    limit: 10,
+    limit: 6,
     totalPages: 0,
   });
   const [summary, setSummary] = useState<SummaryStats>({
@@ -26,6 +26,9 @@ export function useReportList() {
     approved: 0,
     rejected: 0,
   });
+
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refetch = () => setRefreshKey((prev) => prev + 1);
 
   const {
     updateParams,
@@ -38,7 +41,7 @@ export function useReportList() {
   } = useUrlParams();
 
   const page = Number(getParam("page") || "1");
-  const limit = Number(getParam("limit") || "10");
+  const limit = Number(getParam("limit") || "6");
   const search = getParam("search") || "";
 
   const statusFilter = getParam("status") || "ALL";
@@ -83,6 +86,7 @@ export function useReportList() {
     programFilter,
     kanwilFilter,
     kancabFilter,
+    refreshKey,
   ]);
 
   return {
@@ -101,5 +105,6 @@ export function useReportList() {
     kanwilFilter,
     kancabFilter,
     programFilter,
+    refetch,
   };
 }
