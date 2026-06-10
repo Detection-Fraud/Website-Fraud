@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
     }
 
     const nip =
-      profile?.nameID ||
       (profile as any)?.nip ||
       (profile as any)?.uid ||
-      (profile as any)?.employeeID;
+      (profile as any)?.employeeID ||
+      profile?.nameID;
 
     if (!nip) {
       console.error(

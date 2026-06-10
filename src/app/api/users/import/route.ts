@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Unit sama, mungkin nama berubah atau tidak berubah sama sekali
-        if (namaBerubah || !existing.isActive) {
+        if (namaBerubah) {
           return {
             id: index,
             nip,
@@ -274,8 +274,20 @@ export async function POST(req: NextRequest) {
         error: previewRows.filter((r) => r.status === "error").length,
       };
 
+      // ── Sort: Error & Mutasi di atas ──────────────────────────
+      const statusWeight = {
+        mutasi: 1,
+        error: 2,
+        baru: 3,
+        tidak_berubah: 4,
+      };
+
+      const sortedRows = previewRows.sort(
+        (a, b) => statusWeight[a.status] - statusWeight[b.status],
+      );
+
       return NextResponse.json(
-        successResponse({ stats, rows: previewRows }, "Preview digenerate"),
+        successResponse({ stats, rows: sortedRows }, "Preview digenerate"),
       );
     }
 
@@ -314,10 +326,13 @@ export async function POST(req: NextRequest) {
       let updatedCount = 0;
 
       for (const row of rowsToImport) {
+        // Catat NIP yang valid agar tidak di-deactivate (termasuk yang tidak berubah)
+        if (row.status !== "error" && row.nip) {
+          processedNips.add(row.nip);
+        }
+
         // Skip baris error dan tidak_berubah
         if (row.status === "error" || row.status === "tidak_berubah") continue;
-
-        processedNips.add(row.nip);
         const existing = existingByNip.get(row.nip);
 
         if (!existing) {
@@ -335,10 +350,10 @@ export async function POST(req: NextRequest) {
           });
           createdCount++;
         } else {
-          // UPDATE — status "baru" (nama/aktif berubah) atau "mutasi" (unit berubah)
+          // UPDATE — status "baru" (nama berubah) atau "mutasi" (unit berubah)
           await prisma.user.update({
             where: { id: existing.id },
-            data: { name: row.nama, unitId: row.unitId, isActive: true },
+            data: { name: row.nama, unitId: row.unitId },
           });
           updatedCount++;
         }

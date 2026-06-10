@@ -5,7 +5,7 @@ import { UNIT_ICON } from "@/constants/users.constants";
 import { PaginationMeta, UserWithUnit } from "@/types/user.types";
 import { Button, Card, SearchField, SearchFieldGroup } from "@heroui/react";
 import { FiEdit2 } from "react-icons/fi";
-import { RiDeleteBinLine } from "react-icons/ri";
+import { RiDeleteBinLine, RiToggleFill, RiToggleLine } from "react-icons/ri";
 
 const COLUMNS = [
   { key: "no", label: "NO" },
@@ -28,7 +28,8 @@ interface UserTablePanelProps {
   searchQuery: string;
   onSearchChange: (search: string) => void;
   onPageChange: (page: number) => void;
-  onEdit: (user: UserWithUnit) => void;
+  onToggleStatus: (user: UserWithUnit, newStatus: boolean) => void;
+  isUpdatingStatus: string | null;
   onDelete: (user: UserWithUnit) => void;
 }
 
@@ -45,7 +46,8 @@ export default function UserTablePanel({
   searchQuery,
   onSearchChange,
   onPageChange,
-  onEdit,
+  onToggleStatus,
+  isUpdatingStatus,
   onDelete,
 }: UserTablePanelProps) {
   const Icon = UNIT_ICON[unitType] || UNIT_ICON["KANWIL"];
@@ -76,26 +78,47 @@ export default function UserTablePanel({
               <span className="text-sm font-semibold text-slate-800 leading-tight">
                 {item.name}
               </span>
-              {item.username && (
-                <span className="text-xs text-slate-400 leading-none mt-0.5">
-                  {item.username}@bulog.co.id
-                </span>
-              )}
             </div>
           </div>
         );
       case "status":
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600">
+        return item.isActive ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-semibold border border-emerald-100">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-            Active
+            Aktif
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold border border-slate-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
+            Nonaktif
           </span>
         );
       case "aksi":
+        const isCurrentlyUpdating = isUpdatingStatus === item.id;
         return (
           <div className="flex items-center gap-2">
-            <Button onClick={() => onEdit(item)} isIconOnly>
-              <FiEdit2 className="w-4 h-4" />
+            <Button
+              size="sm"
+              variant={item.isActive ? "primary" : "secondary"}
+              className={
+                item.isActive
+                  ? "bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium"
+                  : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-medium"
+              }
+              isPending={isCurrentlyUpdating}
+              onPress={() => onToggleStatus(item, !item.isActive)}
+            >
+              {item.isActive ? (
+                <>
+                  <RiToggleFill className="w-4 h-4 text-slate-500" />
+                  Nonaktifkan
+                </>
+              ) : (
+                <>
+                  <RiToggleLine className="w-4 h-4 text-emerald-600" />
+                  Aktifkan
+                </>
+              )}
             </Button>
             <Button onClick={() => onDelete(item)} isIconOnly>
               <RiDeleteBinLine className="w-4 h-4" />

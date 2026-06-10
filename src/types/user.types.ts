@@ -12,6 +12,7 @@ export interface UserWithUnit {
   unitId: string | null;
   unit: UserUnit | null;
   createdAt: string;
+  isActive: boolean;
 }
 
 export interface PaginationMeta {

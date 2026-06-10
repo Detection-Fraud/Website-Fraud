@@ -9,6 +9,10 @@ import { useUnitList } from "@/hooks/useUnitList";
 import { useManagementUsers } from "@/hooks/useManagementUsers";
 import UnitListPanel from "./UnitListPanel";
 import UserTablePanel from "./UserTablePanel";
+import ModalAddPic from "./ModalAddPIC";
+import { useTogglePicStatus } from "@/hooks/useTogglePicStatus";
+import ModalConfirmAction from "./ModalConfirmAction";
+import { useDeletePic } from "@/hooks/useDeletePic";
 
 export default function ManagementUserView() {
   const [selectedUnitType, setSelectedUnitType] = useState<string>("KANWIL");
@@ -22,21 +26,59 @@ export default function ManagementUserView() {
 
   const [editingUser, setEditingUser] = useState<UserWithUnit | null>(null);
 
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    action: "TOGGLE_STATUS" | "DELETE" | null;
+    user: UserWithUnit | null;
+    newStatus?: boolean;
+  }>({
+    isOpen: false,
+    action: null,
+    user: null,
+  });
   const stateModal = useOverlayState();
 
   const { units, isLoading: isLoadingUnits } = useUnitList(selectedUnitType);
+  const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
+
   const {
     users,
     pagination,
     isLoading: isLoadingUsers,
     refetch,
   } = useManagementUsers({
-    unitId: selectedUnitId,
+    unitId: selectedUnit?.id ?? "",
     search: userSearch,
     page: userPage,
   });
 
-  const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
+  const { toggleStatus, isUpdating } = useTogglePicStatus({
+    onSuccess: () => {
+      refetch();
+    },
+  });
+  const handleDeleteUser = (user: UserWithUnit) => {
+    // Buka Modal Konfirmasi
+    setConfirmModal({
+      isOpen: true,
+      action: "DELETE",
+      user,
+    });
+  };
+
+  const { deleteUser, isDeleting } = useDeletePic({
+    onSuccess: () => {
+      refetch();
+    },
+  });
+  const handleToggleStatus = async (user: UserWithUnit, newStatus: boolean) => {
+    setConfirmModal({
+      isOpen: true,
+      action: "TOGGLE_STATUS",
+      user,
+      newStatus,
+    });
+  };
 
   const handleUnitTypeChange = (type: string) => {
     setSelectedUnitType(type);
@@ -67,17 +109,36 @@ export default function ManagementUserView() {
     stateModal.open();
   };
 
-  const handleDeleteUser = (user: UserWithUnit) => {
-    // TODO: implementasi konfirmasi delete di STEP 8
-    console.log("Delete user:", user.id);
-  };
-
   const handleModalSuccess = () => {
     stateModal.close();
     setEditingUser(null);
     refetch(); // refresh tabel
   };
 
+  const executeConfirmAction = async () => {
+    if (!confirmModal.user) return;
+
+    if (confirmModal.action === "TOGGLE_STATUS") {
+      await toggleStatus({
+        userId: confirmModal.user.id,
+        isActive: confirmModal.newStatus!,
+      });
+    } else if (confirmModal.action === "DELETE") {
+      await deleteUser(confirmModal.user.id);
+      setConfirmModal({
+        isOpen: false,
+        action: null,
+        user: null,
+      });
+    }
+
+    // Tutup modal & reset state
+    setConfirmModal({
+      isOpen: false,
+      action: null,
+      user: null,
+    });
+  };
   return (
     <div className="flex flex-col gap-6 h-full">
       <div className="flex items-center justify-between">
@@ -123,10 +184,58 @@ export default function ManagementUserView() {
           searchQuery={userSearch}
           onSearchChange={handleUserSearchChange}
           onPageChange={setUserPage}
-          onEdit={handleEditUser}
+          onToggleStatus={handleToggleStatus}
+          isUpdatingStatus={isUpdating}
           onDelete={handleDeleteUser}
         />
       </div>
+
+      <ModalAddPic
+        isOpen={stateModal.isOpen}
+        onClose={() => stateModal.close()}
+        selectedUnit={selectedUnit}
+        onSuccess={handleModalSuccess}
+      />
+
+      <ModalConfirmAction
+        isOpen={confirmModal.isOpen}
+        onClose={() =>
+          setConfirmModal({ isOpen: false, action: null, user: null })
+        }
+        onConfirm={executeConfirmAction}
+        isLoading={isUpdating === confirmModal.user?.id}
+        title={
+          confirmModal.action === "TOGGLE_STATUS"
+            ? confirmModal.newStatus
+              ? "Aktifkan PIC"
+              : "Nonaktifkan PIC"
+            : "Hapus PIC"
+        }
+        description={
+          confirmModal.action === "TOGGLE_STATUS" ? (
+            <span>
+              Apakah Anda yakin ingin{" "}
+              <strong>
+                {confirmModal.newStatus ? "mengaktifkan" : "menonaktifkan"}
+              </strong>{" "}
+              PIC <strong>{confirmModal.user?.name}</strong>?
+            </span>
+          ) : (
+            <span>
+              Apakah Anda yakin ingin menghapus PIC{" "}
+              <strong>{confirmModal.user?.name}</strong> secara permanen? Aksi
+              ini tidak dapat dibatalkan.
+            </span>
+          )
+        }
+        confirmText={
+          confirmModal.action === "TOGGLE_STATUS"
+            ? confirmModal.newStatus
+              ? "Ya, Aktifkan"
+              : "Ya, Nonaktifkan"
+            : "Ya, Hapus"
+        }
+      />
     </div>
   );
 }

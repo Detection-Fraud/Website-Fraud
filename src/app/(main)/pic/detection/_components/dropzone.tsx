@@ -11,7 +11,7 @@ export default function Dropzone() {
 
   const prosessFileGambar = (fileFisik: FileList | File[]) => {
     const listFile = Array.from(fileFisik);
-    const MAX_IMAGES = 10;
+    const MAX_IMAGES = 2;
     const MAX_SIZES_MB = 2;
     const MAX_SIZE_BYTES = MAX_SIZES_MB * 1024 * 1024;
 
@@ -25,7 +25,7 @@ export default function Dropzone() {
     const fileTerFilter = listFile.slice(0, sisaSlot);
     if (listFile.length > sisaSlot) {
       toast.warning(
-        `Hanya ${sisaSlot} foto yang ditambahkan karena batas maksimal 10.`,
+        `Hanya ${sisaSlot} foto yang ditambahkan karena batas maksimal 2.`,
       );
     }
 

@@ -16,10 +16,10 @@ export async function POST(request: Request) {
       });
     }
 
-    const MAX_SIZE_BYTES = 100 * 1024 * 1024; // Diubah sementara ke 100MB
+    const MAX_SIZE_BYTES = 2 * 1024 * 1024; // Maksimal 2MB
     if (file.size > MAX_SIZE_BYTES) {
       return NextResponse.json(
-        errorResponse(`File maksimal 100MB`, 400),
+        errorResponse(`File maksimal 2MB`, 400),
         { status: 400 },
       );
     }
