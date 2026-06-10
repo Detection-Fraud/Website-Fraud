@@ -89,7 +89,7 @@ export default function ManagementUserView() {
 
         <SelectUnitType
           value={selectedUnitType}
-          onChange={(value) => setSelectedUnitType(value)}
+          onChange={handleUnitTypeChange}
           className="min-w-72"
         />
       </div>

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
           select: { id: true, name: true },
         },
         _count: {
-          select: { users: { where: { role: "PIC" } } },
+          select: { users: { where: { role: "PIC", isActive: true } } },
         },
       },
       orderBy: { name: "asc" },

@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {
     role: "PIC",
+    isActive: true,
     ...(unitId && unitId !== "ALL" ? { unitId } : {}),
     ...(search
       ? {
@@ -72,5 +73,3 @@ export async function GET(req: NextRequest) {
     { status: 200 },
   );
 }
-
-

@@ -34,6 +34,7 @@ interface DataTableProps<T> {
 
   haveSearch?: boolean;
   haveFilter?: boolean;
+  className?: string;
 }
 
 export default function DataTable<T>({
@@ -43,6 +44,7 @@ export default function DataTable<T>({
   renderCell,
   pagination,
   onPageChange,
+  className,
   search,
   onSearch,
   onClearSearch,
@@ -88,7 +90,7 @@ export default function DataTable<T>({
   };
 
   return (
-    <Table className="p-0 rounded-none">
+    <Table className={`p-0 rounded-none ${className}`}>
       {/* Container untuk filter & pencarian dibikin sejajar dengan gap */}
       {/* {haveSearch && (
         <div className="flex w-full flex-row items-center justify-start gap-3 p-4">
@@ -114,7 +116,7 @@ export default function DataTable<T>({
       )} */}
       <Table.ScrollContainer>
         <Table.Content aria-label={ariaLabel || "Tabel Data"}>
-          <Table.Header>
+          <Table.Header className={"sticky z-10 top-0"}>
             {column.map((col, idx) => (
               <Table.Column
                 className={"px-6 py-3.5 bg-[#f8fafc]"}

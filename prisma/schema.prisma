@@ -78,6 +78,7 @@ model User {
   name String
   
   role Role @default(VIEWER)
+  isActive Boolean @default(true)
 
   unitId String?
   unit Unit? @relation(fields: [unitId], references: [id])
