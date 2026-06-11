@@ -21,6 +21,9 @@ export function useUnitList(unitType: string) {
   const [units, setUnits] = useState<UnitItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [trigger, setTrigger] = useState(0);
+
+  const refetch = () => setTrigger((prev) => prev + 1);
 
   useEffect(() => {
     const dbType = TYPE_MAP[unitType];
@@ -51,11 +54,12 @@ export function useUnitList(unitType: string) {
     };
 
     fetchUnits();
-  }, [unitType]);
+  }, [unitType, trigger]);
 
   return {
     units,
     isLoading,
     error,
+    refetch,
   };
 }

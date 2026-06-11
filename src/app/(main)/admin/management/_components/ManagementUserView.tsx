@@ -38,7 +38,7 @@ export default function ManagementUserView() {
   });
   const stateModal = useOverlayState();
 
-  const { units, isLoading: isLoadingUnits } = useUnitList(selectedUnitType);
+  const { units, isLoading: isLoadingUnits, refetch: refetchUnits } = useUnitList(selectedUnitType);
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
 
   const {
@@ -55,6 +55,7 @@ export default function ManagementUserView() {
   const { toggleStatus, isUpdating } = useTogglePicStatus({
     onSuccess: () => {
       refetch();
+      refetchUnits();
     },
   });
   const handleDeleteUser = (user: UserWithUnit) => {
@@ -69,6 +70,7 @@ export default function ManagementUserView() {
   const { deleteUser, isDeleting } = useDeletePic({
     onSuccess: () => {
       refetch();
+      refetchUnits();
     },
   });
   const handleToggleStatus = async (user: UserWithUnit, newStatus: boolean) => {
@@ -113,6 +115,7 @@ export default function ManagementUserView() {
     stateModal.close();
     setEditingUser(null);
     refetch(); // refresh tabel
+    refetchUnits(); // refresh list unit
   };
 
   const executeConfirmAction = async () => {
