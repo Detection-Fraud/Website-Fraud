@@ -1,17 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import { toggleUserStatusSchema } from "@/schemas/user.schema";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-
-const StatusSchema = z.object({
-  isActive: z.boolean({
-    error: (issue) =>
-      issue.input === undefined
-        ? "Status (isActive) harus disertakan"
-        : "Format status tidak valid",
-  }),
-});
 
 export async function PATCH(
   req: NextRequest,
@@ -28,7 +19,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const parsed = StatusSchema.safeParse(body);
+    const parsed = toggleUserStatusSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(

@@ -26,7 +26,7 @@ export function useApproval() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to update status");
+        throw new Error(data.message || "Failed to update status");
       }
 
       toast.success(data.message || "Status updated successfully");
@@ -37,10 +37,11 @@ export function useApproval() {
       return true;
     } catch (error: unknown) {
       console.error(error);
-      toast.danger(
-        error instanceof Error ? error.message : "Failed to update status",
-      );
-      return false;
+      if (error instanceof Error) {
+        toast.danger(error.message);
+      } else {
+        toast.danger("Terjadi kesalahan jaringan");
+      }
     } finally {
       setIsLoading(false);
     }

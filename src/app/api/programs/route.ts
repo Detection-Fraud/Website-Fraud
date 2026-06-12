@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { createProgramSchema } from "@/schemas/program.schema";
+import { z } from "zod";
 
 export async function GET(req: Request) {
   try {
@@ -25,30 +27,38 @@ export async function GET(req: Request) {
       whereClause.name = { contains: search, mode: "insensitive" };
     }
 
-    const [programs, activeCount, inactiveCount, totalCount, filteredCount, categoryCount, uncategorizedCount] =
-      await Promise.all([
-        prisma.programBudaya.findMany({
-          where: whereClause,
-          orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-          skip,
-          take: limit,
-          include: {
-            category: true,
-          },
-        }),
-        prisma.programBudaya.count({
-          where: { isActive: true },
-        }),
-        prisma.programBudaya.count({
-          where: { isActive: false },
-        }),
-        prisma.programBudaya.count(),
-        prisma.programBudaya.count({ where: whereClause }),
-        prisma.programCategory.count(), // <-- Hitung Total Kategori
-        prisma.programBudaya.count({    // <-- Hitung Tidak Berkategori
-          where: { categoryId: null },
-        }),
-      ]);
+    const [
+      programs,
+      activeCount,
+      inactiveCount,
+      totalCount,
+      filteredCount,
+      categoryCount,
+      uncategorizedCount,
+    ] = await Promise.all([
+      prisma.programBudaya.findMany({
+        where: whereClause,
+        orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+        skip,
+        take: limit,
+        include: {
+          category: true,
+        },
+      }),
+      prisma.programBudaya.count({
+        where: { isActive: true },
+      }),
+      prisma.programBudaya.count({
+        where: { isActive: false },
+      }),
+      prisma.programBudaya.count(),
+      prisma.programBudaya.count({ where: whereClause }),
+      prisma.programCategory.count(), // <-- Hitung Total Kategori
+      prisma.programBudaya.count({
+        // <-- Hitung Tidak Berkategori
+        where: { categoryId: null },
+      }),
+    ]);
 
     return NextResponse.json(
       {
@@ -92,8 +102,20 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
+    const parsedData = createProgramSchema.safeParse(body);
+
+    if (!parsedData.success) {
+      return NextResponse.json(
+        errorResponse(
+          "Validasi input gagal",
+          400,
+          z.treeifyError(parsedData.error),
+        ),
+        { status: 400 },
+      );
+    }
     const { name, frequency, startDate, endDate, categoryId, description } =
-      body;
+      parsedData.data;
 
     if (!name || !frequency || !startDate || !endDate) {
       return NextResponse.json(errorResponse("Missing required fields", 400), {
@@ -113,7 +135,7 @@ export async function POST(req: Request) {
     const program = await prisma.programBudaya.create({
       data: {
         name,
-        frequency: parseInt(frequency),
+        frequency,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         isActive: true,

@@ -19,7 +19,7 @@ import { useState } from "react";
 import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
 import { CiSaveDown1 } from "react-icons/ci";
 import { FiAlertTriangle, FiImage } from "react-icons/fi";
-import ModalNotes from "../[id]/_components/ModalNotes";
+import ModalNotes from "./ModalNotes";
 import CardApproval from "./CardApproval";
 import PaginationFooter from "./PaginationFooter";
 import ModalLogs from "./ModalLogs";

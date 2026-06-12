@@ -1,7 +1,9 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import { createProgramSchema, updateProgramSchema } from "@/schemas/program.schema";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 export async function PATCH(
   req: Request,
@@ -18,24 +20,34 @@ export async function PATCH(
       });
     }
 
-    const { isActive } = await req.json();
+    const body = await req.json();
+    const parsedData = updateProgramSchema.safeParse(body);
 
-    if (typeof isActive !== "boolean") {
+    if (!parsedData.success) {
       return NextResponse.json(
-        errorResponse("Format status tidak valid", 400),
+        errorResponse(
+          "Validasi input gagal",
+          400,
+          z.treeifyError(parsedData.error),
+        ),
         { status: 400 },
       );
     }
 
-    const program = await prisma.programBudaya.update({
+    const updateProgram = await prisma.programBudaya.update({
       where: { id },
-      data: { isActive },
+      data: parsedData.data,
     });
 
-    const statusText = isActive ? "diaktifkan" : "dinonaktifkan";
+    const statusText =
+      parsedData.data.isActive === undefined
+        ? "diupdate"
+        : parsedData.data.isActive
+          ? "diaktifkan"
+          : "dinonaktifkan";
 
     return NextResponse.json(
-      successResponse(program, `Program ${statusText} berhasil`),
+      successResponse(updateProgram, `Program ${statusText} berhasil`),
       { status: 200 },
     );
   } catch (error) {
@@ -61,16 +73,23 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, frequency, startDate, endDate, categoryId, description } =
-      body;
+    const parsedData = createProgramSchema.safeParse(body);
 
-    if (!name || !frequency || !startDate || !endDate) {
-      return NextResponse.json(errorResponse("Missing required fields", 400), {
-        status: 400,
-      });
+    if (!parsedData.success) {
+      return NextResponse.json(
+        errorResponse(
+          "Validasi input gagal",
+          400,
+          z.treeifyError(parsedData.error),
+        ),
+        { status: 400 },
+      );
     }
 
-    if (new Date(endDate) <= new Date(startDate)) {
+    const { name, frequency, startDate, endDate, categoryId, description } =
+      parsedData.data;
+
+    if (endDate <= startDate) {
       return NextResponse.json(
         errorResponse("End date must be after start date", 400),
         { status: 400 },
@@ -81,9 +100,9 @@ export async function PUT(
       where: { id },
       data: {
         name,
-        frequency: parseInt(frequency),
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        frequency,
+        startDate,
+        endDate,
         categoryId: categoryId || null,
         description: description || null,
       },

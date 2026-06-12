@@ -1,7 +1,9 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { errorResponse, formatZodError, successResponse } from "@/lib/response";
+import { reviewReportSchema } from "@/schemas/report.schema";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 export async function PATCH(
   req: NextRequest,
@@ -18,7 +20,22 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { status, notes } = body;
+
+    const parsedData = reviewReportSchema.safeParse(body);
+
+    if (!parsedData.success) {
+      const errorMessage = formatZodError(parsedData.error);
+      return NextResponse.json(
+        errorResponse(
+          `Validasi gagal: ${errorMessage}`,
+          400,
+          z.treeifyError(parsedData.error),
+        ),
+        { status: 400 },
+      );
+    }
+
+    const { status, notes } = parsedData.data;
 
     const currentReport = await prisma.activityReport.findUnique({
       where: { id },
@@ -35,13 +52,6 @@ export async function PATCH(
           "Hanya laporan dengan status PENDING yang dapat diubah",
           400,
         ),
-        { status: 400 },
-      );
-    }
-
-    if (status === "REJECTED" && (!notes || notes.trim().length < 10)) {
-      return NextResponse.json(
-        errorResponse("Catatan penolakan wajib diisi minimal 10 karakter", 400),
         { status: 400 },
       );
     }
@@ -68,7 +78,7 @@ export async function PATCH(
       successResponse(updatedReport, "Laporan berhasil diperbarui"),
     );
   } catch (error) {
-    console.error("ERROR PUT /api/reports/[id]:", error);
+    console.error("ERROR Patch /api/reports/[id]:", error);
     return NextResponse.json(errorResponse("Gagal memperbarui laporan", 500), {
       status: 500,
     });

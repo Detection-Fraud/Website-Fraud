@@ -1,12 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import { promoteUserSchema } from "@/schemas/user.schema";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-
-const PromoteSchema = z.object({
-  unitId: z.string().uuid("Format unit ID tidak valid"),
-});
 
 export async function PATCH(
   req: NextRequest,
@@ -23,7 +19,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const parsed = PromoteSchema.safeParse(body);
+    const parsed = promoteUserSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         errorResponse(parsed.error.issues[0]?.message ?? "Validasi gagal", 400),

@@ -1,9 +1,11 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { errorResponse, formatZodError, successResponse } from "@/lib/response";
+import { createReportSchema } from "@/schemas/report.schema";
 import { UploadedPhoto } from "@/types/photo.types";
 import { Prisma, ReportStatus } from "@generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 export async function GET(request: NextRequest) {
   try {
@@ -174,6 +176,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+
+    const parsedData = createReportSchema.safeParse(body);
+
+    if (!parsedData.success) {
+      const errorMessage = formatZodError(parsedData.error);
+      return NextResponse.json(
+        errorResponse(
+          `Validasi gagal: ${errorMessage}`,
+          400,
+          z.treeifyError(parsedData.error),
+        ),
+        { status: 400 },
+      );
+    }
     const {
       activityName,
       tanggalKegiatan,
@@ -182,7 +198,7 @@ export async function POST(request: Request) {
       picKegiatan,
       programId,
       uploadedPhotos,
-    } = body;
+    } = parsedData.data;
 
     if (!programId || !tanggalKegiatan) {
       return NextResponse.json(

@@ -158,7 +158,7 @@ export default function PicView() {
           column={REPORT_COLUMNS}
           renderCell={(item, key) =>
             renderReportCell(item, key, (id) =>
-              router.push(`/pic/approval/${id}`),
+              router.push(`/pic/detection/${id}`),
             )
           }
           data={reports}
