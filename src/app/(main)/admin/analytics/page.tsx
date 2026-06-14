@@ -7,11 +7,13 @@ import {
   useDashboardAnalytics,
 } from "@/hooks/useDashboardAnalytics";
 import { useMasterWilayah } from "@/hooks/useMasterWilayah";
-import { Label, ListBox, Select } from "@heroui/react";
+import { Card, Label, ListBox, Select } from "@heroui/react";
 import { BiFilterAlt } from "react-icons/bi";
 import AnalyticChart from "./_components/AnalyticChart";
 import AnalyticTableRanking from "./_components/AnalyticTableRanking";
 import MiniCart from "./_components/MiniCart";
+import SelectDivisi from "@/components/ui/SelectDivisi";
+import SelectUnitType, { UnitTypeFilter } from "@/components/ui/SelectUnitType";
 
 export default function AnalyticsAdmin() {
   const {
@@ -27,9 +29,15 @@ export default function AnalyticsAdmin() {
     year,
     pieChartData,
     dynamicSummary,
+    divisiId,
+    setDivisiId,
+    rankingPage,
+    setRankingPage,
+    unitType,
+    setUnitType,
   } = useDashboardAnalytics();
 
-  const { kanwilList } = useMasterWilayah();
+  const { kanwilList, divisiList } = useMasterWilayah();
 
   const currentMonth = summary?.laporanBulanIni || 0;
   const lastMonth = summary?.laporanBulanLalu || 0;
@@ -45,85 +53,140 @@ export default function AnalyticsAdmin() {
   const selectedKanwil = kanwilList.find((k) => k.id === kanwilId);
   const kancabChildren = selectedKanwil ? selectedKanwil.children : [];
 
+  const handleUnitTypeChange = (val: UnitTypeFilter) => {
+    setUnitType(val);
+    setKanwilId("ALL");
+    setKancabId("ALL");
+    setDivisiId("ALL");
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-        <BiFilterAlt className="w-4 h-4 text-gray-500" />
-        <p className="text-gray-500 font-medium">Filter: </p>
+      <Card>
+        <Card.Header className="flex flex-row items-center gap-2 border-b border-gray-100 pb-3">
+          <div className="p-2 bg-blue-50 rounded-lg">
+            <BiFilterAlt className="w-4 h-4 text-blue-600" />
+          </div>
+          <p className="text-gray-700 font-semibold text-sm">
+            Filter Analytics
+          </p>
+        </Card.Header>
 
-        {/* Select Filter Wilayah */}
-        <div className="w-full sm:w-auto">
-          <SelectWilayah
-            regions={kanwilList}
-            value={kanwilId}
-            onChange={(val) => {
-              setKanwilId(val);
-              setKancabId("ALL");
-            }}
-            className="w-full sm:w-52 lg:w-62"
-          />
-        </div>
+        <Card.Content className="flex flex-col sm:flex-row flex-wrap gap-4 pt-4">
+          <div className="flex-1 min-w-[200px]">
+            <SelectUnitType
+              value={unitType}
+              onChange={handleUnitTypeChange}
+              className="w-full sm:w-44"
+            />
+          </div>
+          {/* Select Filter Wilayah */}
+          {(unitType === "WILAYAH" || unitType === "CABANG") && (
+            <div className="flex-1 min-w-[200px]">
+              <SelectWilayah
+                regions={kanwilList}
+                value={kanwilId}
+                onChange={(val) => {
+                  setKanwilId(val);
+                  setKancabId("ALL");
+                  if (val !== "ALL") {
+                    setDivisiId("ALL");
+                  }
+                  setRankingPage(1);
+                }}
+                className="w-full sm:w-52 lg:w-62"
+              />
+            </div>
+          )}
 
-        {/* Select Filter Kantor Cabang */}
-        <div className="w-full sm:w-auto">
-          <SelectKancab
-            branches={kancabChildren}
-            value={kancabId}
-            isDisabled={kanwilId === "ALL"}
-            onChange={setKancabId}
-            className="w-full sm:w-52 lg:w-62"
-          />
-        </div>
+          {/* Select Filter Kantor Cabang */}
+          {unitType === "CABANG" && (
+            <div className="flex-1 min-w-[200px]">
+              <SelectKancab
+                branches={kancabChildren}
+                value={kancabId}
+                isDisabled={kanwilId === "ALL" || divisiId !== "ALL"}
+                onChange={(val) => {
+                  setKancabId(val);
+                  setRankingPage(1);
+                }}
+                className="w-full sm:w-52 lg:w-62"
+              />
+            </div>
+          )}
 
-        {/* Select Filter Periode */}
-        <div className="w-full sm:w-auto">
-          <Select
-            aria-label="Filter Periode Waktu"
-            placeholder="Pilih Periode"
-            value={periode}
-            onChange={(key) => setPeriode((key ?? "ALL") as PeriodeFilter)}
-            className="w-full sm:w-48 lg:w-62"
-          >
-            <Label>Periode</Label>
-            <Select.Trigger className="shadow-sm bg-white border border-gray-200">
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                <ListBox.Item id="ALL" textValue="Sepanjang Tahun">
-                  <ListBox.ItemIndicator />
-                  Sepanjang Tahun
-                </ListBox.Item>
-                <ListBox.Item id="TW1" textValue="Triwulan 1">
-                  <ListBox.ItemIndicator />
-                  Triwulanan 1
-                </ListBox.Item>
-                <ListBox.Item id="TW2" textValue="Triwulan 2">
-                  <ListBox.ItemIndicator />
-                  Triwulanan 2
-                </ListBox.Item>
-                <ListBox.Item id="TW3" textValue="Triwulan 3">
-                  <ListBox.ItemIndicator />
-                  Triwulanan 3
-                </ListBox.Item>
-                <ListBox.Item id="TW4" textValue="Triwulan 4">
-                  <ListBox.ItemIndicator />
-                  Triwulanan 4
-                </ListBox.Item>
-                <ListBox.Item id="SM1" textValue="Semester 1">
-                  <ListBox.ItemIndicator />
-                  Semesteran 1
-                </ListBox.Item>
-                <ListBox.Item id="SM2" textValue="Semester 2">
-                  <ListBox.ItemIndicator />
-                  Semesteran 2
-                </ListBox.Item>
-              </ListBox>
-            </Select.Popover>
-          </Select>
-        </div>
-      </div>
+          {unitType === "DIVISI" && (
+            <div className="flex-1 min-w-[200px]">
+              <SelectDivisi
+                divisiList={divisiList}
+                value={divisiId}
+                onChange={(val) => {
+                  setDivisiId(val);
+                  if (val !== "ALL") {
+                    setKanwilId("ALL"); // ← Pilih Divisi → clear Kanwil
+                    setKancabId("ALL"); // ← Pilih Divisi → clear Kancab
+                  }
+                  setRankingPage(1); // ← reset pagination
+                }}
+                isDisabled={kanwilId !== "ALL"} // ← disable jika Kanwil sedang dipilih
+                className="w-full sm:w-52 lg:w-62"
+              />
+            </div>
+          )}
+
+          {/* Select Filter Periode */}
+          <div className="flex-1 min-w-[200px]">
+            <Select
+              aria-label="Filter Periode Waktu"
+              placeholder="Pilih Periode"
+              value={periode}
+              onChange={(key) => {
+                setPeriode((key ?? "ALL") as PeriodeFilter);
+                setRankingPage(1);
+              }}
+              className="w-full sm:w-48 lg:w-62"
+            >
+              <Label>Periode</Label>
+              <Select.Trigger className="shadow-sm bg-white border border-gray-200">
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="ALL" textValue="Sepanjang Tahun">
+                    <ListBox.ItemIndicator />
+                    Sepanjang Tahun
+                  </ListBox.Item>
+                  <ListBox.Item id="TW1" textValue="Triwulan 1">
+                    <ListBox.ItemIndicator />
+                    Triwulanan 1
+                  </ListBox.Item>
+                  <ListBox.Item id="TW2" textValue="Triwulan 2">
+                    <ListBox.ItemIndicator />
+                    Triwulanan 2
+                  </ListBox.Item>
+                  <ListBox.Item id="TW3" textValue="Triwulan 3">
+                    <ListBox.ItemIndicator />
+                    Triwulanan 3
+                  </ListBox.Item>
+                  <ListBox.Item id="TW4" textValue="Triwulan 4">
+                    <ListBox.ItemIndicator />
+                    Triwulanan 4
+                  </ListBox.Item>
+                  <ListBox.Item id="SM1" textValue="Semester 1">
+                    <ListBox.ItemIndicator />
+                    Semesteran 1
+                  </ListBox.Item>
+                  <ListBox.Item id="SM2" textValue="Semester 2">
+                    <ListBox.ItemIndicator />
+                    Semesteran 2
+                  </ListBox.Item>
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          </div>
+        </Card.Content>
+      </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-7">
         <MiniCart
@@ -161,7 +224,16 @@ export default function AnalyticsAdmin() {
       />
 
       <div className="mb-20">
-        <AnalyticTableRanking data={charts?.rankingWilayah || []} />
+        <AnalyticTableRanking
+          data={charts?.rankingWilayah || []}
+          pagination={{
+            total: charts?.rankingTotal ?? 0,
+            page: charts?.rankingPage ?? 1,
+            limit: 10,
+            totalPages: charts?.rankingTotalPages ?? 1,
+          }}
+          onPageChange={(page) => setRankingPage(page)}
+        />
       </div>
     </div>
   );

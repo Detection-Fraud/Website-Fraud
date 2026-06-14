@@ -2,21 +2,25 @@
 
 import DataTable, { TableColumn } from "@/components/layout/DataTable";
 import { RankingWilayah } from "@/types/analytics.type";
+import { PaginationInfo } from "@/types/report.types";
 import { Card, Chip } from "@heroui/react";
 import { BsCheckCircle } from "react-icons/bs";
 import { FaMedal, FaTrophy } from "react-icons/fa";
 
 interface AnalyticRankingTableProps {
   data?: RankingWilayah[];
+  pagination?: PaginationInfo;
+  onPageChange?: (page: number) => void;
 }
 
 export default function AnalyticTableRanking({
   data = [],
+  pagination,
+  onPageChange,
 }: AnalyticRankingTableProps) {
   const columns: TableColumn[] = [
     { key: "rank", label: "RANK" },
     { key: "name", label: "WILAYAH" },
-    { key: "unit", label: "UNIT" },
     { key: "kegiatan", label: "KEGIATAN" },
     { key: "disetujui", label: "DISETUJUI" },
     { key: "approvalRate", label: "APPROVAL RATE" },
@@ -35,15 +39,13 @@ export default function AnalyticTableRanking({
         return <span className="text-gray-500 font-medium">#{item.rank}</span>;
       case "name":
         return <span className="font-semibold text-gray-900">{item.name}</span>;
-      case "unit":
-        return <span className="text-gray-500">{item.unit}</span>;
       case "kegiatan":
         return <span className="font-bold text-gray-900">{item.kegiatan}</span>;
       case "disetujui":
         return (
           <div className="flex items-center gap-2 text-green-600">
             <BsCheckCircle className="w-4 h-4" />
-            <span>{item.approval}</span>
+            <span>{item.disetujui}</span>
           </div>
         );
       case "approvalRate":
@@ -105,7 +107,13 @@ export default function AnalyticTableRanking({
 
       <Card.Content>
         <div className="w-full">
-          <DataTable column={columns} data={data} renderCell={renderCell} />
+          <DataTable
+            column={columns}
+            data={data}
+            renderCell={renderCell}
+            pagination={pagination}
+            onPageChange={onPageChange}
+          />
         </div>
       </Card.Content>
     </Card>

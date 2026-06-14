@@ -1,5 +1,6 @@
 "use client";
 
+import { UnitTypeFilter } from "@/components/ui/SelectUnitType";
 import { DashboardData } from "@/types/analytics.type";
 import { useEffect, useState, useMemo } from "react";
 
@@ -23,6 +24,10 @@ export function useDashboardAnalytics() {
   const [kancabId, setKancabId] = useState<string>("ALL");
 
   const [periode, setPeriode] = useState<PeriodeFilter>("ALL");
+  const [unitType, setUnitType] = useState<UnitTypeFilter>("ALL");
+  const [divisiId, setDivisiId] = useState<string>("ALL");
+  const [rankingPage, setRankingPage] = useState<number>(1);
+  const [rankingUnitId, setRankingUnitId] = useState<string>("ALL");
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -33,9 +38,16 @@ export function useDashboardAnalytics() {
         const params = new URLSearchParams();
         params.set("year", String(year));
         params.set("periode", periode);
+        params.set("unitType", unitType);
         if (kanwilId !== "ALL") params.set("kanwilId", kanwilId);
         if (programId !== "ALL") params.set("programId", programId);
         if (kancabId !== "ALL") params.set("kancabId", kancabId);
+        // divisiId hanya dikirim jika unitType DIVISI — jangan kirim di mode lain
+        if (unitType === "DIVISI" && divisiId !== "ALL") {
+          params.set("divisiId", divisiId);
+        }
+        params.set("rankingPage", String(rankingPage));
+        if (rankingUnitId !== "ALL") params.set("rankingUnitId", rankingUnitId);
 
         const response = await fetch(
           `/api/analytics/dashboard?${params.toString()}`,
@@ -56,7 +68,17 @@ export function useDashboardAnalytics() {
     };
 
     fetchDashboard();
-  }, [year, kanwilId, programId, periode, kancabId]);
+  }, [
+    year,
+    kanwilId,
+    programId,
+    periode,
+    kancabId,
+    unitType,
+    divisiId,
+    rankingPage,
+    rankingUnitId,
+  ]);
 
   const areaChartData = useMemo(() => {
     const dataBulanan = data?.charts.kegiatanPerBulan;
@@ -115,5 +137,13 @@ export function useDashboardAnalytics() {
     setKancabId,
     periode,
     setPeriode,
+    divisiId,
+    unitType,
+    setUnitType,
+    setDivisiId,
+    rankingPage,
+    setRankingPage,
+    rankingUnitId,
+    setRankingUnitId,
   };
 }

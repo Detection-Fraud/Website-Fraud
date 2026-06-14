@@ -27,11 +27,9 @@ export interface DistribusiProgramPerPeriode {
 export interface RankingWilayah {
   rank: number;
   name: string;
-  unit: number;
   kegiatan: number;
-  approval: number;
+  disetujui: number;
   approvalRate: number;
-  jumlah: number;
   status: string;
 }
 
@@ -52,6 +50,9 @@ export interface DashboardCharts {
   topUnit: TopUnit[];
   distribusiProgram: DistribusiProgram[];
   rankingWilayah: RankingWilayah[];
+  rankingTotal: number;
+  rankingPage: number;
+  rankingTotalPages: number;
 }
 export interface DashboardData {
   summary: DashboardSummary;

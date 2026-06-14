@@ -51,11 +51,15 @@ export async function GET(request: NextRequest) {
     const kanwilId = searchParams.get("kanwilId") || undefined;
     const kancabId = searchParams.get("kancabId") || undefined;
     const divisiId = searchParams.get("divisiId") || undefined;
+    const rankingPage = parseInt(searchParams.get("rankingPage") || "1");
+    const rankingUnitId = searchParams.get("rankingUnitId") || undefined;
+    const RANKING_PAGE_SIZE = 10;
     const programId = searchParams.get("programId") || undefined;
     const year = parseInt(
       searchParams.get("year") || String(new Date().getFullYear()),
     );
     const periode = searchParams.get("periode") || "ALL";
+    const unitType = searchParams.get("unitType") || "ALL";
 
     let whereClause: any = {};
 
@@ -397,6 +401,9 @@ export async function GET(request: NextRequest) {
       status: string;
     }[] = [];
 
+    let rankingTotal = 0;
+    let rankingTotalPages = 1;
+
     if (kancabId || (user.unitType === "KANTOR_WILAYAH" && kancabId)) {
       // Mode spesifik 1 kancab: hanya kancab tsb
       const kancab = await prisma.unit.findUnique({ where: { id: kancabId } });
@@ -476,55 +483,122 @@ export async function GET(request: NextRequest) {
           (a, b) => b.approvalRate - a.approvalRate || b.kegiatan - a.kegiatan,
         )
         .map((item, index) => ({ ...item, rank: index + 1 }));
+    } else if (divisiId) {
+      const divisi = await prisma.unit.findUnique({
+        where: { id: divisiId },
+      });
+      if (divisi) {
+        const [totalKegiatanRaw, totalDisetujuiRaw] = await Promise.all([
+          prisma.activityReport.count({
+            where: { ...whereClause, unitId: divisiId },
+          }),
+          prisma.activityReport.count({
+            where: { ...whereClause, unitId: divisiId, status: "APPROVED" },
+          }),
+        ]);
+
+        const approvalRate =
+          totalKegiatanRaw > 0
+            ? (totalDisetujuiRaw / totalKegiatanRaw) * 100
+            : 0;
+
+        let statusText = "Perlu Perhatian";
+        if (approvalRate >= 90) statusText = "Sangat Baik";
+        else if (approvalRate >= 80) statusText = "Baik";
+        else if (approvalRate >= 70) statusText = "Cukup";
+
+        rankingWilayah.push({
+          rank: 1,
+          name: divisi.name,
+          unit: 0,
+          kegiatan: totalKegiatanRaw,
+          disetujui: totalDisetujuiRaw,
+          approvalRate: Number(approvalRate.toFixed(1)),
+          status: statusText,
+        });
+      }
     } else {
-      // Tampilkan semua Kanwil (beserta agregasi kancab di bawahnya)
-      const allKanwils = await prisma.unit.findMany({
-        where: { type: "KANTOR_WILAYAH" },
-        include: { children: true },
+      // Tampilkan semua unit — filter berdasarkan unitType jika dipilih
+      const unitWhere: any = {};
+      if (rankingUnitId) unitWhere.id = rankingUnitId;
+
+      // Filter unit berdasarkan tipe yang dipilih user di UI
+      const UNIT_TYPE_MAP: Record<string, string> = {
+        WILAYAH: "KANTOR_WILAYAH",
+        CABANG: "KANTOR_CABANG",
+        DIVISI: "DIVISI",
+      };
+      if (unitType !== "ALL" && UNIT_TYPE_MAP[unitType]) {
+        unitWhere.type = UNIT_TYPE_MAP[unitType];
+      }
+
+      const allUnitRaw = await prisma.unit.findMany({
+        where: unitWhere,
+        select: {
+          id: true,
+          name: true,
+          type: true,
+        },
       });
 
-      // Buat mapping kanwilId ke semua ID unit bawahannya (termasuk kanwil itu sendiri)
-      for (const kanwil of allKanwils) {
-        const unitIdsToAgg = [kanwil.id, ...kanwil.children.map((c) => c.id)];
+      const [kegiatanPerUnit, approvedPerUnit] = await Promise.all([
+        prisma.activityReport.groupBy({
+          by: ["unitId"],
+          where: { ...whereClause, unitId: { not: null } },
+          _count: { id: true },
+        }),
+        prisma.activityReport.groupBy({
+          by: ["unitId"],
+          where: { ...whereClause, unitId: { not: null }, status: "APPROVED" },
+          _count: { id: true },
+        }),
+      ]);
 
-        const totalKegiatan = await prisma.activityReport.count({
-          where: { ...whereClause, unitId: { in: unitIdsToAgg } },
-        });
+      const allRankings = allUnitRaw
+        .map((unit) => {
+          const kegiatan =
+            kegiatanPerUnit.find((k) => k.unitId === unit.id)?._count.id ?? 0;
+          const disetujui =
+            approvedPerUnit.find((a) => a.unitId === unit.id)?._count.id ?? 0;
 
-        if (totalKegiatan > 0) {
-          const totalDisetujui = await prisma.activityReport.count({
-            where: {
-              ...whereClause,
-              unitId: { in: unitIdsToAgg },
-              status: "APPROVED",
-            },
-          });
+          if (kegiatan === 0) return null;
 
-          const approvalRate =
-            totalKegiatan > 0 ? (totalDisetujui / totalKegiatan) * 100 : 0;
+          const approvalRate = (disetujui / kegiatan) * 100;
 
           let statusText = "Perlu Perhatian";
           if (approvalRate >= 90) statusText = "Sangat Baik";
           else if (approvalRate >= 80) statusText = "Baik";
           else if (approvalRate >= 70) statusText = "Cukup";
 
-          rankingWilayah.push({
-            rank: 0,
-            name: kanwil.name,
-            unit: kanwil.children.length, // Total kancab di kanwil ini
-            kegiatan: totalKegiatan,
-            disetujui: totalDisetujui,
+          return {
+            name: unit.name,
+            unitType: unit.type,
+            unit: 0,
+            kegiatan,
+            disetujui,
             approvalRate: Number(approvalRate.toFixed(1)),
             status: statusText,
-          });
-        }
-      }
-
-      rankingWilayah = rankingWilayah
+          };
+        })
+        .filter(Boolean)
         .sort(
-          (a, b) => b.approvalRate - a.approvalRate || b.kegiatan - a.kegiatan,
+          (a, b) =>
+            b!.approvalRate - a!.approvalRate || b!.kegiatan - a!.kegiatan,
+        );
+
+      rankingTotal = allRankings.length;
+      rankingTotalPages = Math.ceil(rankingTotal / RANKING_PAGE_SIZE);
+
+      rankingWilayah = allRankings
+        .slice(
+          (rankingPage - 1) * RANKING_PAGE_SIZE,
+          rankingPage * RANKING_PAGE_SIZE,
         )
-        .map((item, index) => ({ ...item, rank: index + 1 }));
+        .map((item, idx) => ({
+          ...item!,
+          // Rank global = offset halaman + index lokal + 1
+          rank: (rankingPage - 1) * RANKING_PAGE_SIZE + idx + 1,
+        }));
     }
 
     return NextResponse.json(
@@ -546,6 +620,9 @@ export async function GET(request: NextRequest) {
             topUnit,
             distribusiProgram,
             rankingWilayah,
+            rankingTotal,
+            rankingPage,
+            rankingTotalPages,
           },
         },
         "Berhasil mengambil data analytics",

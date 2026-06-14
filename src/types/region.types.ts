@@ -4,6 +4,11 @@ export interface UnitChild {
   type: string;
 }
 
+export interface DivisiOption {
+  id: string;
+  name: string;
+}
+
 export interface RegionWithBranches {
   id: string;
   name: string;
