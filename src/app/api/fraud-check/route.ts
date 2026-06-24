@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
+import path from "path";
+import { pathToFileURL } from "url";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 export async function POST(request: Request) {
@@ -67,12 +69,26 @@ export async function POST(request: Request) {
 
     console.log(`Ditemukan ${references.length} foto referensi untuk dicek`);
 
-    const referencesJson = references.map((item) => ({
-      nama_asli: item.originalName,
-      url: item.imageUrl.startsWith("http")
-        ? item.imageUrl
-        : `${BASE_URL}${item.imageUrl}`,
-    }));
+    const referencesJson = references.map((item) => {
+      let fileUrl = item.imageUrl;
+
+      // Jika URL relatif (seperti /uploads/...), ubah jadi file:/// local path!
+      // Ini 100x lebih cepat karena Python akan baca langsung dari SSD, 
+      // gak usah download HTTP dan tembus batas symlink/IIS.
+      if (!fileUrl.startsWith("http")) {
+        try {
+          const localPath = path.join(process.cwd(), "public", fileUrl);
+          fileUrl = pathToFileURL(localPath).href;
+        } catch (e) {
+          fileUrl = `${BASE_URL}${fileUrl}`; // fallback
+        }
+      }
+
+      return {
+        nama_asli: item.originalName,
+        url: fileUrl,
+      };
+    });
 
     const pythonFormData = new FormData();
 
