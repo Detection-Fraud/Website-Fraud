@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api";
 import {
   ImportResult,
   ImportStats,
@@ -37,21 +38,18 @@ export function useImportKaryawan() {
     formData.append("file", selectedFile);
 
     try {
-      const res = await fetch("/api/users/import?action=preview", {
-        method: "POST",
-        body: formData,
+      const res = await api.post("/users/import?action=preview", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
-      const json = await res.json();
+      const data = res.data;
 
-      if (!res.ok) throw new Error(json.message ?? "Gagal memproses file");
-
-      setPreviewRows(json.data.rows as PreviewRow[]);
-      setStats(json.data.stats as ImportStats);
+      setPreviewRows(data.data.rows as PreviewRow[]);
+      setStats(data.data.stats as ImportStats);
       setStep(2);
-    } catch (err: unknown) {
+    } catch (err: any) {
       setErrorMsg(
-        err instanceof Error ? err.message : "Terjadi kesalahan saat upload",
+        err.response?.data?.message || err.message || "Terjadi kesalahan saat upload",
       );
     } finally {
       setIsLoading(false);
@@ -80,27 +78,23 @@ export function useImportKaryawan() {
     }, 150);
 
     try {
-      const res = await fetch("/api/users/import?action=commit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: previewRows }),
+      const res = await api.post("/users/import?action=commit", {
+        rows: previewRows,
       });
 
-      const json = await res.json();
+      const data = res.data;
 
       clearInterval(interval);
-
-      if (!res.ok) throw new Error(json.message ?? "Gagal melakukan import");
 
       setImportProgress(100);
       setProcessCount(totalToProcess);
-      setImportResult(json.data as ImportResult);
+      setImportResult(data.data as ImportResult);
 
       setTimeout(() => setStep(4), 600);
-    } catch (err: unknown) {
+    } catch (err: any) {
       clearInterval(interval);
       setErrorMsg(
-        err instanceof Error ? err.message : "Terjadi kesalahan saat import",
+        err.response?.data?.message || err.message || "Terjadi kesalahan saat import",
       );
       setStep(2);
     }

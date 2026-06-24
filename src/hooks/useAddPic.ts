@@ -1,3 +1,6 @@
+import { api } from "@/lib/api";
+import { toast } from "@heroui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 interface PromotePICPayload {
@@ -10,47 +13,38 @@ interface UseAddPICOptions {
 }
 
 export function useAddPic({ onSuccess }: UseAddPICOptions) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const promotePic = async (payload: PromotePICPayload) => {
-    if (!payload.userId || !payload.unitId) {
-      setSubmitError("Mohon pilih user dan unit terlebih dahulu");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setSubmitError(null);
-
-      const res = await fetch(`/api/users/${payload.userId}/promote`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          unitId: payload.unitId,
-        }),
+  const mutation = useMutation({
+    mutationFn: async (payload: PromotePICPayload) => {
+      if (!payload.userId || !payload.unitId) {
+        throw new Error("Mohon pilih user dan unit terlebih dahulu");
+      }
+      const res = await api.patch(`/users/${payload.userId}/promote`, {
+        unitId: payload.unitId,
       });
+      return res.data;
+    },
 
-      const json = await res.json();
-
-      if (!res.ok) throw new Error(json.message || "Gagal mempromote user");
-
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["management-users"] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
+      toast.success("PIC berhasil ditambahkan");
       onSuccess?.();
-    } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Terjadi kesalahan tidak terduga",
+    },
+    onError: (error) => {
+      toast.danger(
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan tidak terduga",
       );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const clearError = () => setSubmitError(null);
+    },
+  });
 
   return {
-    promotePic,
-    isSubmitting,
-    submitError,
-    clearError,
+    promotePic: mutation.mutate,
+    isSubmitting: mutation.isPending,
+    submitError: mutation.error ? (mutation.error as Error).message : null,
+    clearError: mutation.reset, // reset mutation state (error, data, dll)
   };
 }

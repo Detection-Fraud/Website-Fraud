@@ -1,28 +1,22 @@
+import { api } from "@/lib/api";
 import { ProgramBand } from "@/types/calendar.types";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+interface CalendarProgramsResponse {
+  data: ProgramBand[];
+}
 
 export function useCalendarPrograms(quarter: number, year: number) {
-  const [programs, setPrograms] = useState<ProgramBand[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading } = useQuery<CalendarProgramsResponse>({
+    queryKey: ["calendar-programs", quarter, year],
+    queryFn: () =>
+      api
+        .get("/kalender/programs", { params: { quarter, year } })
+        .then((res) => res.data),
+  });
 
-  useEffect(() => {
-    async function fetchPrograms() {
-      setIsLoading(true);
-      try {
-        const res = await fetch(
-          `/api/kalender/programs?quarter=${quarter}&year=${year}`,
-        );
-        const json = await res.json();
-
-        if (json.data) setPrograms(json.data);
-      } catch (error) {
-        console.error("Failed to fetch programs", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchPrograms();
-  }, [quarter, year]);
-
-  return { programs, isLoading };
+  return {
+    programs: data?.data ?? ([] as ProgramBand[]),
+    isLoading,
+  };
 }

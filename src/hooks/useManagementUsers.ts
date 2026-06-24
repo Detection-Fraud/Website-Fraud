@@ -1,6 +1,8 @@
 "use client";
 
+import { api } from "@/lib/api";
 import { PaginationMeta, UserWithUnit } from "@/types/user.types";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 
 interface UseManagementUsersOptions {
@@ -9,6 +11,10 @@ interface UseManagementUsersOptions {
   page?: number;
   limit?: number;
 }
+interface UsersResponse {
+  users: UserWithUnit[];
+  pagination: PaginationMeta;
+}
 
 export function useManagementUsers({
   unitId,
@@ -16,66 +22,27 @@ export function useManagementUsers({
   page = 1,
   limit = 10,
 }: UseManagementUsersOptions) {
-  const [users, setUsers] = useState<UserWithUnit[]>([]);
-  const [pagination, setPagination] = useState<PaginationMeta>({
-    total: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 0,
+  const { data, isLoading, error, refetch } = useQuery<UsersResponse>({
+    queryKey: ["management-users", unitId, search, page, limit],
+    queryFn: () =>
+      api
+        .get("/users", {
+          params: { unitId, search, page: String(page), limit: String(limit) },
+        })
+        .then((res) => res.data.data),
+    enabled: !!unitId && unitId !== "ALL",
   });
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchUsers = useCallback(async () => {
-    if (!unitId || unitId === "ALL") {
-      setUsers([]);
-      setPagination({
-        total: 0,
-        page: 1,
-        limit: 10,
-        totalPages: 0,
-      });
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const params = new URLSearchParams({
-        unitId,
-        search,
-
-        page: String(page),
-        limit: String(limit),
-      });
-
-      const res = await fetch(`/api/users?${params.toString()}`);
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.message || "Gagal mengambil data user");
-      }
-
-      setUsers(json.data.users ?? []);
-      setPagination(json.data.pagination);
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Terjadi kesalahan");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [unitId, search, page, limit]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
   return {
-    users,
-    pagination,
+    users: data?.users ?? [],
+    pagination: data?.pagination ?? {
+      total: 0,
+      page: 1,
+      limit: 10,
+      totalPages: 0,
+    },
     isLoading,
-    error,
-    refetch: fetchUsers,
+    error: error ? (error as Error).message : null,
+    refetch,
   };
 }

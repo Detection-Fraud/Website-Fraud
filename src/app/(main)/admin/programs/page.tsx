@@ -1,32 +1,39 @@
 "use client";
 
 import AppBar from "@/components/layout/Appbar";
-import CardSummaryPrograms from "./_components/CardSummaryPrograms";
-import { useProgram } from "@/hooks/useProgram";
+import { useProgramMutation } from "@/hooks/useProgramMutation";
+import { useProgramQuery } from "@/hooks/useProgramQuery";
 import { SearchField } from "@heroui/react";
 import CardPrograms from "./_components/CardPrograms";
-import ModalStatus from "./_components/ModalStatus";
+import CardSummaryPrograms from "./_components/CardSummaryPrograms";
 import ModalForm from "./_components/ModalForm";
+import ModalStatus from "./_components/ModalStatus";
 
 export default function ProgramsPage() {
   const {
-    summary,
+    modalState,
+    selectedProgram,
+    isActionLoading,
+    handleToggleClick,
+    handleConfirmToggle,
+    modalAddState,
+    handleAddToggleClick,
+    handleAddProgram,
+    handleEditToggleClick,
+  } = useProgramMutation();
+
+  const {
     programs,
+    isLoading,
+    error,
+    summary,
+    pagination,
     searchInput,
     setSearchInput,
     handleSearch,
     handleClearSearch,
-    selectedProgram,
-    handleToggleClick,
-    handleConfirmToggle,
-    modalState,
-    isActionLoading,
-
-    modalAddState,
-    handleAddToggleClick,
-    handleEditToggleClick,
-    handleAddProgram,
-  } = useProgram();
+    updateParams,
+  } = useProgramQuery();
 
   return (
     <div className="space-y-4 mb-10">

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ActivityReportItem, SummaryStats } from "@/types/report.types";
 import { useUrlParams } from "./useUrlParams";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export interface PaginationInfo {
   total: number;
@@ -9,27 +11,12 @@ export interface PaginationInfo {
   limit: number;
   totalPages: number;
 }
-
+export interface ReportListResponse {
+  data: ActivityReportItem[];
+  pagination: PaginationInfo;
+  summary: SummaryStats;
+}
 export function useReportList() {
-  const [reports, setReports] = useState<ActivityReportItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    total: 0,
-    page: 1,
-    limit: 6,
-    totalPages: 0,
-  });
-  const [summary, setSummary] = useState<SummaryStats>({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-  });
-
-  const [refreshKey, setRefreshKey] = useState(0);
-  const refetch = () => setRefreshKey((prev) => prev + 1);
-
   const {
     updateParams,
     getParam,
@@ -51,55 +38,55 @@ export function useReportList() {
   const kanwilFilter = getParam("kanwilId") || "ALL";
   const kancabFilter = getParam("kancabId") || "ALL";
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      setIsLoading(true);
-      try {
-        // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
-        const response = await fetch(
-          `/api/reports?page=${page}&limit=${limit}&search=${search}&status=${statusFilter}&programId=${programFilter}&kanwilId=${kanwilFilter}&kancabId=${kancabFilter}`,
-        );
-        const json = await response.json();
-
-        if (!response.ok) {
-          throw new Error(json.message || "Gagal mengambil data laporan");
-        }
-        setReports(json.data || []);
-        setPagination(json.pagination);
-
-        if (json.summary) {
-          setSummary(json.summary);
-        }
-      } catch (error: unknown) {
-        setError(error instanceof Error ? error.message : "Terjadi kesalahan");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchReports();
-  }, [
+  const filters = {
     page,
     limit,
     search,
-    statusFilter,
-    programFilter,
-    kanwilFilter,
-    kancabFilter,
-    refreshKey,
-  ]);
+    status: statusFilter,
+    programId: programFilter,
+    kanwilId: kanwilFilter,
+    kancabId: kancabFilter,
+  };
+
+  const { data, isLoading, error, refetch } = useQuery<ReportListResponse>({
+    queryKey: ["reports", filters],
+    queryFn: () =>
+      api
+        .get("/reports", {
+          params: {
+            page,
+            limit,
+            search,
+            status: statusFilter,
+            programId: programFilter,
+            kanwilId: kanwilFilter,
+            kancabId: kancabFilter,
+          },
+        })
+        .then((res) => res.data),
+  });
 
   return {
-    reports,
-    pagination,
+    reports: data?.data ?? [],
+    pagination: data?.pagination ?? {
+      total: 0,
+      page: 1,
+      limit: 6,
+      totalPages: 0,
+    },
+    summary: data?.summary ?? {
+      total: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+    },
     isLoading,
-    error,
+    error: error ? (error as Error).message : null,
     searchInput,
     setSearchInput,
     handleSearch,
     handleClearSearch,
     updateParams,
-    summary,
     statusFilter,
     router,
     kanwilFilter,

@@ -8,14 +8,12 @@ interface PropTypes {
   onClose: () => void;
   namaPic?: string;
   id: string;
-  onSuccess?: () => void;
 }
 export default function ModalNotes({
   isOpen,
   onClose,
   namaPic,
   id,
-  onSuccess,
 }: PropTypes) {
   const { handleReject, isLoading } = useApproval();
 
@@ -26,10 +24,11 @@ export default function ModalNotes({
 
     if (!notes?.trim()) return;
 
-    const success = await handleReject(id, notes);
-    if (success) {
-      onSuccess?.();
+    try {
+      await handleReject(id, notes);
       onClose();
+    } catch (e) {
+      // Error is handled via toast in useApproval
     }
   };
 

@@ -1,5 +1,8 @@
+import { useDebounce } from "use-debounce";
+import { api } from "@/lib/api";
 import { PicSearchResult } from "@/types/pic.types";
-import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 interface UseSearchPICOptions {
   unitId?: string;
@@ -7,72 +10,42 @@ interface UseSearchPICOptions {
 
 export function useSearchPic({ unitId }: UseSearchPICOptions) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<PicSearchResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [debouncedQuery] = useDebounce(query, 500);
   const [selectedUser, setSelectedUser] = useState<PicSearchResult | null>(
     null,
   );
 
-  const search = useCallback(
-    async (q: string) => {
-      if (q.trim().length < 2) {
-        setResults([]);
-        return;
-      }
+  const {
+    data: results = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["search-pic", debouncedQuery, unitId],
+    queryFn: async () => {
+      const params: Record<string, string> = { q: debouncedQuery.trim() };
+      if (unitId && unitId !== "ALL") params.unitId = unitId;
 
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const params = new URLSearchParams({ q: q.trim() });
-        if (unitId && unitId !== "ALL") {
-          params.set("unitId", unitId);
-        }
-
-        const res = await fetch(`/api/users/search?${params}`);
-        const json = await res.json();
-
-        if (!res.ok) throw new Error(json.message || "Gagal mencari user");
-
-        setResults(json.data ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-        setResults([]);
-      } finally {
-        setIsLoading(false);
-      }
+      const res = await api.get("/users/search", { params });
+      return (res.data.data ?? []) as PicSearchResult[];
     },
-    [unitId],
-  );
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      search(query);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [query, search]);
+    enabled: debouncedQuery.trim().length >= 2,
+  });
 
   const clearSelected = () => {
     setSelectedUser(null);
     setQuery("");
-    setResults([]);
-    setError(null);
   };
 
   const clearQuery = () => {
     setQuery("");
-    setResults([]);
   };
 
   return {
     query,
     results,
     isLoading,
-    error,
+    error: error ? (error as Error).message : null,
     selectedUser,
-
     setQuery,
     setSelectedUser,
     clearSelected,

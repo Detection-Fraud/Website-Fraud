@@ -39,7 +39,7 @@ export default function ComplianceReportView() {
 
   const cardComplianceData = data?.cards;
   const selectedProgram =
-    data?.programs?.find((p) => p.id === filters.programId) || null;
+    data?.programs?.find((p: any) => p.id === filters.programId) || null;
 
   return (
     <div className="space-y-4">

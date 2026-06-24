@@ -1,38 +1,29 @@
+import { api } from "@/lib/api";
 import { DivisiOption, RegionWithBranches } from "@/types/region.types";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
+interface MasterWilayahData {
+  kanwilList: RegionWithBranches[];
+  divisiList: DivisiOption[];
+}
 export function useMasterWilayah() {
-  const [kanwilList, setKanwilList] = useState<RegionWithBranches[]>([]);
-  const [divisiList, setDivisiList] = useState<DivisiOption[]>([]);
-  const [isLoadingWilayah, setIsLoadingWilayah] = useState(true);
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [wilayahRes, divisiRes] = await Promise.all([
-          fetch(`/api/units?type=KANTOR_WILAYAH`),
-          fetch(`/api/units?type=DIVISI`),
-        ]);
-        const [wilayahJson, divisiJson] = await Promise.all([
-          wilayahRes.json(),
-          divisiRes.json(),
-        ]);
-        if (!wilayahRes.ok || !divisiRes.ok) {
-          throw new Error("Failed to fetch wilayah/divisi");
-        }
-        setKanwilList(wilayahJson.data);
-        setDivisiList(divisiJson.data ?? []);
-      } catch (error) {
-        console.error("Gagal memuat data wilayah/divisi", error);
-      } finally {
-        setIsLoadingWilayah(false);
-      }
-    };
-    fetchAll();
-  }, []);
+  const { data, isLoading: isLoadingWilayah } = useQuery<MasterWilayahData>({
+    queryKey: ["master-wilayah"],
+    queryFn: async () => {
+      const [wilayahRes, divisiRes] = await Promise.all([
+        api.get("/units", { params: { type: "KANTOR_WILAYAH" } }),
+        api.get("/units", { params: { type: "DIVISI" } }),
+      ]);
+      return {
+        kanwilList: wilayahRes.data.data ?? [],
+        divisiList: divisiRes.data.data ?? [],
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   return {
-    kanwilList,
-    divisiList,
+    kanwilList: data?.kanwilList ?? [],
+    divisiList: data?.divisiList ?? [],
     isLoadingWilayah,
   };
 }

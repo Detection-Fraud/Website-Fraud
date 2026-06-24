@@ -50,7 +50,7 @@ export default function AnalyticsAdmin() {
     100
   ).toFixed(2);
 
-  const selectedKanwil = kanwilList.find((k) => k.id === kanwilId);
+  const selectedKanwil = kanwilList.find((k: any) => k.id === kanwilId);
   const kancabChildren = selectedKanwil ? selectedKanwil.children : [];
 
   const handleUnitTypeChange = (val: UnitTypeFilter) => {
@@ -72,7 +72,9 @@ export default function AnalyticsAdmin() {
           </p>
         </Card.Header>
 
-        <Card.Content className="flex flex-col sm:flex-row flex-wrap gap-4 pt-4">
+        <Card.Content
+          className={`grid grid-cols-1 sm:grid-cols-2 ${unitType === "CABANG" ? "lg:grid-cols-2" : "lg:grid-cols-3"} gap-4 pt-4`}
+        >
           <div className="flex-1 min-w-[200px]">
             <SelectUnitType
               value={unitType}

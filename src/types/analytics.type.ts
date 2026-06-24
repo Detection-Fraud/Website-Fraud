@@ -27,6 +27,7 @@ export interface DistribusiProgramPerPeriode {
 export interface RankingWilayah {
   rank: number;
   name: string;
+  unit: number;
   kegiatan: number;
   disetujui: number;
   approvalRate: number;

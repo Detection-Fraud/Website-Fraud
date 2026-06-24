@@ -1,62 +1,48 @@
+import { api } from "@/lib/api";
 import { StatusType } from "@/types/status.types";
 import { toast } from "@heroui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
+interface ApprovalPayload {
+  id: string;
+  status: StatusType;
+  notes?: string;
+}
 export function useApproval() {
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const router = useRouter();
-
-  const updateStatus = async (
-    id: string,
-    status: StatusType,
-    notes?: string,
-  ) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/reports/${id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status, notes }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update status");
-      }
-
+  const mutation = useMutation({
+    mutationFn: async ({ id, status, notes }: ApprovalPayload) => {
+      const res = await api.patch(`/reports/${id}/status`, { status, notes });
+      return res.data;
+    },
+    onSuccess: (data) => {
       toast.success(data.message || "Status updated successfully");
-
-      router.push("/admin/approval");
-      router.refresh();
-
-      return true;
-    } catch (error: unknown) {
-      console.error(error);
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
+    onError: (error) => {
       if (error instanceof Error) {
         toast.danger(error.message);
       } else {
         toast.danger("Terjadi kesalahan jaringan");
       }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+  });
 
   const handleApprove = async (id: string) => {
-    return await updateStatus(id, "APPROVED");
+    return mutation.mutateAsync({
+      id,
+      status: "APPROVED",
+    });
   };
 
   const handleReject = async (id: string, notes: string) => {
-    return await updateStatus(id, "REJECTED", notes);
+    return mutation.mutateAsync({ id, status: "REJECTED", notes });
   };
 
   return {
-    isLoading,
+    isLoading: mutation.isPending,
     handleApprove,
     handleReject,
   };

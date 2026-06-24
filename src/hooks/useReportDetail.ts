@@ -5,39 +5,26 @@ import { toast } from "@heroui/react";
 import { useCurrentUser } from "./useCurrentUser";
 
 import { ActivityReportItem } from "@/types/report.types";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export function useReportDetail(id: string) {
-  const [report, setReport] = useState<ActivityReportItem | null>(null);
-  const [loading, setLoading] = useState(true);
-
   const { user } = useCurrentUser();
 
-  useEffect(() => {
-    const fetchReport = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/reports/${id}`);
-        const result = await response.json();
-
-        // Di lib/response.ts, jika gagal maka `error: true`
-        if (result.error || !response.ok) {
-          // Hanya lempar 1 string message
-          toast.danger(result.message || "Gagal memuat data");
-          return;
-        }
-
-        setReport(result.data);
-      } catch (err: unknown) {
-        toast.danger("Terjadi kesalahan jaringan");
-      } finally {
-        setLoading(false);
+  const { data: report, isLoading: loading } = useQuery({
+    queryKey: ["report-detail", id],
+    queryFn: async () => {
+      const res = await api.get(`/reports/${id}`);
+      // Backend mengembalikan { error, message, data }
+      if (res.data.error) {
+        throw new Error(res.data.message || "Gagal memuat data");
       }
-    };
+      return res.data.data as ActivityReportItem;
+    },
+    enabled: !!id,
+    // Toast error saat query gagal
+    meta: { showToast: true },
+  });
 
-    if (id) {
-      fetchReport();
-    }
-}, [id]);
-
-  return { report, loading, user };
+  return { report: report ?? null, loading, user };
 }

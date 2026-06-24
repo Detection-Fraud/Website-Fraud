@@ -434,7 +434,7 @@ export async function GET(request: NextRequest) {
           status: statusText,
         });
       }
-    } else if (kanwilId || user.unitType === "KANTOR_WILAYAH") {
+    } else if ((kanwilId && unitType !== "WILAYAH") || user.unitType === "KANTOR_WILAYAH") {
       // Filter spesifik 1 Kanwil, list semua kancab di bawahnya
       const activeKanwilId = kanwilId || user.unitId;
       const kancabs = await prisma.unit.findMany({
@@ -521,6 +521,10 @@ export async function GET(request: NextRequest) {
       // Tampilkan semua unit — filter berdasarkan unitType jika dipilih
       const unitWhere: any = {};
       if (rankingUnitId) unitWhere.id = rankingUnitId;
+
+      if (kanwilId && unitType === "WILAYAH") {
+        unitWhere.id = kanwilId;
+      }
 
       // Filter unit berdasarkan tipe yang dipilih user di UI
       const UNIT_TYPE_MAP: Record<string, string> = {

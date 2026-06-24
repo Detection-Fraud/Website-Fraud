@@ -1,30 +1,31 @@
+import { api } from "@/lib/api";
 import { toast } from "@heroui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 export function useDeletePic({ onSuccess }: { onSuccess?: () => void } = {}) {
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const deleteUser = async (userId: string) => {
-    try {
-      setIsDeleting(userId);
-      const res = await fetch(`/api/users/${userId}`, {
-        method: "DELETE",
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) throw new Error(json.message || "Gagal menghapus user");
-
+  const mutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await api.delete(`/users/${userId}`);
+      return res.data;
+    },
+    onSuccess: () => {
       toast.success("Berhasil dihapus");
+      queryClient.invalidateQueries({ queryKey: ["management-users"] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
       onSuccess?.();
-    } catch (err) {
+    },
+    onError: (err) => {
       toast.danger("Gagal", {
         description: err instanceof Error ? err.message : "Error",
       });
-    } finally {
-      setIsDeleting(null);
-    }
-  };
+    },
+  });
 
-  return { deleteUser, isDeleting };
+  return {
+    deleteUser: mutation.mutate,
+    isDeleting: mutation.isPending ? (mutation.variables ?? null) : null,
+  };
 }

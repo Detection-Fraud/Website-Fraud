@@ -4,191 +4,178 @@ import {
   FilterOption,
   TabUnitType,
 } from "@/types/compliance.types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { useCurrentUser } from "./useCurrentUser";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
+interface ComplianceFilters {
+  kanwilId: string;
+  kancabId: string;
+  divisiId: string;
+  programId: string;
+  activeTab: TabUnitType;
+}
+
+type FilterAction =
+  | { type: "SET_KANWIL"; value: string }
+  | { type: "SET_KANCAB"; value: string }
+  | { type: "SET_DIVISI"; value: string }
+  | { type: "SET_PROGRAM"; value: string }
+  | { type: "SET_TAB"; value: TabUnitType };
+
+const initialFilters: ComplianceFilters = {
+  kanwilId: "ALL",
+  kancabId: "ALL",
+  divisiId: "ALL",
+  programId: "ALL",
+  activeTab: "NASIONAL",
+};
+
+function filterReducer(
+  state: ComplianceFilters,
+  action: FilterAction,
+): ComplianceFilters {
+  switch (action.type) {
+    case "SET_KANWIL":
+      // Kanwil berubah → reset kancab, clear divisi (mutually exclusive — AGENTS Rule #5)
+      return {
+        ...state,
+        kanwilId: action.value,
+        kancabId: "ALL",
+        divisiId: "ALL",
+      };
+
+    case "SET_KANCAB":
+      return { ...state, kancabId: action.value, divisiId: "ALL" };
+
+    case "SET_DIVISI":
+      // Divisi berubah → clear kanwil & kancab (mutually exclusive — AGENTS Rule #5)
+      return {
+        ...state,
+        divisiId: action.value,
+        kanwilId: "ALL",
+        kancabId: "ALL",
+      };
+
+    case "SET_PROGRAM":
+      return { ...state, programId: action.value };
+
+    case "SET_TAB":
+      // Tab berubah → reset semua filter
+      return {
+        ...state,
+        activeTab: action.value,
+        kanwilId: "ALL",
+        kancabId: "ALL",
+        divisiId: "ALL",
+      };
+
+    default:
+      return state;
+  }
+}
 export function useComplianceReport() {
   const { user } = useCurrentUser();
 
-  // === PERUBAHAN: regionId/branchId/divisionId → kanwilId/kancabId/divisiId ===
-  const [kanwilId, setKanwilId] = useState<string>("ALL");
-  const [kancabId, setKancabId] = useState<string>("ALL");
-  const [divisiId, setDivisiId] = useState<string>("ALL");
-  const [programId, setProgramId] = useState<string>("ALL");
-
-  const [activeTab, setActiveTab] = useState<TabUnitType>("NASIONAL");
+  const [filters, dispatch] = useReducer(filterReducer, initialFilters);
 
   useEffect(() => {
-    if (user?.role === "PIC" && activeTab === "NASIONAL") {
+    if (user?.role === "PIC" && filters.activeTab === "NASIONAL") {
       if (user.unitType === "KANTOR_WILAYAH") {
-        setActiveTab("KANWIL_AND_KANCAB");
+        dispatch({ type: "SET_TAB", value: "KANWIL_AND_KANCAB" });
       } else if (user.unitType === "KANTOR_CABANG") {
-        setActiveTab("KANCAB");
+        dispatch({ type: "SET_TAB", value: "KANCAB" });
       } else if (user.unitType === "DIVISI") {
-        setActiveTab("DIVISI");
+        dispatch({ type: "SET_TAB", value: "DIVISI" });
       }
     }
-  }, [user?.role, user?.unitType, activeTab]);
-  const [options, setOptions] = useState<ComplianceFilterOptions>({
-    kanwilList: [],
-    divisiList: [],
-    kancabList: [],
-    programList: [],
+  }, [user?.role, user?.unitType]);
+
+  const { data: options, isLoading: isLoadingOptions } =
+    useQuery<ComplianceFilterOptions>({
+      queryKey: ["compliance-options"],
+      queryFn: () =>
+        api.get("/reports/filter-options").then((res) => res.data.data),
+      staleTime: 5 * 60 * 1000,
+    });
+
+  const effectiveKanwilId =
+    user?.role === "PIC" && user?.unitType === "KANTOR_WILAYAH"
+      ? user.unitId
+      : filters.kanwilId;
+
+  const { data: kancabList = [], isLoading: isLoadingKancab } = useQuery<
+    FilterOption[]
+  >({
+    queryKey: ["kancab-list", effectiveKanwilId],
+    queryFn: () =>
+      api
+        .get("/reports/filter-options/kancab", {
+          params: { kanwilId: effectiveKanwilId },
+        })
+        .then((res) => res.data.data ?? []),
+
+    enabled: !!effectiveKanwilId && effectiveKanwilId !== "ALL",
   });
 
-  const [kancabList, setKancabList] = useState<FilterOption[]>([]);
-  const [data, setData] = useState<ComplianceResponse | null>(null);
-
-  const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false);
-  const [isLoadingKancab, setIsLoadingKancab] = useState<boolean>(false);
-  const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchInitialOptions() {
-      try {
-        setIsLoadingOptions(true);
-        const res = await fetch("/api/reports/filter-options");
-        const json = await res.json();
-        if (!json.error && json.data) {
-          setOptions(json.data);
-        } else {
-          setError(json.message || "Gagal memuat opsi filter");
-        }
-      } catch (e) {
-        console.error(e);
-        setError("Error saat memuat data");
-      } finally {
-        setIsLoadingOptions(false);
-      }
-    }
-    fetchInitialOptions();
-  }, []);
-
-  // === PERUBAHAN: fetch kancab berdasarkan kanwilId (parentId) ===
-  useEffect(() => {
-    async function fetchKancab() {
-      const effectiveKanwilId =
-        user?.role === "PIC" && user?.unitType === "KANTOR_WILAYAH"
-          ? user.unitId
-          : kanwilId;
-
-      if (effectiveKanwilId === "ALL" || !effectiveKanwilId) {
-        setKancabList([]);
-        return;
-      }
-      try {
-        setIsLoadingKancab(true);
-        const res = await fetch(
-          `/api/reports/filter-options/kancab?kanwilId=${effectiveKanwilId}`,
-        );
-        const json = await res.json();
-        if (!json.error && json.data) {
-          setKancabList(json.data);
-        } else {
-          setError(json.message || "Gagal memuat daftar cabang");
-        }
-      } catch (error) {
-        console.error("GAGAL MEMUAT KANCAB!: ", error);
-        setError("Error saat memuat data cabang");
-      } finally {
-        setIsLoadingKancab(false);
-      }
-    }
-    fetchKancab();
-  }, [kanwilId, user?.role, user?.unitId, user?.unitType]);
-
-  const fetchComplianceData = useCallback(async () => {
-    try {
-      setIsLoadingData(true);
-      setError(null);
-
+  const {
+    data: complianceData,
+    isLoading: isLoadingData,
+    error,
+  } = useQuery<ComplianceResponse>({
+    queryKey: ["compliance-data", filters],
+    queryFn: async () => {
       const params = new URLSearchParams();
-      if (activeTab !== "NASIONAL") params.append("unitType", activeTab);
-      if (programId !== "ALL") params.append("programId", programId);
-      if (kanwilId !== "ALL") params.append("kanwilId", kanwilId);
-      if (kancabId !== "ALL") params.append("kancabId", kancabId);
-      if (divisiId !== "ALL") params.append("divisiId", divisiId);
+      if (filters.activeTab !== "NASIONAL")
+        params.append("unitType", filters.activeTab);
+      if (filters.programId !== "ALL")
+        params.append("programId", filters.programId);
+      if (filters.kanwilId !== "ALL")
+        params.append("kanwilId", filters.kanwilId);
+      if (filters.kancabId !== "ALL")
+        params.append("kancabId", filters.kancabId);
+      if (filters.divisiId !== "ALL")
+        params.append("divisiId", filters.divisiId);
 
-      const res = await fetch(`/api/reports/compliance?${params.toString()}`);
-      const json = await res.json();
-
-      if (res.ok) {
-        setData(json.data);
-      } else {
-        setError(json.message || "Gagal memuat data compliance");
-      }
-    } catch (error) {
-      setError(
-        String(error) || "Gagal memuat data laporan compliance di catch",
-      );
-    } finally {
-      setIsLoadingData(false);
-    }
-  }, [programId, kanwilId, kancabId, divisiId, activeTab]);
-
-  useEffect(() => {
-    let active = true;
-    Promise.resolve().then(() => {
-      if (active) {
-        fetchComplianceData();
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [fetchComplianceData]);
-
-  // === PERUBAHAN: Cascading filter — Kanwil/Kancab mutually exclusive dengan Divisi ===
-  const handleKanwilChange = (newKanwilId: string) => {
-    setKanwilId(newKanwilId);
-    setKancabId("ALL");
-    setDivisiId("ALL");
-  };
-
-  const handleKancabChange = (newKancabId: string) => {
-    setKancabId(newKancabId);
-    setDivisiId("ALL");
-  };
-
-  const handleDivisiChange = (newDivisiId: string) => {
-    setDivisiId(newDivisiId);
-    setKanwilId("ALL");
-    setKancabId("ALL");
-  };
-
-  const handleProgramChange = (newProgramId: string) => {
-    setProgramId(newProgramId);
-  };
-
-  const handleTabChange = (newTab: TabUnitType) => {
-    setActiveTab(newTab);
-    setKanwilId("ALL");
-    setKancabId("ALL");
-    setDivisiId("ALL");
-  };
+      const res = await api.get(`/reports/compliance?${params.toString()}`);
+      return res.data.data as ComplianceResponse;
+    },
+  });
 
   return {
-    activeTab,
-    handleTabChange,
+    activeTab: filters.activeTab,
+    handleTabChange: (v: TabUnitType) =>
+      dispatch({ type: "SET_TAB", value: v }),
+
     filters: {
-      kanwilId,
-      kancabId,
-      divisiId,
-      programId,
+      kanwilId: filters.kanwilId,
+      kancabId: filters.kancabId,
+      divisiId: filters.divisiId,
+      programId: filters.programId,
     },
+
     options: {
-      ...options,
-      kancabList,
+      kanwilList: options?.kanwilList ?? [],
+      divisiList: options?.divisiList ?? [],
+      programList: options?.programList ?? [],
+      kancabList: kancabList,
     },
-    data,
+
+    data: complianceData ?? null,
     isLoading: isLoadingOptions || isLoadingData,
     isLoadingKancab,
-    error,
-    handleKanwilChange,
-    handleKancabChange,
-    handleDivisiChange,
-    handleProgramChange,
-    refetch: fetchComplianceData,
+    error: error ? (error as Error).message : null,
+
+    handleKanwilChange: (v: string) =>
+      dispatch({ type: "SET_KANWIL", value: v }),
+    handleKancabChange: (v: string) =>
+      dispatch({ type: "SET_KANCAB", value: v }),
+    handleDivisiChange: (v: string) =>
+      dispatch({ type: "SET_DIVISI", value: v }),
+    handleProgramChange: (v: string) =>
+      dispatch({ type: "SET_PROGRAM", value: v }),
+
+    refetch: () => {},
   };
 }

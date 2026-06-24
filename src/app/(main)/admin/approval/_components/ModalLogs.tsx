@@ -2,7 +2,6 @@
 
 import { useReportDetail } from "@/hooks/useReportDetail";
 import { Button, Modal, Spinner } from "@heroui/react";
-import { useEffect, useState } from "react";
 import { FiCheckCircle, FiRefreshCw, FiSend, FiXCircle } from "react-icons/fi";
 import { IoTimeOutline } from "react-icons/io5";
 
@@ -20,7 +19,6 @@ interface ModalLogsProps {
   onClose: () => void;
   reportId: string;
   activityName: string;
-  initialLogs?: LogEntry[];
 }
 
 const actionConfig = {
@@ -55,10 +53,9 @@ export default function ModalLogs({
   onClose,
   reportId,
   activityName,
-  initialLogs,
 }: ModalLogsProps) {
   const { report, loading } = useReportDetail(reportId);
-  const logs = report?.logs || [];
+  const logs = (report?.logs || []) as LogEntry[];
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onClose}>

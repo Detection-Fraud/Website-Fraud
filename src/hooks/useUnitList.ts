@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 export interface UnitItem {
@@ -18,48 +20,19 @@ const TYPE_MAP: Record<string, string> = {
 };
 
 export function useUnitList(unitType: string) {
-  const [units, setUnits] = useState<UnitItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [trigger, setTrigger] = useState(0);
+  const dbType = TYPE_MAP[unitType];
 
-  const refetch = () => setTrigger((prev) => prev + 1);
-
-  useEffect(() => {
-    const dbType = TYPE_MAP[unitType];
-
-    if (!dbType) {
-      setUnits([]);
-      return;
-    }
-
-    const fetchUnits = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const res = await fetch(`/api/units?type=${dbType}`);
-        const json = await res.json();
-
-        if (!res.ok) {
-          throw new Error(json.message || "Gagal memuat data unit");
-        }
-
-        setUnits(json.data ?? []);
-      } catch (error: unknown) {
-        setError(error instanceof Error ? error.message : "Terjadi kesalahan");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUnits();
-  }, [unitType, trigger]);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["units", unitType],
+    queryFn: () =>
+      api.get("/units", { params: { type: dbType } }).then((res) => res.data),
+    enabled: !!dbType,
+  });
 
   return {
-    units,
+    units: (data?.data ?? []) as UnitItem[],
     isLoading,
-    error,
+    error: error ? (error as Error).message : null,
     refetch,
   };
 }

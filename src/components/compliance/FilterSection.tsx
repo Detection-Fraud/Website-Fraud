@@ -1,7 +1,6 @@
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { FilterOption, TabUnitType } from "@/types/compliance.types";
 import { Button, Card, Tag, TagGroup } from "@heroui/react";
-import { useState } from "react";
 import { FiDownload, FiX } from "react-icons/fi";
 import FilterProgram from "../ui/FilterProgram";
 import SelectKancab from "../ui/SelectKancab";
@@ -47,7 +46,6 @@ export default function FilterSection({
     user?.role === "PIC" && user.unitType === "KANTOR_WILAYAH";
 
   const hideTags = isPICKancab || isPICDivisi;
-
   const hideTagNasional = isPICKanwil;
   const hideTagPusat = isPICKanwil;
 
@@ -61,16 +59,6 @@ export default function FilterSection({
   const hideSelectWilayah = isPICKancab || isPICDivisi || isPICKanwil;
   const hideSelectKancab = isPICKancab || isPICDivisi;
 
-  const [prevIsPICKanwil, setPrevIsPICKanwil] = useState(isPICKanwil);
-  const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
-
-  if (isPICKanwil !== prevIsPICKanwil || activeTab !== prevActiveTab) {
-    setPrevIsPICKanwil(isPICKanwil);
-    setPrevActiveTab(activeTab);
-    if (isPICKanwil && activeTab === "NASIONAL") {
-      handleTabChange("KANWIL_AND_KANCAB");
-    }
-  }
   return (
     <Card>
       <Card.Header>{!hideTags && <Card.Title>Filter</Card.Title>}</Card.Header>
