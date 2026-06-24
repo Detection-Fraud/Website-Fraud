@@ -28,9 +28,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         // DEV: semua role bisa login via credentials untuk testing
-        // PROD: hanya ADMIN yang boleh, PIC/VIEWER wajib SSO
+        // PROD: hanya ADMIN yang boleh, PIC/VIEWER wajib SSO (kecuali dibypass)
         const isRoleAllowed =
-          process.env.NODE_ENV === "development" || user?.role === "ADMIN";
+          process.env.NODE_ENV === "development" ||
+          process.env.ALLOW_PIC_LOGIN === "true" ||
+          user?.role === "ADMIN";
 
         if (!user || !isRoleAllowed || !user.password) return null;
 
