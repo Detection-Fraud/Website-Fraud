@@ -1,3 +1,4 @@
+// next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -5,8 +6,9 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*', // <-- Ganti 8000 dengan port backend FastAPI-mu
+        // GANTI INI: Hanya intercept yang depannya /api/ai/
+        source: "/api/ai/:path*",
+        destination: "http://localhost:8000/api/:path*",
       },
     ];
   },
