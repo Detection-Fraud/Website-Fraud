@@ -3,10 +3,21 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+
+  // ✅ FIX: Cegah Turbopack scan folder public/uploads (symlink ke luar project)
+  // Tanpa ini, build akan CRASH karena Turbopack menemukan symlink yang
+  // "menunjuk keluar dari filesystem root project".
+  outputFileTracingExcludes: {
+    "*": [
+      "./public/uploads/**/*",
+      "./public/uploads",
+    ],
+  },
+
   async rewrites() {
     return [
       {
-        // GANTI INI: Hanya intercept yang depannya /api/ai/
+        // Hanya intercept yang depannya /api/ai/
         source: "/api/ai/:path*",
         destination: "http://localhost:8000/api/:path*",
       },
