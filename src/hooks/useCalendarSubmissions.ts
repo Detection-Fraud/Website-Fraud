@@ -1,5 +1,10 @@
+import { api } from "@/lib/api";
 import { CalendarSubmission } from "@/types/calendar.types";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+interface CalendarSubmissionsResponse {
+  data: CalendarSubmission[];
+}
 
 interface Params {
   month: number;
@@ -17,35 +22,21 @@ export function useCalendarSubmissions({
   kancabId,
   divisiId,
 }: Params) {
-  const [submissions, setSubmissions] = useState<CalendarSubmission[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading } = useQuery<CalendarSubmissionsResponse>({
+    queryKey: [
+      "calendar-submissions",
+      { month, year, kanwilId, kancabId, divisiId },
+    ],
+    queryFn: () =>
+      api
+        .get("/kalendar/submissions", {
+          params: { month, year, kanwilId, kancabId, divisiId },
+        })
+        .then((res) => res.data),
+  });
 
-  useEffect(() => {
-    async function fetchSubmissions() {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({
-          month: month.toString(),
-          year: year.toString(),
-          kanwilId,
-          kancabId,
-          divisiId,
-        });
-
-        const res = await fetch(
-          `/api/kalender/submissions?${params.toString()}`,
-        );
-
-        const json = await res.json();
-        if (json.data) setSubmissions(json.data);
-      } catch (error) {
-        console.error("Failed to fetch submissions", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchSubmissions();
-  }, [month, year, kanwilId, kancabId, divisiId]);
-
-  return { submissions, isLoading };
+  return {
+    submissions: data?.data ?? ([] as CalendarSubmission[]),
+    isLoading,
+  };
 }

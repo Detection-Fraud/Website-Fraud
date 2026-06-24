@@ -46,7 +46,7 @@ export default function PicView() {
   const searchParams = useSearchParams();
 
   const { kanwilList } = useMasterWilayah();
-  const myKanwil = kanwilList.find((k) => k.id === user?.unitId);
+  const myKanwil = kanwilList.find((k:any ) => k.id === user?.unitId);
   const myKancabList = myKanwil ? myKanwil.children : [];
 
   const currentProgram = searchParams.get("programId") || "ALL";
@@ -156,7 +156,7 @@ export default function PicView() {
 
         <DataTable
           column={REPORT_COLUMNS}
-          renderCell={(item, key) =>
+          renderCell={(item: any, key: any) =>
             renderReportCell(item, key, (id) =>
               router.push(`/pic/detection/${id}`),
             )

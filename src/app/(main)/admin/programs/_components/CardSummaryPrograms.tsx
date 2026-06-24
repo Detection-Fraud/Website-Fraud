@@ -1,4 +1,4 @@
-import { ProgramSummary } from "@/hooks/useProgram";
+import { ProgramSummary } from "@/hooks/useProgramQuery";
 import { Card } from "@heroui/react";
 
 interface CardSummaryProgramsProps {

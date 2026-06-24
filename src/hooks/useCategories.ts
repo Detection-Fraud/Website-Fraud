@@ -1,40 +1,26 @@
+import { api } from "@/lib/api";
 import { Categories, GlobalSummary } from "@/types/categories.types";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
+interface CategoriesResponse {
+  data: Categories[];
+  summary: GlobalSummary | null;
+}
 export function useCategories() {
-  const [categories, setCategories] = useState<Categories[]>([]);
-  const [summary, setSummary] = useState<GlobalSummary | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch("/api/programs/categories");
-
-        const json = await response.json();
-
-        if (!response.ok) {
-          throw new Error(json.message || "Gagal mengambil data categories");
-        }
-
-        setCategories(json.data || []);
-        setSummary(json.summary || null);
-      } catch (error: unknown) {
-        setError(error instanceof Error ? error.message : "Terjadi Kesalahan");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCategories();
-  }, []);
+  const {
+    data,
+    isLoading: loadingCategories,
+    error,
+  } = useQuery<CategoriesResponse>({
+    queryKey: ["categories"],
+    queryFn: () => api.get("/programs/categories").then((res) => res.data),
+  });
 
   return {
-    categories,
-    loading,
-    error,
-    summary,
+    categories: data?.data ?? [],
+    loadingCategories,
+    error: error ? (error as Error).message : null,
+    summary: data?.summary ?? null,
   };
 }

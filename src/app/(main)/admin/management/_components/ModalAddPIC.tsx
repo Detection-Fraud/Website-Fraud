@@ -25,7 +25,6 @@ interface ModalAddPICProps {
     name: string;
     type: string;
   } | null;
-  onSuccess: () => void;
 }
 
 const UNIT_TYPE_LABEL: Record<string, string> = {
@@ -38,7 +37,6 @@ export default function ModalAddPic({
   isOpen,
   onClose,
   selectedUnit,
-  onSuccess,
 }: ModalAddPICProps) {
   const {
     query,
@@ -50,8 +48,14 @@ export default function ModalAddPic({
     clearSelected,
   } = useSearchPic({ unitId: selectedUnit?.id });
 
+  const handleClose = () => {
+    clearSelected();
+    clearError();
+    onClose();
+  };
+
   const { promotePic, isSubmitting, submitError, clearError } = useAddPic({
-    onSuccess,
+    onSuccess: handleClose,
   });
 
   const unitTypeLabel = selectedUnit
@@ -64,17 +68,11 @@ export default function ModalAddPic({
 
   const canSubmit = !!selectedUser && !!selectedUnit;
 
-  const handleClose = () => {
-    clearSelected();
-    clearError();
-    onClose();
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!canSubmit || !selectedUnit) return;
 
-    await promotePic({
+    promotePic({
       userId: selectedUser!.id,
       unitId: selectedUnit.id,
     });
@@ -116,10 +114,11 @@ export default function ModalAddPic({
                 <Form onSubmit={handleSubmit} className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1.5">
                     <Autocomplete
-                      items={results}
                       value={selectedUser?.id ?? null}
                       onChange={(key) => {
-                        const found = results.find((r) => r.id === String(key));
+                        const found = results.find(
+                          (r: any) => r.id === String(key),
+                        );
                         setSelectedUser(found ?? null);
                       }}
                       allowsEmptyCollection
@@ -172,7 +171,7 @@ export default function ModalAddPic({
                               </EmptyState>
                             )}
                           >
-                            {results.map((user) => (
+                            {results.map((user: any) => (
                               <ListBoxItem
                                 key={user.id}
                                 textValue={user.name}

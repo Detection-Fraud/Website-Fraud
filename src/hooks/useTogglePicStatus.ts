@@ -1,4 +1,6 @@
+import { api } from "@/lib/api";
 import { toast } from "@heroui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 interface ToggleStatusPayload {
@@ -13,45 +15,37 @@ interface UseTogglePicStatusOptions {
 export function useTogglePicStatus({
   onSuccess,
 }: UseTogglePicStatusOptions = {}) {
-  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const toggleStatus = async (payload: ToggleStatusPayload) => {
-    try {
-      setIsUpdating(payload.userId);
-
-      const res = await fetch(`/api/users/${payload.userId}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          isActive: payload.isActive,
-        }),
+  const mutation = useMutation({
+    mutationFn: async (payload: ToggleStatusPayload) => {
+      const res = await api.patch(`/users/${payload.userId}/status`, {
+        isActive: payload.isActive,
       });
-
-      const json = await res.json();
-
-      if (!res.ok) throw new Error(json.message || "Gagal mengubah status PIC");
-
+      return res.data;
+    },
+    onSuccess: (data) => {
       toast.success("Berhasil", {
-        description: json.message || "Status berhasil diubah",
+        description: data.message || "Status berhasil diubah",
       });
-
+      queryClient.invalidateQueries({ queryKey: ["management-users"] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
       onSuccess?.();
-    } catch (err) {
+    },
+    onError: (err) => {
       toast.danger("Gagal", {
         description:
           err instanceof Error
             ? err.message
             : "Terjadi kesalahan tidak terduga",
       });
-    } finally {
-      setIsUpdating(null);
-    }
-  };
+    },
+  });
 
   return {
-    isUpdating,
-    toggleStatus,
+    isUpdating: mutation.isPending
+      ? (mutation.variables?.userId ?? null)
+      : null,
+    toggleStatus: mutation.mutate,
   };
 }

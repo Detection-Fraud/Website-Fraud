@@ -19,10 +19,10 @@ import { useState } from "react";
 import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
 import { CiSaveDown1 } from "react-icons/ci";
 import { FiAlertTriangle, FiImage } from "react-icons/fi";
-import ModalNotes from "./ModalNotes";
 import CardApproval from "./CardApproval";
-import PaginationFooter from "./PaginationFooter";
 import ModalLogs from "./ModalLogs";
+import ModalNotes from "./ModalNotes";
+import PaginationFooter from "./PaginationFooter";
 
 export default function ApprovalView() {
   const {
@@ -39,7 +39,6 @@ export default function ApprovalView() {
     statusFilter,
     programFilter,
     summary,
-    refetch,
   } = useReportList();
 
   const { handleApprove, isLoading: isApproving } = useApproval();
@@ -73,11 +72,8 @@ export default function ApprovalView() {
     logsModalState.close();
   };
 
-  const handleApproveReport = async (id: string) => {
-    const success = await handleApprove(id);
-    if (success) {
-      refetch();
-    }
+  const handleApproveReport = (id: string) => {
+    handleApprove(id);
   };
 
   const summaryCards = [
@@ -117,7 +113,7 @@ export default function ApprovalView() {
 
   const { kanwilList } = useMasterWilayah();
 
-  const selectedKanwil = kanwilList.find((k) => k.id === kanwilFilter);
+  const selectedKanwil = kanwilList.find((k: any) => k.id === kanwilFilter);
   const kancabList = selectedKanwil ? selectedKanwil.children : [];
 
   return (
@@ -199,7 +195,7 @@ export default function ApprovalView() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {reports.length > 0 ? (
-          reports.map((report) => (
+          reports.map((report: ActivityReportItem) => (
             <CardApproval
               key={report.id}
               report={report}
@@ -221,7 +217,6 @@ export default function ApprovalView() {
           onClose={handleCloseRejectModal}
           id={selectedReport.id}
           namaPic={selectedReport.picKegiatan}
-          onSuccess={refetch}
         />
       )}
 

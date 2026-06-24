@@ -8,7 +8,7 @@ import { IoBookOutline } from "react-icons/io5";
 import { PiStack } from "react-icons/pi";
 
 export default function CategoriesPage() {
-  const { categories, loading, error, summary } = useCategories();
+  const { categories, loadingCategories, error, summary } = useCategories();
 
   const summaryCards = [
     {

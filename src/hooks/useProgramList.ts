@@ -1,37 +1,22 @@
+import { api } from "@/lib/api";
 import { ProgramBudaya } from "@generated/prisma";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+interface ProgramListResponse {
+  data: ProgramBudaya[];
+}
 
 export function useProgramList() {
-  const [programs, setPrograms] = useState<ProgramBudaya[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        setIsLoading(true);
-
-        const res = await fetch("/api/programs?limit=10");
-        const json = await res.json();
-
-        if (!res.ok) {
-          throw new Error(json.message || "Gagal mengambil data program");
-        }
-
-        setPrograms(json.data || []);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPrograms();
-  }, []);
+  const { data, isLoading, error } = useQuery<ProgramListResponse>({
+    queryKey: ["program-list"],
+    queryFn: () =>
+      api.get("/programs", { params: { limit: 10 } }).then((res) => res.data),
+    staleTime: 2 * 60 * 1000,
+  });
 
   return {
-    programs,
+    programs: data?.data ?? ([] as ProgramBudaya[]),
     isLoading,
-    error,
+    error: error ? (error as Error).message : null,
   };
 }

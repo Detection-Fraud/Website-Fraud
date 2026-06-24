@@ -85,7 +85,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           </Card.Header>
 
           <Card.Content className="space-y-4">
-            {charts?.topUnit.map((unit, index) => {
+            {charts?.topUnit.slice(0, 5).map((unit, index) => {
               const maxJumlah = charts?.topUnit?.[0]?.jumlah || 1;
               const percentage = (unit.jumlah / maxJumlah) * 100;
 
@@ -164,7 +164,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           </Card.Header>
 
           <Card.Content className="space-y-6 pt-4">
-            {charts?.rankingWilayah?.slice(0, 6).map((wilayah, index) => {
+            {charts?.rankingWilayah?.slice(0, 5).map((wilayah, index) => {
               // Progress bar menggunakan approvalRate langsung agar sinkron dengan angka yang ditampilkan
 
               // 2. Mapping warna sesuai data 'status' dari Backend

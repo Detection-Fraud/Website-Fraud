@@ -38,26 +38,20 @@ export default function ManagementUserView() {
   });
   const stateModal = useOverlayState();
 
-  const { units, isLoading: isLoadingUnits, refetch: refetchUnits } = useUnitList(selectedUnitType);
+  const { units, isLoading: isLoadingUnits } = useUnitList(selectedUnitType);
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
 
   const {
     users,
     pagination,
     isLoading: isLoadingUsers,
-    refetch,
   } = useManagementUsers({
     unitId: selectedUnit?.id ?? "",
     search: userSearch,
     page: userPage,
   });
 
-  const { toggleStatus, isUpdating } = useTogglePicStatus({
-    onSuccess: () => {
-      refetch();
-      refetchUnits();
-    },
-  });
+  const { toggleStatus, isUpdating } = useTogglePicStatus();
   const handleDeleteUser = (user: UserWithUnit) => {
     // Buka Modal Konfirmasi
     setConfirmModal({
@@ -67,12 +61,7 @@ export default function ManagementUserView() {
     });
   };
 
-  const { deleteUser, isDeleting } = useDeletePic({
-    onSuccess: () => {
-      refetch();
-      refetchUnits();
-    },
-  });
+  const { deleteUser, isDeleting } = useDeletePic();
   const handleToggleStatus = async (user: UserWithUnit, newStatus: boolean) => {
     setConfirmModal({
       isOpen: true,
@@ -114,8 +103,6 @@ export default function ManagementUserView() {
   const handleModalSuccess = () => {
     stateModal.close();
     setEditingUser(null);
-    refetch(); // refresh tabel
-    refetchUnits(); // refresh list unit
   };
 
   const executeConfirmAction = async () => {
@@ -128,11 +115,6 @@ export default function ManagementUserView() {
       });
     } else if (confirmModal.action === "DELETE") {
       await deleteUser(confirmModal.user.id);
-      setConfirmModal({
-        isOpen: false,
-        action: null,
-        user: null,
-      });
     }
 
     // Tutup modal & reset state
@@ -195,9 +177,8 @@ export default function ManagementUserView() {
 
       <ModalAddPic
         isOpen={stateModal.isOpen}
-        onClose={() => stateModal.close()}
+        onClose={handleModalSuccess}
         selectedUnit={selectedUnit}
-        onSuccess={handleModalSuccess}
       />
 
       <ModalConfirmAction
@@ -206,7 +187,7 @@ export default function ManagementUserView() {
           setConfirmModal({ isOpen: false, action: null, user: null })
         }
         onConfirm={executeConfirmAction}
-        isLoading={isUpdating === confirmModal.user?.id}
+        isLoading={isUpdating === confirmModal.user?.id || isDeleting === confirmModal.user?.id}
         title={
           confirmModal.action === "TOGGLE_STATUS"
             ? confirmModal.newStatus
