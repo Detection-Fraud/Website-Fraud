@@ -72,15 +72,23 @@ export async function POST(request: Request) {
     const referencesJson = references.map((item) => {
       let fileUrl = item.imageUrl;
 
-      // Jika URL relatif (seperti /uploads/...), ubah jadi file:/// local path!
-      // Ini 100x lebih cepat karena Python akan baca langsung dari SSD, 
-      // gak usah download HTTP dan tembus batas symlink/IIS.
+      // Jika URL relatif (seperti /uploads/filename.jpg), ubah jadi file:/// local path!
+      // Python akan baca langsung dari disk → tidak perlu HTTP download, anti-gagal
       if (!fileUrl.startsWith("http")) {
         try {
-          const localPath = path.join(process.cwd(), "public", fileUrl);
+          // Ekstrak nama file dari URL: "/uploads/abc.jpg" → "abc.jpg"
+          const filename = fileUrl.replace(/^\/uploads\//, "");
+
+          // Gunakan UPLOAD_DIR env var agar bisa baca dari folder symlink/junction
+          // maupun dari folder langsung (production vs local)
+          const uploadBase =
+            process.env.UPLOAD_DIR ||
+            path.join(process.cwd(), "public", "uploads");
+
+          const localPath = path.join(uploadBase, filename);
           fileUrl = pathToFileURL(localPath).href;
         } catch (e) {
-          fileUrl = `${BASE_URL}${fileUrl}`; // fallback
+          fileUrl = `${BASE_URL}${fileUrl}`; // fallback ke HTTP
         }
       }
 
@@ -89,6 +97,7 @@ export async function POST(request: Request) {
         url: fileUrl,
       };
     });
+
 
     const pythonFormData = new FormData();
 

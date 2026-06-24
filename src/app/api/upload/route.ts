@@ -34,7 +34,10 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    // Lokasi folder upload: baca dari env UPLOAD_DIR (server production)
+    // atau fallback ke public/uploads (local development)
+    const uploadDir =
+      process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
     await mkdir(uploadDir, { recursive: true });
 
     const ext = path.extname(file.name) || ".jpg";
