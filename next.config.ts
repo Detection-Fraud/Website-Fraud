@@ -8,7 +8,12 @@ const nextConfig: NextConfig = {
       {
         // GANTI INI: Hanya intercept yang depannya /api/ai/
         source: "/api/ai/:path*",
-        destination: "http://localhost:8000/api/ai/:path*",
+        destination: "http://localhost:8000/api/:path*",
+      },
+      {
+        // Proxy khusus untuk skema Swagger UI
+        source: "/api/openapi.json",
+        destination: "http://localhost:8000/api/openapi.json",
       },
     ];
   },
