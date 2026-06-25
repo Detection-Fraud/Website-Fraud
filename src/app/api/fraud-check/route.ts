@@ -69,6 +69,8 @@ export async function POST(request: Request) {
 
     console.log(`Ditemukan ${references.length} foto referensi untuk dicek`);
 
+    const urlMapping: Record<string, string> = {};
+
     const referencesJson = references.map((item) => {
       let fileUrl = item.imageUrl;
 
@@ -76,7 +78,6 @@ export async function POST(request: Request) {
       // Python akan baca langsung dari disk → tidak perlu HTTP download, anti-gagal
       if (!fileUrl.startsWith("http")) {
         try {
-          // Ekstrak nama file dari URL: "/uploads/abc.jpg" → "abc.jpg"
           const filename = fileUrl.replace(/^\/uploads\//, "");
 
           // Gunakan UPLOAD_DIR env var agar bisa baca dari folder symlink/junction
@@ -92,12 +93,14 @@ export async function POST(request: Request) {
         }
       }
 
+      // Simpan mapping agar saat Python mengembalikan file:/// bisa dikembalikan ke /uploads/
+      urlMapping[fileUrl] = item.imageUrl;
+
       return {
         nama_asli: item.originalName,
         url: fileUrl,
       };
     });
-
 
     const pythonFormData = new FormData();
 
@@ -147,6 +150,16 @@ export async function POST(request: Request) {
     }
 
     const result = await pythonResponse.json();
+
+    // Map the file:/// URLs back to the original relative URLs
+    if (result && Array.isArray(result.detail_gambar)) {
+      result.detail_gambar = result.detail_gambar.map((item: any) => {
+        if (item.url_referensi_pelaku && urlMapping[item.url_referensi_pelaku]) {
+          item.url_referensi_pelaku = urlMapping[item.url_referensi_pelaku];
+        }
+        return item;
+      });
+    }
 
     console.log(result);
 
