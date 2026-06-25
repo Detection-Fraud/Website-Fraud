@@ -3,6 +3,20 @@ import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
+function getBaseUrl(request: Request): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  return new URL(request.url).origin;
+}
 export async function POST(request: NextRequest) {
   try {
     // CSRF STATE VALIDATION
@@ -96,7 +110,7 @@ export async function POST(request: NextRequest) {
       { expiresIn: "1m" },
     );
 
-    const redirectUrl = new URL("/login/sso", request.url);
+    const redirectUrl = new URL("/login/sso", getBaseUrl(request));
     const response = NextResponse.redirect(redirectUrl);
 
     response.cookies.set("sso_temp_token", temporaryToken, {
@@ -146,7 +160,7 @@ export async function POST(request: NextRequest) {
 // HELPER REDIRECT KE HALAMAN LOGIN DENGAN ERROR YANG BERBEDA
 function redirectWithError(request: Request, errorCode: string): NextResponse {
   const response = NextResponse.redirect(
-    new URL(`/login?error=${errorCode}`, request.url),
+    new URL(`/login?error=${errorCode}`, getBaseUrl(request)),
   );
 
   // clean up csrf cookies on error
