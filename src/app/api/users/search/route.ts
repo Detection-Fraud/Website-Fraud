@@ -1,15 +1,11 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  const user = session?.user;
-
-  if (!session || user?.role !== "ADMIN") {
-    return NextResponse.json(errorResponse("Forbidden", 403), { status: 403 });
-  }
+  try {
+    await requireAdmin();
 
   const q = req.nextUrl.searchParams.get("q") ?? "";
   const unitId = req.nextUrl.searchParams.get("unitId") ?? "";
@@ -20,7 +16,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  try {
+
     // User di sistem berawal sebagai VIEWER, lalu dipromote jadi PIC
     // saat Admin assign ke unit kerja tertentu.
     // Exclude user yang sudah punya unitId (sudah jadi PIC di unit lain)
@@ -48,9 +44,6 @@ export async function GET(req: NextRequest) {
       status: 200,
     });
   } catch (error) {
-    console.error("[GET /api/users/search] Error:", error);
-    return NextResponse.json(errorResponse("Internal server error", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/users/search");
   }
 }

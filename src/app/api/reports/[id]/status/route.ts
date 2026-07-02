@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
 import { reviewReportSchema } from "@/schemas/report.schema";
@@ -9,16 +9,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-  const { id } = await params;
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json(errorResponse("Unauthorized", 401), {
-      status: 401,
-    });
-  }
-
   try {
+    const session = await requireAdmin();
+
+    const { id } = await params;
     const body = await req.json();
 
     const parsedData = reviewReportSchema.safeParse(body);
@@ -78,9 +72,6 @@ export async function PATCH(
       successResponse(updatedReport, "Laporan berhasil diperbarui"),
     );
   } catch (error) {
-    console.error("ERROR Patch /api/reports/[id]:", error);
-    return NextResponse.json(errorResponse("Gagal memperbarui laporan", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "PATCH /api/reports/[id]/status");
   }
 }

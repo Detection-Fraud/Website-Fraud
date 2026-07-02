@@ -1,17 +1,13 @@
-import { auth } from "@/auth";
+
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user)
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
+    await requireAuth();
 
     const { searchParams } = new URL(req.url);
     const quarter = parseInt(searchParams.get("quarter") || "1");
@@ -35,16 +31,6 @@ export async function GET(req: Request) {
       },
     });
 
-    const PROGRAM_COLORS = [
-      "#3b82f6", // blue
-      "#10b981", // emerald
-      "#f59e0b", // amber
-      "#ef4444", // red
-      "#8b5cf6", // violet
-      "#ec4899", // pink
-      "#06b6d4", // cyan
-    ];
-
     const formattedPrograms = programs.map((p, index) => ({
       id: p.id,
       name: p.name,
@@ -59,9 +45,6 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("API Kalender Programs Error:", error);
-    return NextResponse.json(errorResponse("Internal Server Error", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/kalender/programs");
   }
 }

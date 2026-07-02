@@ -1,4 +1,5 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { buildUnitScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
 import { createReportSchema } from "@/schemas/report.schema";
@@ -9,14 +10,8 @@ import { z } from "zod";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    const session = await requireAuth();
+    const user = session.user;
 
     const searchParams = request.nextUrl.searchParams;
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
@@ -30,45 +25,15 @@ export async function GET(request: NextRequest) {
     const kanwilFilter = searchParams.get("kanwilId") || "ALL";
     const kancabFilter = searchParams.get("kancabId") || "ALL";
 
-    let whereClause: Prisma.ActivityReportWhereInput = {};
+    const unitScope = await buildUnitScope({
+      user,
+      kanwilId: kanwilFilter,
+      kancabId: kancabFilter,
+    });
 
-    if (
-      user.role !== "ADMIN" &&
-      user.role !== "PIC" &&
-      user.role !== "VIEWER"
-    ) {
-      return NextResponse.json(
-        errorResponse("Akses ditolak - Role tidak dikenali", 403),
-        { status: 403 },
-      );
-    }
-
-    // Prioritas filter: Kancab (spesifik) -> Kanwil -> Default scope user
-    if (kancabFilter !== "ALL") {
-      whereClause.unitId = kancabFilter;
-    } else if (kanwilFilter !== "ALL") {
-      const childIds = await prisma.unit.findMany({
-        where: { parentId: kanwilFilter },
-        select: { id: true },
-      });
-      whereClause.unitId = {
-        in: [kanwilFilter, ...childIds.map((c) => c.id)],
-      };
-    } else if (user.role === "PIC" || user.role === "VIEWER") {
-      if (user.unitId) {
-        if (user.unitType === "KANTOR_WILAYAH") {
-          const childIds = await prisma.unit.findMany({
-            where: { parentId: user.unitId },
-            select: { id: true },
-          });
-          whereClause.unitId = {
-            in: [user.unitId, ...childIds.map((c) => c.id)],
-          };
-        } else {
-          whereClause.unitId = user.unitId;
-        }
-      }
-    }
+    let whereClause: Prisma.ActivityReportWhereInput = {
+      ...unitScope,
+    };
 
     if (programFilter !== "ALL") {
       whereClause.programId = programFilter;
@@ -157,23 +122,15 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 },
     );
-  } catch (e) {
-    return NextResponse.json(errorResponse("Gagal mengambil data laporan"), {
-      status: 500,
-    });
+  } catch (error) {
+    return handleApiError(error, "GET /api/reports");
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    const session = await requireAuth();
+    const user = session.user;
 
     const body = await request.json();
 
@@ -284,10 +241,6 @@ export async function POST(request: Request) {
       { status: 200 },
     );
   } catch (error: any) {
-    console.error("ERROR POST /api/reports:", error);
-    const message = error?.message || "Internal Server Error";
-    return NextResponse.json(errorResponse(message, 500), {
-      status: 500,
-    });
+    return handleApiError(error, "POST /api/reports");
   }
 }

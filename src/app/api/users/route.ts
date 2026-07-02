@@ -1,14 +1,11 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json(errorResponse("Forbidden", 403), { status: 403 });
-  }
+  try {
+    await requireAdmin();
 
   const searchParams = req.nextUrl.searchParams;
   const unitId = searchParams.get("unitId");
@@ -56,20 +53,23 @@ export async function GET(req: NextRequest) {
     prisma.user.count({ where }),
   ]);
 
-  return NextResponse.json(
-    successResponse(
-      {
-        users,
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
+    return NextResponse.json(
+      successResponse(
+        {
+          users,
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          },
         },
-      },
-      "Berhasil mengambil data user",
-      200,
-    ),
-    { status: 200 },
-  );
+        "Berhasil mengambil data user",
+        200,
+      ),
+      { status: 200 },
+    );
+  } catch (error) {
+    return handleApiError(error, "GET /api/users");
+  }
 }

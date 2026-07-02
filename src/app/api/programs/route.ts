@@ -1,19 +1,14 @@
+import { handleApiError, requireAdmin, requireAuth } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { createProgramSchema } from "@/schemas/program.schema";
 import { z } from "zod";
 
 export async function GET(req: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-    if (!user) {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    const session = await requireAuth();
+    const user = session.user;
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
@@ -83,22 +78,13 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (error) {
-    return NextResponse.json(errorResponse("Gagal mengambil data program"), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/programs");
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    await requireAdmin();
 
     const body = await req.json();
 
@@ -149,8 +135,6 @@ export async function POST(req: Request) {
       { status: 201 },
     );
   } catch (error) {
-    return NextResponse.json(errorResponse("Failed to add program"), {
-      status: 500,
-    });
+    return handleApiError(error, "POST /api/programs");
   }
 }

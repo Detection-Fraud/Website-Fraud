@@ -1,15 +1,11 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { errorResponse } from "@/lib/response";
 import * as XLSX from "xlsx";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const session = await auth();
-  const user = session?.user;
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json(errorResponse("Forbidden", 403), { status: 403 });
-  }
+  try {
+    await requireAdmin();
 
   const wb = XLSX.utils.book_new();
 
@@ -134,13 +130,16 @@ export async function GET() {
 
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
-  return new NextResponse(buffer, {
-    status: 200,
-    headers: {
-      "Content-Type":
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition":
-        'attachment; filename="Template_Import_Karyawan.xlsx"',
-    },
-  });
+    return new NextResponse(buffer, {
+      status: 200,
+      headers: {
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition":
+          'attachment; filename="Template_Import_Karyawan.xlsx"',
+      },
+    });
+  } catch (error) {
+    return handleApiError(error, "GET /api/users/import/template");
+  }
 }

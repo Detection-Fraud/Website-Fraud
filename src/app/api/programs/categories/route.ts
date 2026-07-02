@@ -1,18 +1,11 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin, requireAuth } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    await requireAuth();
 
     const categories = await prisma.programCategory.findMany({
       orderBy: { createdAt: "asc" },
@@ -68,24 +61,13 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (error) {
-    console.log(error);
-    return NextResponse.json(errorResponse("Internal Server Error", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/programs/categories");
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(
-        errorResponse("Unauthorized, You do not have access", 401),
-        { status: 401 },
-      );
-    }
+    await requireAdmin();
 
     const body = await req.json();
     const { name, color } = body;
@@ -119,9 +101,6 @@ export async function POST(req: Request) {
       { status: 201 },
     );
   } catch (error) {
-    console.log(error);
-    return NextResponse.json(errorResponse("Internal Server Error", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "POST /api/programs/categories");
   }
 }

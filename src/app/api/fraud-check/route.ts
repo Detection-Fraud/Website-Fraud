@@ -1,4 +1,6 @@
-import { auth } from "@/auth";
+
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { buildUnitScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
@@ -8,54 +10,27 @@ import { pathToFileURL } from "url";
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    const session = await requireAuth();
+    const user = session.user;
 
     const formData = await request.formData();
     const fotoBaruFiles = formData.getAll("foto_baru");
 
     if (!fotoBaruFiles || fotoBaruFiles.length === 0) {
-      return NextResponse.json(errorResponse("Foto baru wajib diisi", 400), {
-        status: 400,
-      });
+      return NextResponse.json(
+        {
+          status: 400,
+          error: true,
+          message: "Foto baru wajib diisi",
+          data: null,
+        },
+        { status: 400 },
+      );
     }
 
-    let reportWhereClause: Record<string, unknown> = {};
-
-    switch (user.role) {
-      case "ADMIN":
-        break;
-      case "PIC":
-        if (user.unitId) {
-          if (user.unitType === "KANTOR_WILAYAH") {
-            const childIds = await prisma.unit.findMany({
-              where: { parentId: user.unitId },
-              select: { id: true },
-            });
-            reportWhereClause = {
-              unitId: {
-                in: [user.unitId, ...childIds.map((c) => c.id)],
-              },
-            };
-          } else {
-            reportWhereClause = { unitId: user.unitId };
-          }
-        }
-        break;
-      case "VIEWER":
-        break;
-      default:
-        return NextResponse.json(
-          errorResponse("Akses ditolak - Role tidak dikenali", 403),
-          { status: 403 },
-        );
-    }
+    const reportWhereClause = await buildUnitScope({
+      user,
+    });
 
     const references = await prisma.activityPhoto.findMany({
       where: {
@@ -154,7 +129,10 @@ export async function POST(request: Request) {
     // Map the file:/// URLs back to the original relative URLs
     if (result && Array.isArray(result.detail_gambar)) {
       result.detail_gambar = result.detail_gambar.map((item: any) => {
-        if (item.url_referensi_pelaku && urlMapping[item.url_referensi_pelaku]) {
+        if (
+          item.url_referensi_pelaku &&
+          urlMapping[item.url_referensi_pelaku]
+        ) {
           item.url_referensi_pelaku = urlMapping[item.url_referensi_pelaku];
         }
         return item;
@@ -167,9 +145,6 @@ export async function POST(request: Request) {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
-    return NextResponse.json(errorResponse("Internal Server Error", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "POST /api/fraud-check");
   }
 }

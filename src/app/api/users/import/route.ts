@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
@@ -43,15 +43,13 @@ async function getUnitMaps() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json(errorResponse("Forbidden", 403), { status: 403 });
-  }
+  try {
+    await requireAdmin();
 
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
 
-  try {
+
     // ═══════════════════════════════════════════════════════════
     // ACTION: PREVIEW — Menerima File Excel
     // ═══════════════════════════════════════════════════════════
@@ -391,10 +389,6 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      errorResponse("Gagal memproses request: " + msg, 500),
-      { status: 500 },
-    );
+    return handleApiError(error, "POST /api/users/import");
   }
 }

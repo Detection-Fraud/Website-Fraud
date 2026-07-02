@@ -1,18 +1,11 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json(errorResponse("unauthorized", 401), {
-        status: 401,
-      });
-    }
+    await requireAuth();
 
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get("type");
@@ -49,9 +42,6 @@ export async function GET(request: NextRequest) {
       },
     );
   } catch (error) {
-    console.error("ERROR GET /api/units:", error);
-    return NextResponse.json(errorResponse("gagal mengambil data unit", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/units");
   }
 }

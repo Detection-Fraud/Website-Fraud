@@ -1,4 +1,7 @@
-import { auth } from "@/auth";
+
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { getApprovalStatusText, getMonthRange } from "@/lib/api/constants";
+import { buildUnitScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
@@ -38,14 +41,8 @@ async function getDistribusiForRange(
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    const session = await requireAuth();
+    const user = session.user;
 
     const searchParams = request.nextUrl.searchParams;
     const kanwilId = searchParams.get("kanwilId") || undefined;
@@ -61,87 +58,19 @@ export async function GET(request: NextRequest) {
     const periode = searchParams.get("periode") || "ALL";
     const unitType = searchParams.get("unitType") || "ALL";
 
-    let whereClause: any = {};
-
-    // 1. Role-based Scope & Filter
-    switch (user.role) {
-      case "ADMIN":
-        if (kancabId) {
-          whereClause.unitId = kancabId;
-        } else if (kanwilId) {
-          const childIds = await prisma.unit.findMany({
-            where: { parentId: kanwilId },
-            select: { id: true },
-          });
-          whereClause.unitId = {
-            in: [kanwilId, ...childIds.map((c) => c.id)],
-          };
-        } else if (divisiId) {
-          whereClause.unitId = divisiId;
-        }
-        break;
-      case "PIC":
-      case "VIEWER":
-        if (user.unitId) {
-          if (user.unitType === "KANTOR_WILAYAH") {
-            const childIds = await prisma.unit.findMany({
-              where: { parentId: user.unitId },
-              select: { id: true },
-            });
-            whereClause.unitId = {
-              in: [user.unitId, ...childIds.map((c) => c.id)],
-            };
-
-            // Terapkan filter tambahan jika PIC Kanwil memfilter kancab tertentu
-            if (kancabId && childIds.some((c) => c.id === kancabId)) {
-              whereClause.unitId = kancabId;
-            }
-          } else {
-            whereClause.unitId = user.unitId;
-          }
-        }
-        break;
-      default:
-        return NextResponse.json(errorResponse("Akses ditolak", 403), {
-          status: 403,
-        });
-    }
+    const whereClause: any = await buildUnitScope({
+      user,
+      kanwilId,
+      kancabId,
+      divisiId,
+    });
 
     if (programId) {
       whereClause.programId = programId;
     }
 
     // 2. Summary cards (Total, Approved, Pending, dll)
-    let startMonth = 0;
-    let endMonth = 11;
-
-    switch (periode) {
-      case "TW1":
-        endMonth = 2;
-        break; // Jan-Mar
-      case "TW2":
-        startMonth = 3;
-        endMonth = 5;
-        break; // Apr-Jun
-      case "TW3":
-        startMonth = 6;
-        endMonth = 8;
-        break; // Jul-Sep
-      case "TW4":
-        startMonth = 9;
-        endMonth = 11;
-        break; // Okt-Des
-      case "SM1":
-        endMonth = 5;
-        break; // Jan-Jun
-      case "SM2":
-        startMonth = 6;
-        endMonth = 11;
-        break; // Jul-Des
-      case "ALL":
-      default:
-        break; // Jan-Des
-    }
+    const { startMonth, endMonth } = getMonthRange(periode);
 
     const summaryStartDate = new Date(year, startMonth, 1);
     const summaryEndDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
@@ -329,66 +258,12 @@ export async function GET(request: NextRequest) {
     });
 
     // 5. Distribusi program budaya
-    let distribusiProgram: any[] = [];
-    switch (periode) {
-      case "TW1":
-        distribusiProgram = await getDistribusiForRange(
-          whereClause,
-          0,
-          2,
-          year,
-        );
-        break;
-      case "TW2":
-        distribusiProgram = await getDistribusiForRange(
-          whereClause,
-          3,
-          5,
-          year,
-        );
-        break;
-      case "TW3":
-        distribusiProgram = await getDistribusiForRange(
-          whereClause,
-          6,
-          8,
-          year,
-        );
-        break;
-      case "TW4":
-        distribusiProgram = await getDistribusiForRange(
-          whereClause,
-          9,
-          11,
-          year,
-        );
-        break;
-      case "SM1":
-        distribusiProgram = await getDistribusiForRange(
-          whereClause,
-          0,
-          5,
-          year,
-        );
-        break;
-      case "SM2":
-        distribusiProgram = await getDistribusiForRange(
-          whereClause,
-          6,
-          11,
-          year,
-        );
-        break;
-      case "ALL":
-      default:
-        distribusiProgram = await getDistribusiForRange(
-          whereClause,
-          0,
-          11,
-          year,
-        );
-        break;
-    }
+    const distribusiProgram = await getDistribusiForRange(
+      whereClause,
+      startMonth,
+      endMonth,
+      year,
+    );
 
     // 6. Ranking wilayah
     let rankingWilayah: {
@@ -419,10 +294,7 @@ export async function GET(request: NextRequest) {
             ? (totalDisetujuiRaw / totalKegiatanRaw) * 100
             : 0;
 
-        let statusText = "Perlu Perhatian";
-        if (approvalRate >= 90) statusText = "Sangat Baik";
-        else if (approvalRate >= 80) statusText = "Baik";
-        else if (approvalRate >= 70) statusText = "Cukup";
+        const statusText = getApprovalStatusText(approvalRate);
 
         rankingWilayah.push({
           rank: 1,
@@ -434,7 +306,10 @@ export async function GET(request: NextRequest) {
           status: statusText,
         });
       }
-    } else if ((kanwilId && unitType !== "WILAYAH") || user.unitType === "KANTOR_WILAYAH") {
+    } else if (
+      (kanwilId && unitType !== "WILAYAH") ||
+      user.unitType === "KANTOR_WILAYAH"
+    ) {
       // Filter spesifik 1 Kanwil, list semua kancab di bawahnya
       const activeKanwilId = kanwilId || user.unitId;
       const kancabs = await prisma.unit.findMany({
@@ -465,10 +340,7 @@ export async function GET(request: NextRequest) {
           const approvalRate =
             totalKegiatan > 0 ? (totalDisetujui / totalKegiatan) * 100 : 0;
 
-          let statusText = "Perlu Perhatian";
-          if (approvalRate >= 90) statusText = "Sangat Baik";
-          else if (approvalRate >= 80) statusText = "Baik";
-          else if (approvalRate >= 70) statusText = "Cukup";
+          const statusText = getApprovalStatusText(approvalRate);
 
           return {
             name: kancabs.find((k) => k.id === item.unitId)?.name || "Unknown",
@@ -502,10 +374,7 @@ export async function GET(request: NextRequest) {
             ? (totalDisetujuiRaw / totalKegiatanRaw) * 100
             : 0;
 
-        let statusText = "Perlu Perhatian";
-        if (approvalRate >= 90) statusText = "Sangat Baik";
-        else if (approvalRate >= 80) statusText = "Baik";
-        else if (approvalRate >= 70) statusText = "Cukup";
+        const statusText = getApprovalStatusText(approvalRate);
 
         rankingWilayah.push({
           rank: 1,
@@ -569,10 +438,7 @@ export async function GET(request: NextRequest) {
 
           const approvalRate = (disetujui / kegiatan) * 100;
 
-          let statusText = "Perlu Perhatian";
-          if (approvalRate >= 90) statusText = "Sangat Baik";
-          else if (approvalRate >= 80) statusText = "Baik";
-          else if (approvalRate >= 70) statusText = "Cukup";
+          const statusText = getApprovalStatusText(approvalRate);
 
           return {
             name: unit.name,
@@ -634,9 +500,6 @@ export async function GET(request: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("ERROR GET /api/analytics/dashboard:", error);
-    return NextResponse.json(errorResponse("Gagal mengambil data analytics"), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/analytics/dashboard");
   }
 }

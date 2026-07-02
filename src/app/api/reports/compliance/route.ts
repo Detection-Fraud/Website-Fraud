@@ -1,151 +1,33 @@
-import { auth } from "@/auth";
+import { getActiveUnits } from "@/lib/api/active-units";
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
-
-const PROGRAM_COLORS = [
-  "#3B82F6",
-  "#10B981",
-  "#F59E0B",
-  "#8B5CF6",
-  "#EC4899",
-  "#06B6D4",
-  "#F97316",
-];
 
 export async function GET(req: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    const session = await requireAuth();
+    const user = session.user;
 
     const { searchParams } = new URL(req.url);
     const programId = searchParams.get("programId") || "ALL";
     const kanwilId = searchParams.get("kanwilId") || "ALL";
     const kancabId = searchParams.get("kancabId") || "ALL";
     const divisiId = searchParams.get("divisiId") || "ALL";
-
-    // "NASIONAL" | "KANWIL" | "KANCAB" | "DIVISI" | "KANWIL_AND_KANCAB"
     const unitTypeFilter = searchParams.get("unitType") || "NASIONAL";
-
-    // FILTER TAHUN
     const year = parseInt(
       searchParams.get("year") || String(new Date().getFullYear()),
     );
 
-    let activeUnits: Array<{
-      id: string;
-      name: string;
-      type: string;
-      wilayah: string;
-      parentId?: string | null;
-    }> = [];
-
-    const hasPIC = { users: { some: { role: "PIC" as const } } };
-
-    // 1. Ambil Unit yang aktif (memiliki PIC)
-    if (divisiId !== "ALL") {
-      const div = await prisma.unit.findFirst({
-        where: { id: divisiId, type: "DIVISI", ...hasPIC },
-      });
-      if (div)
-        activeUnits.push({
-          id: div.id,
-          name: div.name,
-          type: "DIVISI",
-          wilayah: "Kantor Pusat",
-        });
-    } else if (kancabId !== "ALL") {
-      const kancab = await prisma.unit.findFirst({
-        where: { id: kancabId, type: "KANTOR_CABANG", ...hasPIC },
-        include: { parent: true },
-      });
-      if (kancab)
-        activeUnits.push({
-          id: kancab.id,
-          name: kancab.name,
-          type: "KANTOR_CABANG",
-          wilayah: kancab.parent?.name || "Unknown",
-          parentId: kancab.parentId,
-        });
-    } else if (kanwilId !== "ALL") {
-      const kanwil = await prisma.unit.findFirst({
-        where: { id: kanwilId, type: "KANTOR_WILAYAH", ...hasPIC },
-      });
-      const kancabs = await prisma.unit.findMany({
-        where: { parentId: kanwilId, type: "KANTOR_CABANG", ...hasPIC },
-        include: { parent: true },
-      });
-      if (kanwil)
-        activeUnits.push({
-          id: kanwil.id,
-          name: kanwil.name,
-          type: "KANTOR_WILAYAH",
-          wilayah: kanwil.name,
-          parentId: kanwil.id, // Untuk referensi
-        });
-      kancabs.forEach((b) =>
-        activeUnits.push({
-          id: b.id,
-          name: b.name,
-          type: "KANTOR_CABANG",
-          wilayah: b.parent?.name || "Unknown",
-          parentId: b.parentId,
-        }),
-      );
-    } else {
-      const units = await prisma.unit.findMany({
-        where: hasPIC,
-        include: { parent: true },
-      });
-
-      units.forEach((u) => {
-        let wilayah = "";
-        if (u.type === "DIVISI") wilayah = "Kantor Pusat";
-        else if (u.type === "KANTOR_WILAYAH") wilayah = u.name;
-        else if (u.type === "KANTOR_CABANG")
-          wilayah = u.parent?.name || "Unknown";
-
-        activeUnits.push({
-          id: u.id,
-          name: u.name,
-          type: u.type,
-          wilayah,
-          parentId: u.parentId,
-        });
-      });
-    }
-
-    // 2. Terapkan batasan role
-    if (user.role === "PIC" || user.role === "VIEWER") {
-      if (user.unitId) {
-        if (user.unitType === "KANTOR_WILAYAH") {
-          activeUnits = activeUnits.filter(
-            (u) => u.id === user.unitId || u.parentId === user.unitId,
-          );
-        } else {
-          activeUnits = activeUnits.filter((u) => u.id === user.unitId);
-        }
-      }
-    }
-
-    // 3. Terapkan filter tipe unit
-    if (unitTypeFilter === "KANWIL") {
-      activeUnits = activeUnits.filter((u) => u.type === "KANTOR_WILAYAH");
-    } else if (unitTypeFilter === "KANCAB") {
-      activeUnits = activeUnits.filter((u) => u.type === "KANTOR_CABANG");
-    } else if (unitTypeFilter === "DIVISI") {
-      activeUnits = activeUnits.filter((u) => u.type === "DIVISI");
-    } else if (unitTypeFilter === "KANWIL_AND_KANCAB") {
-      activeUnits = activeUnits.filter(
-        (u) => u.type === "KANTOR_WILAYAH" || u.type === "KANTOR_CABANG",
-      );
-    }
+    // ── Ambil unit aktif via shared helper ──
+    const activeUnits = await getActiveUnits({
+      kanwilId,
+      kancabId,
+      divisiId,
+      unitTypeFilter,
+      user,
+    });
 
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31, 23, 59, 59);
@@ -193,7 +75,6 @@ export async function GET(req: Request) {
       const programCompliance = programInfoList.map((prog) => {
         const submitted = getUnitSubmissions(unit.id, prog.id);
         const target = prog.frequency;
-        // Rumus compliance = (submitted / target) * 100
         const pct = Math.round((submitted / target) * 100);
         return {
           programId: prog.id,
@@ -210,7 +91,6 @@ export async function GET(req: Request) {
               .filter((p) => p.programId === programId)
               .map((p) => p.pct);
 
-      // Avg per unit (filter = semua) -> AVG(compliance % across all active programs)
       const avg =
         relevantPct.length > 0
           ? Math.round(
@@ -238,7 +118,6 @@ export async function GET(req: Request) {
         ? Math.round(tableData.reduce((sum, u) => sum + u.avg, 0) / totalUnit)
         : 0;
 
-    // Status threshold: On Track >= 50% | Behind 25-49% | At Risk < 25%
     const unitOnTrack = tableData.filter((u) => u.avg >= 50).length;
     const waspada = tableData.filter((u) => u.avg >= 25 && u.avg < 50).length;
     const perluPerhatian = tableData.filter((u) => u.avg < 25).length;
@@ -261,9 +140,6 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("ERROR GET /api/reports/compliance", error);
-    return NextResponse.json(errorResponse("Internal Server Error"), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/reports/compliance");
   }
 }

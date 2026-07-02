@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { createProgramSchema, updateProgramSchema } from "@/schemas/program.schema";
@@ -11,14 +11,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    await requireAdmin();
 
     const body = await req.json();
     const parsedData = updateProgramSchema.safeParse(body);
@@ -51,9 +44,7 @@ export async function PATCH(
       { status: 200 },
     );
   } catch (error) {
-    return NextResponse.json(errorResponse("Gagal mengubah status program"), {
-      status: 500,
-    });
+    return handleApiError(error, "PATCH /api/programs/[id]");
   }
 }
 
@@ -63,14 +54,7 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json(errorResponse("Unauthorized", 401), {
-        status: 401,
-      });
-    }
+    await requireAdmin();
 
     const body = await req.json();
     const parsedData = createProgramSchema.safeParse(body);
@@ -113,8 +97,6 @@ export async function PUT(
       { status: 200 },
     );
   } catch (error) {
-    return NextResponse.json(errorResponse("Gagal mengupdate program"), {
-      status: 500,
-    });
+    return handleApiError(error, "PUT /api/programs/[id]");
   }
 }

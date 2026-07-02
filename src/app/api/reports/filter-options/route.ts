@@ -1,28 +1,13 @@
-import { auth } from "@/auth";
+
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 
-const PROGRAM_COLORS = [
-  "#3B82F6", // Blue
-  "#10B981", // Emerald
-  "#F59E0B", // Amber
-  "#8B5CF6", // Violet
-  "#EC4899", // Pink
-  "#06B6D4", // Cyan
-  "#F97316", // Orange
-];
-
 export async function GET() {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json(errorResponse("Unathorized", 401), {
-        status: 401,
-      });
-    }
+    const session = await requireAuth();
 
     const [kanwilList, divisiList, programs] = await Promise.all([
       prisma.unit.findMany({
@@ -60,9 +45,6 @@ export async function GET() {
       { status: 200 },
     );
   } catch (error) {
-    console.log("ERROR GET /api/reports/filter-options", error);
-    return NextResponse.json(errorResponse("Internal Server Error"), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/reports/filter-options");
   }
 }

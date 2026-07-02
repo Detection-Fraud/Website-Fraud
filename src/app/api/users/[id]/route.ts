@@ -1,23 +1,16 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
-import { errorResponse } from "@/lib/response";
+import { errorResponse, successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-
-  const user = session?.user;
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json(errorResponse("Forbidden", 403), { status: 403 });
-  }
+  try {
+    await requireAdmin();
 
   const { id } = await params;
-
-  try {
     const user = await prisma.user.findUnique({ where: { id } });
 
     if (!user) {
@@ -38,10 +31,7 @@ export async function DELETE(
       success: true,
       message: "User berhasil dihapus",
     });
-  } catch (err) {
-    console.log(err);
-    return NextResponse.json(errorResponse("Internal Server Error", 500), {
-      status: 500,
-    });
+  } catch (error) {
+    return handleApiError(error, "DELETE /api/users/[id]");
   }
 }

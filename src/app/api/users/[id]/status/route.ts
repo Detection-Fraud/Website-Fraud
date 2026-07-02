@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { toggleUserStatusSchema } from "@/schemas/user.schema";
@@ -8,16 +8,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-  const user = session?.user;
-
-  if (!session || user?.role !== "ADMIN") {
-    return NextResponse.json(errorResponse("Forbidden", 403), { status: 403 });
-  }
+  try {
+    await requireAdmin();
 
   const { id } = await params;
-
-  try {
     const body = await req.json();
     const parsed = toggleUserStatusSchema.safeParse(body);
 
@@ -78,10 +72,6 @@ export async function PATCH(
       { status: 200 },
     );
   } catch (error) {
-    console.error("[PATCH /api/users/[id]/status] Error:", error);
-    return NextResponse.json(errorResponse("Internal server error", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "PATCH /api/users/[id]/status");
   }
 }
-

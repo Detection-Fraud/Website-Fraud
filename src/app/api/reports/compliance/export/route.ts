@@ -1,47 +1,13 @@
-import { auth } from "@/auth";
+import { getActiveUnits, type ActiveUnit } from "@/lib/api/active-units";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
+import { MONTHS_NAMES_ID, PERIODE_CONFIG } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
-import { errorResponse } from "@/lib/response";
 import { Prisma, ProgramBudaya } from "@generated/prisma";
 import ExcelJS from "exceljs";
-import { NextResponse } from "next/server";
-
-const MONTH_NAMES_ID = [
-  "JANUARI",
-  "FEBRUARI",
-  "MARET",
-  "APRIL",
-  "MEI",
-  "JUNI",
-  "JULI",
-  "AGUSTUS",
-  "SEPTEMBER",
-  "OKTOBER",
-  "NOVEMBER",
-  "DESEMBER",
-];
-
-const PERIODE_CONFIG = {
-  "TW I": { months: [1, 2, 3], divisor: 4 },
-  "TW II": { months: [4, 5, 6], divisor: 4 },
-  "TW III": { months: [7, 8, 9], divisor: 4 },
-  "TW IV": { months: [10, 11, 12], divisor: 4 },
-  "SEMESTER I": { months: [1, 2, 3, 4, 5, 6], divisor: 2 },
-  "SEMESTER II": { months: [7, 8, 9, 10, 11, 12], divisor: 2 },
-} as const;
-
-type PeriodeName = keyof typeof PERIODE_CONFIG;
 
 export async function GET(req: Request) {
   try {
-    const session = await auth();
-    const user = session?.user;
-
-    if (!session || user?.role !== "ADMIN") {
-      return NextResponse.json(
-        errorResponse("Hanya Admin yang dapat mengexport data", 403),
-        { status: 403 },
-      );
-    }
+    const session = await requireAdmin();
 
     const { searchParams } = new URL(req.url);
     const year = parseInt(
@@ -100,139 +66,12 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error("ERROR GET /api/reports/compliance/export", error);
-
-    return NextResponse.json(errorResponse("Gagal export data", 500), {
-      status: 500,
-    });
+    return handleApiError(error, "GET /api/reports/compliance/export");
   }
 }
 
-// Helper getactiveUnits()
+// ── Helper: getMonthlySubmissions ──
 
-interface ActiveUnit {
-  id: string;
-  name: string;
-  type: string;
-  wilayah: string;
-  parentId?: string | null;
-}
-
-async function getActiveUnits(params: {
-  kanwilId: string;
-  kancabId: string;
-  divisiId: string;
-  unitTypeFilter: string;
-  user: any;
-}): Promise<ActiveUnit[]> {
-  const { kanwilId, kancabId, divisiId, unitTypeFilter, user } = params;
-  const hasPIC = { users: { some: { role: "PIC" as const } } };
-
-  let activeUnits: ActiveUnit[] = [];
-
-  // 1. Ambil Unit yang aktif (memiliki PIC)
-  if (divisiId !== "ALL") {
-    const div = await prisma.unit.findFirst({
-      where: { id: divisiId, type: "DIVISI", ...hasPIC },
-    });
-    if (div)
-      activeUnits.push({
-        id: div.id,
-        name: div.name,
-        type: "DIVISI",
-        wilayah: "Kantor Pusat",
-      });
-  } else if (kancabId !== "ALL") {
-    const kancab = await prisma.unit.findFirst({
-      where: { id: kancabId, type: "KANTOR_CABANG", ...hasPIC },
-      include: { parent: true },
-    });
-    if (kancab)
-      activeUnits.push({
-        id: kancab.id,
-        name: kancab.name,
-        type: "KANTOR_CABANG",
-        wilayah: kancab.parent?.name || "Unknown",
-        parentId: kancab.parentId,
-      });
-  } else if (kanwilId !== "ALL") {
-    const kanwil = await prisma.unit.findFirst({
-      where: { id: kanwilId, type: "KANTOR_WILAYAH", ...hasPIC },
-    });
-    const kancabs = await prisma.unit.findMany({
-      where: { parentId: kanwilId, type: "KANTOR_CABANG", ...hasPIC },
-      include: { parent: true },
-    });
-    if (kanwil)
-      activeUnits.push({
-        id: kanwil.id,
-        name: kanwil.name,
-        type: "KANTOR_WILAYAH",
-        wilayah: kanwil.name,
-        parentId: kanwil.id, // Untuk referensi
-      });
-    kancabs.forEach((b) =>
-      activeUnits.push({
-        id: b.id,
-        name: b.name,
-        type: "KANTOR_CABANG",
-        wilayah: b.parent?.name || "Unknown",
-        parentId: b.parentId,
-      }),
-    );
-  } else {
-    const units = await prisma.unit.findMany({
-      where: hasPIC,
-      include: { parent: true },
-    });
-
-    units.forEach((u) => {
-      let wilayah = "";
-      if (u.type === "DIVISI") wilayah = "Kantor Pusat";
-      else if (u.type === "KANTOR_WILAYAH") wilayah = u.name;
-      else if (u.type === "KANTOR_CABANG")
-        wilayah = u.parent?.name || "Unknown";
-
-      activeUnits.push({
-        id: u.id,
-        name: u.name,
-        type: u.type,
-        wilayah,
-        parentId: u.parentId,
-      });
-    });
-  }
-
-  // 2. Terapkan batasan role
-  if (user.role === "PIC" || user.role === "VIEWER") {
-    if (user.unitId) {
-      if (user.unitType === "KANTOR_WILAYAH") {
-        activeUnits = activeUnits.filter(
-          (u) => u.id === user.unitId || u.parentId === user.unitId,
-        );
-      } else {
-        activeUnits = activeUnits.filter((u) => u.id === user.unitId);
-      }
-    }
-  }
-
-  // 3. Terapkan filter tipe unit
-  if (unitTypeFilter === "KANWIL") {
-    activeUnits = activeUnits.filter((u) => u.type === "KANTOR_WILAYAH");
-  } else if (unitTypeFilter === "KANCAB") {
-    activeUnits = activeUnits.filter((u) => u.type === "KANTOR_CABANG");
-  } else if (unitTypeFilter === "DIVISI") {
-    activeUnits = activeUnits.filter((u) => u.type === "DIVISI");
-  } else if (unitTypeFilter === "KANWIL_AND_KANCAB") {
-    activeUnits = activeUnits.filter(
-      (u) => u.type === "KANTOR_WILAYAH" || u.type === "KANTOR_CABANG",
-    );
-  }
-
-  return activeUnits;
-}
-
-// Helper getMonthlySubmissions()
 interface MonthlySubmission {
   unitId: string;
   programId: string;
@@ -269,7 +108,7 @@ async function getMonthlySubmissions(
   return result;
 }
 
-// Helper lookup
+// ── Helper: getSubmissionCount ──
 function getSubmissionCount(
   monthlyData: MonthlySubmission[],
   unitId: string,
@@ -284,7 +123,8 @@ function getSubmissionCount(
   );
 }
 
-// Helper buildSheet()
+// ── Helper: buildSheet ──
+
 interface BuildSheetParams {
   sheetName: string;
   months: readonly number[];
@@ -326,7 +166,7 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
   ws.mergeCells(1, 5, 1, 4 + monthCount);
 
   const headerRow2 = ["", "", "", ""];
-  months.forEach((m) => headerRow2.push(MONTH_NAMES_ID[m - 1]));
+  months.forEach((m) => headerRow2.push(MONTHS_NAMES_ID[m - 1]));
 
   headerRow2.push("", "", "", "", "");
 
@@ -334,17 +174,17 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
   row2.font = { bold: true };
   row2.alignment = { horizontal: "center" };
 
-  ws.mergeCells(1, 1, 2, 1); // NO
-  ws.mergeCells(1, 2, 2, 2); // KANWIL
-  ws.mergeCells(1, 3, 2, 3); // PROGRAM BUDAYA
-  ws.mergeCells(1, 4, 2, 4); // TARGET
+  ws.mergeCells(1, 1, 2, 1);
+  ws.mergeCells(1, 2, 2, 2);
+  ws.mergeCells(1, 3, 2, 3);
+  ws.mergeCells(1, 4, 2, 4);
 
   const afterMonthsCol = 5 + monthCount;
-  ws.mergeCells(1, afterMonthsCol, 2, afterMonthsCol); // TW/SEM total
-  ws.mergeCells(1, afterMonthsCol + 1, 2, afterMonthsCol + 1); // % REALISASI
-  ws.mergeCells(1, afterMonthsCol + 2, 2, afterMonthsCol + 2); // % RATA-RATA
-  ws.mergeCells(1, afterMonthsCol + 3, 2, afterMonthsCol + 3); // TARGET KINERJA
-  ws.mergeCells(1, afterMonthsCol + 4, 2, afterMonthsCol + 4); // % CAPAIAN
+  ws.mergeCells(1, afterMonthsCol, 2, afterMonthsCol);
+  ws.mergeCells(1, afterMonthsCol + 1, 2, afterMonthsCol + 1);
+  ws.mergeCells(1, afterMonthsCol + 2, 2, afterMonthsCol + 2);
+  ws.mergeCells(1, afterMonthsCol + 3, 2, afterMonthsCol + 3);
+  ws.mergeCells(1, afterMonthsCol + 4, 2, afterMonthsCol + 4);
 
   const groupedUnits = groupUnitsHierarchically(activeUnits);
 
@@ -358,7 +198,6 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
       if (!unit) continue;
       const isKanwil = unit.type === "KANTOR_WILAYAH";
 
-      // Hitung compliance per program untuk unit ini
       const programComplianceList = programs.map((prog) => {
         const target = Math.round(prog.frequency / divisor);
         const monthlyValues = months.map((m) =>
@@ -369,49 +208,29 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
         return { prog, target, monthlyValues, totalRealisasi, pctRealisasi };
       });
 
-      // % rata-rata semua program untuk unit ini
       const avgPct =
         programComplianceList.length > 0
           ? programComplianceList.reduce((sum, p) => sum + p.pctRealisasi, 0) /
             programComplianceList.length
           : 0;
 
-      // TARGET KINERJA fix 0.9 (90%)
       const targetKinerja = 0.9;
       const pctCapaian = targetKinerja > 0 ? avgPct / targetKinerja : 0;
 
-      // Tulis 1 row per program
       programComplianceList.forEach((pc, idx) => {
         const rowData: (string | number)[] = [];
 
-        // NO — hanya di baris pertama kanwil
         rowData.push(idx === 0 && isKanwil ? kanwilNo : "");
-
-        // KANWIL — nama unit (hanya di baris pertama)
         rowData.push(idx === 0 ? unit.name : "");
-
-        // PROGRAM BUDAYA
         rowData.push(pc.prog.name);
-
-        // TARGET/TW
         rowData.push(pc.target);
 
-        // REALISASI per bulan
         pc.monthlyValues.forEach((v) => rowData.push(v));
 
-        // TOTAL TW/Semester
         rowData.push(pc.totalRealisasi);
-
-        // % REALISASI
         rowData.push(pc.pctRealisasi);
-
-        // % RATA-RATA — hanya di baris pertama per unit
         rowData.push(idx === 0 ? avgPct : "");
-
-        // TARGET KINERJA — hanya di baris pertama per unit
         rowData.push(idx === 0 ? targetKinerja : "");
-
-        // % CAPAIAN KINERJA — hanya di baris pertama per unit
         rowData.push(idx === 0 ? pctCapaian : "");
 
         ws.addRow(rowData);
@@ -419,20 +238,20 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
     }
   }
 
-  ws.getColumn(1).width = 5; // NO
-  ws.getColumn(2).width = 30; // KANWIL
-  ws.getColumn(3).width = 20; // PROGRAM BUDAYA
-  ws.getColumn(4).width = 15; // TARGET
+  ws.getColumn(1).width = 5;
+  ws.getColumn(2).width = 30;
+  ws.getColumn(3).width = 20;
+  ws.getColumn(4).width = 15;
 
   for (let i = 0; i < monthCount; i++) {
     ws.getColumn(5 + i).width = 12;
   }
 
-  ws.getColumn(afterMonthsCol).width = 12; // Total
-  ws.getColumn(afterMonthsCol + 1).width = 14; // % Realisasi
-  ws.getColumn(afterMonthsCol + 2).width = 14; // % Rata-rata
-  ws.getColumn(afterMonthsCol + 3).width = 15; // Target Kinerja
-  ws.getColumn(afterMonthsCol + 4).width = 18; // % Capaian Kinerja
+  ws.getColumn(afterMonthsCol).width = 12;
+  ws.getColumn(afterMonthsCol + 1).width = 14;
+  ws.getColumn(afterMonthsCol + 2).width = 14;
+  ws.getColumn(afterMonthsCol + 3).width = 15;
+  ws.getColumn(afterMonthsCol + 4).width = 18;
 
   const pctCols = [afterMonthsCol + 1, afterMonthsCol + 2, afterMonthsCol + 4];
   pctCols.forEach((colIdx) => {
@@ -440,7 +259,7 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
   });
 }
 
-// helper groupunitshierarchi
+// ── Helper: groupUnitsHierarchically ──
 
 interface UnitGroup {
   kanwil: ActiveUnit | null;
