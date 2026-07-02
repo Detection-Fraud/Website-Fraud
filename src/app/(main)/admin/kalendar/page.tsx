@@ -36,7 +36,7 @@ export default function KalendarPage() {
   });
 
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>(
-    programs.map((p) => String(p.id)),
+    programs.map((p: any) => String(p.id)),
   );
 
   return (
@@ -58,7 +58,7 @@ export default function KalendarPage() {
           aria-label="Filter Program"
         >
           <TagGroup.List>
-            {programs.map((prog) => (
+            {programs.map((prog: any) => (
               <Tag
                 key={prog.id}
                 id={prog.id}

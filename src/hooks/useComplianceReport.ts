@@ -1,13 +1,13 @@
+import { api } from "@/lib/api";
 import {
   ComplianceFilterOptions,
   ComplianceResponse,
   FilterOption,
   TabUnitType,
 } from "@/types/compliance.types";
-import { useCallback, useEffect, useReducer, useState } from "react";
-import { useCurrentUser } from "./useCurrentUser";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { useEffect, useReducer } from "react";
+import { useCurrentUser } from "./useCurrentUser";
 
 interface ComplianceFilters {
   kanwilId: string;
@@ -41,31 +41,24 @@ function filterReducer(
 ): ComplianceFilters {
   switch (action.type) {
     case "SET_KANWIL":
-      // Kanwil berubah → reset kancab, clear divisi (mutually exclusive — AGENTS Rule #5)
       return {
         ...state,
         kanwilId: action.value,
         kancabId: "ALL",
         divisiId: "ALL",
       };
-
     case "SET_KANCAB":
       return { ...state, kancabId: action.value, divisiId: "ALL" };
-
     case "SET_DIVISI":
-      // Divisi berubah → clear kanwil & kancab (mutually exclusive — AGENTS Rule #5)
       return {
         ...state,
         divisiId: action.value,
         kanwilId: "ALL",
         kancabId: "ALL",
       };
-
     case "SET_PROGRAM":
       return { ...state, programId: action.value };
-
     case "SET_TAB":
-      // Tab berubah → reset semua filter
       return {
         ...state,
         activeTab: action.value,
@@ -75,14 +68,13 @@ function filterReducer(
       };
     case "SET_YEAR":
       return { ...state, year: action.value };
-
     default:
       return state;
   }
 }
+
 export function useComplianceReport() {
   const { user } = useCurrentUser();
-
   const [filters, dispatch] = useReducer(filterReducer, initialFilters);
 
   useEffect(() => {
@@ -95,7 +87,7 @@ export function useComplianceReport() {
         dispatch({ type: "SET_TAB", value: "DIVISI" });
       }
     }
-  }, [user?.role, user?.unitType]);
+  }, [user?.role, user?.unitType, filters.activeTab]);
 
   const { data: options, isLoading: isLoadingOptions } =
     useQuery<ComplianceFilterOptions>({
@@ -120,7 +112,6 @@ export function useComplianceReport() {
           params: { kanwilId: effectiveKanwilId },
         })
         .then((res) => res.data.data ?? []),
-
     enabled: !!effectiveKanwilId && effectiveKanwilId !== "ALL",
   });
 
@@ -142,7 +133,6 @@ export function useComplianceReport() {
         params.append("kancabId", filters.kancabId);
       if (filters.divisiId !== "ALL")
         params.append("divisiId", filters.divisiId);
-
       params.append("year", String(filters.year));
 
       const res = await api.get(`/reports/compliance?${params.toString()}`);

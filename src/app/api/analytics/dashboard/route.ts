@@ -1,9 +1,8 @@
-
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { getApprovalStatusText, getMonthRange } from "@/lib/api/constants";
 import { buildUnitScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
 
 async function getDistribusiForRange(
