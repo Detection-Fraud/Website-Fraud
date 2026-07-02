@@ -70,3 +70,12 @@ export interface WilayahFilter {
   branchId: string;
   divisionId: string;
 }
+
+export interface ComplianceExportParams {
+  year: number;
+  kanwilId: string;
+  kancabId: string;
+  divisiId: string;
+  programId: string;
+  unitType: string;
+}
