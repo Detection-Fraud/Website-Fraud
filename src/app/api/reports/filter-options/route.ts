@@ -12,8 +12,8 @@ export async function GET() {
     const [kanwilList, divisiList, programs] = await Promise.all([
       prisma.unit.findMany({
         where: { type: "KANTOR_WILAYAH" },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
+        select: { id: true, name: true, kodeDolog: true },
+        orderBy: [{ kodeDolog: "asc" }, { name: "asc" }],
       }),
       prisma.unit.findMany({
         where: { type: "DIVISI" },
@@ -33,10 +33,18 @@ export async function GET() {
       color: PROGRAM_COLORS[index % PROGRAM_COLORS.length],
     }));
 
+    const formattedKanwilList = kanwilList.map((k) => ({
+      id: k.id,
+      name:
+        k.kodeDolog && k.kodeDolog !== "00"
+          ? `${parseInt(k.kodeDolog, 10)}. ${k.name.replace("KANTOR WILAYAH ", "Kanwil ")}`
+          : k.name,
+    }));
+
     return NextResponse.json(
       successResponse(
         {
-          kanwilList,
+          kanwilList: formattedKanwilList,
           divisiList,
           programList,
         },

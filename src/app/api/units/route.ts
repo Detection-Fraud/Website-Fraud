@@ -32,11 +32,21 @@ export async function GET(request: NextRequest) {
           select: { users: { where: { role: "PIC", isActive: true } } },
         },
       },
-      orderBy: { name: "asc" },
+      orderBy: [{ kodeDolog: "asc" }, { name: "asc" }],
+    });
+
+    const formattedUnits = units.map((u) => {
+      if (u.type === "KANTOR_WILAYAH" && u.kodeDolog && u.kodeDolog !== "00") {
+        return {
+          ...u,
+          name: `${parseInt(u.kodeDolog, 10)}. ${u.name.replace("KANTOR WILAYAH ", "Kanwil ")}`,
+        };
+      }
+      return u;
     });
 
     return NextResponse.json(
-      successResponse(units, "berhasil mengambil data unit"),
+      successResponse(formattedUnits, "berhasil mengambil data unit"),
       {
         status: 200,
       },
