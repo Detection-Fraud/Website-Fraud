@@ -38,7 +38,7 @@ export default function FilterProgram({
               <ListBox.ItemIndicator />
               Semua Program
             </ListBox.Item>
-            {programs.map((program) => (
+            {programs.map((program: any) => (
               <ListBox.Item
                 key={program.id}
                 id={program.id}

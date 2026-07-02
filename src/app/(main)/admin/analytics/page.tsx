@@ -124,10 +124,6 @@ export default function AnalyticsAdmin() {
                 value={divisiId}
                 onChange={(val) => {
                   setDivisiId(val);
-                  if (val !== "ALL") {
-                    setKanwilId("ALL"); // ← Pilih Divisi → clear Kanwil
-                    setKancabId("ALL"); // ← Pilih Divisi → clear Kancab
-                  }
                   setRankingPage(1); // ← reset pagination
                 }}
                 isDisabled={kanwilId !== "ALL"} // ← disable jika Kanwil sedang dipilih

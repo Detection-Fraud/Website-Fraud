@@ -26,6 +26,7 @@ export default function SelectDivisi({
       placeholder="Semua Divisi"
       value={value === "ALL" ? "ALL" : value}
       onChange={(key) => onChange((key ?? "ALL") as string)}
+      isDisabled={isDisabled}
     >
       <Label>Divisi</Label>
       <Select.Trigger>
