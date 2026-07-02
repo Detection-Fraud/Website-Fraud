@@ -5,6 +5,7 @@ import { FiDownload, FiX } from "react-icons/fi";
 import FilterProgram from "../ui/FilterProgram";
 import SelectKancab from "../ui/SelectKancab";
 import SelectWilayah from "../ui/SelectWilayah";
+import SelectYear from "../ui/SelectYear";
 
 interface FilterSectionProps {
   filters: {
@@ -12,6 +13,7 @@ interface FilterSectionProps {
     kancabId: string;
     divisiId: string;
     programId: string;
+    year: number;
   };
   options: {
     kanwilList: FilterOption[];
@@ -23,9 +25,12 @@ interface FilterSectionProps {
   handleKancabChange: (value: string) => void;
   handleDivisiChange: (value: string) => void;
   handleProgramChange: (value: string) => void;
+  handleYearChange: (value: number) => void;
   isFilterActive: boolean;
   activeTab: TabUnitType;
   handleTabChange: (key: TabUnitType) => void;
+  onExport?: () => void;
+  isExporting?: boolean;
 }
 export default function FilterSection({
   filters,
@@ -34,9 +39,12 @@ export default function FilterSection({
   handleDivisiChange,
   handleProgramChange,
   handleKanwilChange,
+  handleYearChange,
   isFilterActive,
   activeTab,
   handleTabChange,
+  onExport,
+  isExporting,
 }: FilterSectionProps) {
   const { user } = useCurrentUser();
 
@@ -88,6 +96,11 @@ export default function FilterSection({
           </div>
         )}
         <div className="flex gap-4 items-center">
+          <SelectYear
+            value={filters.year}
+            onChange={(val) => handleYearChange(val)}
+            className="w-48"
+          />
           <FilterProgram
             value={filters.programId}
             onChange={(val) => handleProgramChange(val)}
@@ -127,19 +140,24 @@ export default function FilterSection({
                 handleProgramChange("ALL");
                 handleKanwilChange("ALL");
                 handleTabChange(defaultTab);
+                handleYearChange(new Date().getFullYear());
               }}
             >
               <FiX />
               Reset
             </Button>
           )}
-          <Button
-            variant="secondary"
-            className={"mt-3 rounded-xl shadow-sm border border-gray-200"}
-          >
-            <FiDownload />
-            Export
-          </Button>
+          {user?.role === "ADMIN" && (
+            <Button
+              variant="secondary"
+              className={"mt-3 rounded-xl shadow-sm border border-gray-200"}
+              onPress={onExport}
+              isDisabled={isExporting}
+            >
+              <FiDownload />
+              {isExporting ? "Exporting..." : "Export"}
+            </Button>
+          )}
         </div>
       </Card.Content>
     </Card>

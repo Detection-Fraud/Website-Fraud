@@ -15,6 +15,7 @@ interface ComplianceFilters {
   divisiId: string;
   programId: string;
   activeTab: TabUnitType;
+  year: number;
 }
 
 type FilterAction =
@@ -22,7 +23,8 @@ type FilterAction =
   | { type: "SET_KANCAB"; value: string }
   | { type: "SET_DIVISI"; value: string }
   | { type: "SET_PROGRAM"; value: string }
-  | { type: "SET_TAB"; value: TabUnitType };
+  | { type: "SET_TAB"; value: TabUnitType }
+  | { type: "SET_YEAR"; value: number };
 
 const initialFilters: ComplianceFilters = {
   kanwilId: "ALL",
@@ -30,6 +32,7 @@ const initialFilters: ComplianceFilters = {
   divisiId: "ALL",
   programId: "ALL",
   activeTab: "NASIONAL",
+  year: new Date().getFullYear(),
 };
 
 function filterReducer(
@@ -70,6 +73,8 @@ function filterReducer(
         kancabId: "ALL",
         divisiId: "ALL",
       };
+    case "SET_YEAR":
+      return { ...state, year: action.value };
 
     default:
       return state;
@@ -138,6 +143,8 @@ export function useComplianceReport() {
       if (filters.divisiId !== "ALL")
         params.append("divisiId", filters.divisiId);
 
+      params.append("year", String(filters.year));
+
       const res = await api.get(`/reports/compliance?${params.toString()}`);
       return res.data.data as ComplianceResponse;
     },
@@ -153,6 +160,7 @@ export function useComplianceReport() {
       kancabId: filters.kancabId,
       divisiId: filters.divisiId,
       programId: filters.programId,
+      year: filters.year,
     },
 
     options: {
@@ -175,6 +183,7 @@ export function useComplianceReport() {
       dispatch({ type: "SET_DIVISI", value: v }),
     handleProgramChange: (v: string) =>
       dispatch({ type: "SET_PROGRAM", value: v }),
+    handleYearChange: (v: number) => dispatch({ type: "SET_YEAR", value: v }),
 
     refetch: () => {},
   };

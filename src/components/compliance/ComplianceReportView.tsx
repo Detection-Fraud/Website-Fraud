@@ -7,6 +7,7 @@ import TableIndicators from "@/components/compliance/TableIndicators";
 import AppBar from "@/components/layout/Appbar";
 import { useComplianceReport } from "@/hooks/useComplianceReport";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCallback, useState } from "react";
 
 export default function ComplianceReportView() {
   const {
@@ -20,6 +21,7 @@ export default function ComplianceReportView() {
     handleDivisiChange,
     handleProgramChange,
     handleKanwilChange,
+    handleYearChange,
   } = useComplianceReport();
 
   const { user } = useCurrentUser();
@@ -35,11 +37,54 @@ export default function ComplianceReportView() {
     filters.kancabId !== "ALL" ||
     filters.divisiId !== "ALL" ||
     filters.programId !== "ALL" ||
+    filters.year !== new Date().getFullYear() ||
     activeTab !== defaultTab;
 
   const cardComplianceData = data?.cards;
   const selectedProgram =
     data?.programs?.find((p: any) => p.id === filters.programId) || null;
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const params = new URLSearchParams();
+      params.append("year", String(filters.year));
+      if (activeTab !== "NASIONAL") params.append("unitType", activeTab);
+      if (filters.programId !== "ALL")
+        params.append("programId", filters.programId);
+      if (filters.kanwilId !== "ALL")
+        params.append("kanwilId", filters.kanwilId);
+      if (filters.kancabId !== "ALL")
+        params.append("kancabId", filters.kancabId);
+      if (filters.divisiId !== "ALL")
+        params.append("divisiId", filters.divisiId);
+
+      const response = await fetch(
+        `/api/reports/compliance/export?${params.toString()}`,
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Export gagal");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Rekap_Program_Budaya Tahun ${filters.year}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export error", error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [activeTab, filters]);
 
   return (
     <div className="space-y-4">
@@ -60,6 +105,9 @@ export default function ComplianceReportView() {
           isFilterActive={isFilterActive}
           activeTab={activeTab}
           handleTabChange={handleTabChange}
+          handleYearChange={handleYearChange}
+          onExport={handleExport}
+          isExporting={isExporting}
         />
       </div>
 

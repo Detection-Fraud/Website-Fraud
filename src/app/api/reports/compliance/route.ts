@@ -1,7 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
-import { UnitType } from "@/types/compliance.types";
 import { NextResponse } from "next/server";
 
 const PROGRAM_COLORS = [
@@ -33,6 +32,11 @@ export async function GET(req: Request) {
 
     // "NASIONAL" | "KANWIL" | "KANCAB" | "DIVISI" | "KANWIL_AND_KANCAB"
     const unitTypeFilter = searchParams.get("unitType") || "NASIONAL";
+
+    // FILTER TAHUN
+    const year = parseInt(
+      searchParams.get("year") || String(new Date().getFullYear()),
+    );
 
     let activeUnits: Array<{
       id: string;
@@ -143,6 +147,9 @@ export async function GET(req: Request) {
       );
     }
 
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59);
+
     // 4. Ambil program dan aggregasi laporan
     const [programs, submissions] = await Promise.all([
       prisma.programBudaya.findMany({
@@ -155,6 +162,10 @@ export async function GET(req: Request) {
           status: "APPROVED",
           ...(programId !== "ALL" && { programId }),
           unitId: { not: null },
+          tanggalKegiatan: {
+            gte: yearStart,
+            lte: yearEnd,
+          },
         },
         _count: { id: true },
       }),
