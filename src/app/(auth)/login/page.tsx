@@ -1,9 +1,9 @@
 "use client";
 
 import { Card } from "@heroui/react";
+import Image from "next/image";
 import { BsEye, BsFileCheck, BsShield, BsUpcScan } from "react-icons/bs";
 import LoginForm from "./_components/LoginForm";
-import Image from "next/image";
 
 export default function LoginPage() {
   return (

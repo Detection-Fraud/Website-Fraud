@@ -7,7 +7,6 @@ import {
   Tooltip,
   useOverlayState,
 } from "@heroui/react";
-import Image from "next/image";
 import {
   FiCalendar,
   FiCheck,
@@ -18,7 +17,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { GoDotFill } from "react-icons/go";
-import { LuBuilding2, LuDot } from "react-icons/lu";
+import { LuBuilding2 } from "react-icons/lu";
 import CardCaraousel from "./CardCaraousel";
 
 interface CardApprovalProps {

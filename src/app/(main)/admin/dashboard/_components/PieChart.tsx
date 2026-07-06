@@ -6,8 +6,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { DistribusiProgram } from "@/types/analytics.type";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Tooltip as HeroTooltip } from "@heroui/react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface DashboardPieChartProps {
   data?: DistribusiProgram[];

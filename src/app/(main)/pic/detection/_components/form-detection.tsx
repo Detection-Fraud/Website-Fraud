@@ -63,6 +63,18 @@ export default function FormDetection({
     programs,
   });
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const availablePrograms = programs.filter((program) => {
+    // Keep if it's the currently edited program
+    if (initialData?.programId === program.id) return true;
+    // Filter out if end date has passed
+    const endDate = new Date(program.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    return today <= endDate;
+  });
+
   return (
     <Card variant="default" className="shadow-sm">
       <Card.Header className="pt-5">
@@ -109,7 +121,7 @@ export default function FormDetection({
               </Select.Trigger>
               <Select.Popover>
                 <ListBox>
-                  {programs.map((program) => (
+                  {availablePrograms.map((program) => (
                     <ListBox.Item
                       key={program.id}
                       id={program.id}

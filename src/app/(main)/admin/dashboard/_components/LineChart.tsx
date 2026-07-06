@@ -25,7 +25,10 @@ interface DashboardLineChartProps {
   showComparison?: boolean;
 }
 
-export default function DashboardLineChart({ data = [], showComparison = false }: DashboardLineChartProps) {
+export default function DashboardLineChart({
+  data = [],
+  showComparison = false,
+}: DashboardLineChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="flex h-[300px] items-center justify-center text-gray-500 text-sm">
@@ -41,7 +44,7 @@ export default function DashboardLineChart({ data = [], showComparison = false }
         accessibilityLayer // Menambahkan label ARIA otomatis
         data={data}
         margin={{
-          top: 100, 
+          top: 100,
           left: 12,
           right: 12,
           bottom: 10,
@@ -51,10 +54,12 @@ export default function DashboardLineChart({ data = [], showComparison = false }
 
         <XAxis
           dataKey="periode"
-          tickLine={false} 
-          axisLine={false} 
-          tickMargin={18} 
-          tickFormatter={(value) => value ? String(value).substring(0, 3) : ""} 
+          tickLine={false}
+          axisLine={false}
+          tickMargin={18}
+          tickFormatter={(value) =>
+            value ? String(value).substring(0, 3) : ""
+          }
         />
 
         <ChartTooltip
@@ -63,27 +68,27 @@ export default function DashboardLineChart({ data = [], showComparison = false }
         />
         {showComparison && (
           <Line
-            dataKey="tahunLalu" 
-            type="natural" 
-            stroke="var(--color-tahunLalu)" 
-            strokeWidth={2} 
-            dot={{ fill: "var(--color-tahunLalu)" }} 
-            activeDot={{ r: 6 }} 
+            dataKey="tahunLalu"
+            type="natural"
+            stroke="var(--color-tahunLalu)"
+            strokeWidth={2}
+            dot={{ fill: "var(--color-tahunLalu)" }}
+            activeDot={{ r: 6 }}
           />
         )}
         <Line
-          dataKey="tahunIni" 
-          type="natural" 
-          stroke="var(--color-tahunIni)" 
-          strokeWidth={2} 
-          dot={{ fill: "var(--color-tahunIni)" }} 
-          activeDot={{ r: 6 }} 
+          dataKey="tahunIni"
+          type="natural"
+          stroke="var(--color-tahunIni)"
+          strokeWidth={2}
+          dot={{ fill: "var(--color-tahunIni)" }}
+          activeDot={{ r: 6 }}
         >
           <LabelList
-            position="top" 
-            offset={12} 
-            className="fill-foreground" 
-            fontSize={12} 
+            position="top"
+            offset={12}
+            className="fill-foreground"
+            fontSize={12}
           />
         </Line>
       </LineChart>

@@ -1,18 +1,18 @@
 "use client";
 
 import AppBar from "@/components/layout/Appbar";
-import SelectUnitType from "./SelectUnitType";
-import { useState } from "react";
+import { useDeletePic } from "@/hooks/useDeletePic";
+import { useManagementUsers } from "@/hooks/useManagementUsers";
+import { useTogglePicStatus } from "@/hooks/useTogglePicStatus";
+import { useUnitList } from "@/hooks/useUnitList";
 import { UserWithUnit } from "@/types/user.types";
 import { useOverlayState } from "@heroui/react";
-import { useUnitList } from "@/hooks/useUnitList";
-import { useManagementUsers } from "@/hooks/useManagementUsers";
+import { useState } from "react";
+import ModalAddPic from "./ModalAddPIC";
+import ModalConfirmAction from "./ModalConfirmAction";
+import SelectUnitType from "./SelectUnitType";
 import UnitListPanel from "./UnitListPanel";
 import UserTablePanel from "./UserTablePanel";
-import ModalAddPic from "./ModalAddPIC";
-import { useTogglePicStatus } from "@/hooks/useTogglePicStatus";
-import ModalConfirmAction from "./ModalConfirmAction";
-import { useDeletePic } from "@/hooks/useDeletePic";
 
 export default function ManagementUserView() {
   const [selectedUnitType, setSelectedUnitType] = useState<string>("KANWIL");
@@ -187,7 +187,10 @@ export default function ManagementUserView() {
           setConfirmModal({ isOpen: false, action: null, user: null })
         }
         onConfirm={executeConfirmAction}
-        isLoading={isUpdating === confirmModal.user?.id || isDeleting === confirmModal.user?.id}
+        isLoading={
+          isUpdating === confirmModal.user?.id ||
+          isDeleting === confirmModal.user?.id
+        }
         title={
           confirmModal.action === "TOGGLE_STATUS"
             ? confirmModal.newStatus

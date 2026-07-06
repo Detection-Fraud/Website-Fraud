@@ -4,10 +4,10 @@ import React from "react";
 
 import { ComplianceSummary } from "@/types/compliance.types";
 import { Card, ProgressBar } from "@heroui/react";
+import { IoTrendingDownOutline } from "react-icons/io5";
 import { LuTarget, LuUsers } from "react-icons/lu";
 import { MdOutlineShowChart } from "react-icons/md";
 import { TiWarningOutline } from "react-icons/ti";
-import { IoTrendingDownOutline } from "react-icons/io5";
 
 interface CardComplianceProps {
   data?: ComplianceSummary;

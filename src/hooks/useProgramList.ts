@@ -10,7 +10,7 @@ export function useProgramList() {
   const { data, isLoading, error } = useQuery<ProgramListResponse>({
     queryKey: ["program-list"],
     queryFn: () =>
-      api.get("/programs", { params: { limit: 10 } }).then((res) => res.data),
+      api.get("/programs", { params: { limit: 100 } }).then((res) => res.data),
     staleTime: 2 * 60 * 1000,
   });
 

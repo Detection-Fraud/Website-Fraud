@@ -1,6 +1,5 @@
 "use client";
 
-import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartConfig,
   ChartContainer,
@@ -8,6 +7,13 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { KegiatanPerPeriode } from "@/types/analytics.type";
+import {
+  Bar,
+  CartesianGrid,
+  BarChart as RechartsBarChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const chartConfig = {
   tahunIni: {
@@ -25,7 +31,10 @@ interface DashboardBarChartProps {
   showComparison?: boolean;
 }
 
-export default function DashboardBarChart({ data = [], showComparison = false }: DashboardBarChartProps) {
+export default function DashboardBarChart({
+  data = [],
+  showComparison = false,
+}: DashboardBarChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="flex h-[300px] items-center justify-center text-gray-500 text-sm">
@@ -45,18 +54,24 @@ export default function DashboardBarChart({ data = [], showComparison = false }:
           tickLine={false}
           tickMargin={10}
           axisLine={false}
-          tickFormatter={(value) => value ? String(value).substring(0, 3) : ""}
+          tickFormatter={(value) =>
+            value ? String(value).substring(0, 3) : ""
+          }
         />
-        <YAxis 
-          tickLine={false}
-          axisLine={false}
-          tickMargin={10}
-        />
+        <YAxis tickLine={false} axisLine={false} tickMargin={10} />
         <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
         {showComparison && (
-          <Bar dataKey="tahunLalu" fill="var(--color-tahunLalu)" radius={[4, 4, 0, 0]} />
+          <Bar
+            dataKey="tahunLalu"
+            fill="var(--color-tahunLalu)"
+            radius={[4, 4, 0, 0]}
+          />
         )}
-        <Bar dataKey="tahunIni" fill="var(--color-tahunIni)" radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="tahunIni"
+          fill="var(--color-tahunIni)"
+          radius={[4, 4, 0, 0]}
+        />
       </RechartsBarChart>
     </ChartContainer>
   );

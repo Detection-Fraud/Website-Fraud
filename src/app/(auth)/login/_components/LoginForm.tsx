@@ -115,7 +115,12 @@ export default function LoginForm() {
             </p>
           </div>
         )}
-        <Form className="space-y-5" onSubmit={handleSubmit} validationBehavior="aria" method="post">
+        <Form
+          className="space-y-5"
+          onSubmit={handleSubmit}
+          validationBehavior="aria"
+          method="post"
+        >
           <TextField
             isRequired
             name="username"

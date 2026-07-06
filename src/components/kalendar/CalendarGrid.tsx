@@ -4,11 +4,11 @@ import {
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
+  format,
   isSameMonth,
   isToday,
   startOfMonth,
   startOfWeek,
-  format,
 } from "date-fns";
 
 interface Props {
@@ -157,7 +157,9 @@ export default function CalendarGrid({
                     return (
                       <div key={i} className="relative">
                         <Tooltip delay={0}>
-                          <Tooltip.Trigger aria-label={`${program.name} - ${statusLabel}`}>
+                          <Tooltip.Trigger
+                            aria-label={`${program.name} - ${statusLabel}`}
+                          >
                             {/* DOT */}
                             <div
                               className="w-2.5 h-2.5 rounded-full cursor-default"
@@ -175,9 +177,13 @@ export default function CalendarGrid({
                                   className="inline-block w-2 h-2 rounded-full shrink-0"
                                   style={{ backgroundColor: program.color }}
                                 />
-                                <span className="font-semibold text-xs">{program.name}</span>
+                                <span className="font-semibold text-xs">
+                                  {program.name}
+                                </span>
                               </div>
-                              <p className="text-xs text-muted">{statusLabel}</p>
+                              <p className="text-xs text-muted">
+                                {statusLabel}
+                              </p>
                             </div>
                           </Tooltip.Content>
                         </Tooltip>

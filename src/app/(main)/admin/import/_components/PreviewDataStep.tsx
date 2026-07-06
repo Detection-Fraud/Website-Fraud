@@ -1,14 +1,13 @@
+import DataTable, { TableColumn } from "@/components/layout/DataTable";
 import { ImportStats, PreviewRow, RowStatus } from "@/types/import.types";
-import StatsBars from "./ImportStats";
 import { Button, Card, Chip, Spinner } from "@heroui/react";
 import {
   FiAlertCircle,
-  FiAlertTriangle,
   FiArrowLeft,
   FiArrowRight,
   FiInfo,
 } from "react-icons/fi";
-import DataTable, { TableColumn } from "@/components/layout/DataTable";
+import StatsBars from "./ImportStats";
 
 interface PreviewDataStepProps {
   rows: PreviewRow[];

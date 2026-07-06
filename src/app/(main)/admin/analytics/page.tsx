@@ -1,6 +1,8 @@
 "use client";
 
+import SelectDivisi from "@/components/ui/SelectDivisi";
 import SelectKancab from "@/components/ui/SelectKancab";
+import SelectUnitType, { UnitTypeFilter } from "@/components/ui/SelectUnitType";
 import SelectWilayah from "@/components/ui/SelectWilayah";
 import {
   PeriodeFilter,
@@ -12,8 +14,6 @@ import { BiFilterAlt } from "react-icons/bi";
 import AnalyticChart from "./_components/AnalyticChart";
 import AnalyticTableRanking from "./_components/AnalyticTableRanking";
 import MiniCart from "./_components/MiniCart";
-import SelectDivisi from "@/components/ui/SelectDivisi";
-import SelectUnitType, { UnitTypeFilter } from "@/components/ui/SelectUnitType";
 
 export default function AnalyticsAdmin() {
   const {

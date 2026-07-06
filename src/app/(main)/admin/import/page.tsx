@@ -1,15 +1,14 @@
 "use client";
 
 import AppBar from "@/components/layout/Appbar";
-import ImportStepper from "./_components/ImportStepper";
 import { useImportKaryawan } from "@/hooks/useImportKaryawan";
-import UploadFileStep from "./_components/UploadFileStep";
-import StatsBars from "./_components/ImportStats";
+import { Button } from "@heroui/react";
+import { FiDownload } from "react-icons/fi";
+import FinishStep from "./_components/FinishStep";
+import ImportStepper from "./_components/ImportStepper";
 import PreviewDatStep from "./_components/PreviewDataStep";
 import ProsessingStep from "./_components/ProsessingStep";
-import FinishStep from "./_components/FinishStep";
-import { FiDownload } from "react-icons/fi";
-import { Button } from "@heroui/react";
+import UploadFileStep from "./_components/UploadFileStep";
 
 export default function ImportKaryawanPage() {
   const {

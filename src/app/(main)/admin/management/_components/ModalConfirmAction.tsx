@@ -1,10 +1,4 @@
-import {
-  Modal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-} from "@heroui/react";
+import { Button, Modal } from "@heroui/react";
 import { ReactNode } from "react";
 import { FiAlertTriangle } from "react-icons/fi";
 

@@ -1,13 +1,13 @@
 import { ImportResult, ImportStats } from "@/types/import.types";
+import { Button, Card } from "@heroui/react";
 import { useRouter } from "next/navigation";
-import { MdOutlineCheckCircle, MdOutlineTimerOff } from "react-icons/md";
 import {
   FiArrowRight,
   FiCheckCircle,
   FiDatabase,
   FiRotateCcw,
 } from "react-icons/fi";
-import { Button, Card } from "@heroui/react";
+import { MdOutlineCheckCircle, MdOutlineTimerOff } from "react-icons/md";
 
 interface FinishStepProps {
   result: ImportResult | null;
@@ -83,7 +83,9 @@ export default function SelesaiStep({
                 <p className="text-xs text-gray-500 font-medium">
                   {item.label}
                 </p>
-                <p className={`text-3xl font-bold text-center ${item.valueClass}`}>
+                <p
+                  className={`text-3xl font-bold text-center ${item.valueClass}`}
+                >
                   {item.value}
                 </p>
               </div>

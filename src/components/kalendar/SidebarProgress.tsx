@@ -1,4 +1,4 @@
-import { ProgramBand, CalendarSubmission } from "@/types/calendar.types";
+import { CalendarSubmission, ProgramBand } from "@/types/calendar.types";
 import { ProgressBar } from "@heroui/react";
 
 interface Props {
