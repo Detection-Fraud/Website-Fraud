@@ -1,3 +1,4 @@
+import { CgFileDocument } from "react-icons/cg";
 import { MdOutlinePendingActions, MdOutlineShowChart } from "react-icons/md";
 import { PiCalendar, PiFile, PiNotebookLight } from "react-icons/pi";
 import { RxDashboard } from "react-icons/rx";
@@ -5,7 +6,14 @@ import { RxDashboard } from "react-icons/rx";
 import { AiOutlineScan } from "react-icons/ai";
 import { FaRegUser } from "react-icons/fa6";
 
-export const SidebarMenuAdmin = [
+export interface SidebarMenuItem {
+  key: string;
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  hasBadge?: boolean;
+}
+export const SidebarMenuAdmin: SidebarMenuItem[] = [
   {
     key: "dashboard",
     label: "Dashboard",
@@ -56,12 +64,19 @@ export const SidebarMenuAdmin = [
   },
 ];
 
-export const SidebarMenuPIC = [
+export const SidebarMenuPIC: SidebarMenuItem[] = [
   {
     key: "dashboard",
     label: "Dashboard",
     href: "/pic/dashboard",
     icon: <RxDashboard />,
+  },
+  {
+    key: "approval",
+    label: "Approval",
+    href: "/pic/approval",
+    icon: <CgFileDocument />,
+    hasBadge: true,
   },
   {
     key: "detection",

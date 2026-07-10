@@ -1,7 +1,10 @@
 "use client";
 
-import { Avatar, Button, Dropdown, Label } from "@heroui/react";
+import { getRoleLabel } from "@/lib/display-labels";
+import { Avatar, Dropdown, Label } from "@heroui/react";
 import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { CiLock } from "react-icons/ci";
 import { FaArrowRightToBracket } from "react-icons/fa6";
 
 export interface UserData {
@@ -13,6 +16,7 @@ export interface UserData {
 }
 
 export default function DropdownUser({ user }: { user: UserData }) {
+  const router = useRouter();
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/login" });
   };
@@ -45,9 +49,9 @@ export default function DropdownUser({ user }: { user: UserData }) {
           </Avatar>
           <div className="md:flex flex-col gap-0 text-end hidden">
             <p className="text-sm leading-5 font-medium">{user?.name}</p>
-            {unitName && (
-              <p className="text-xs leading-none text-muted">{unitName}</p>
-            )}
+            <p className="text-xs leading-none text-muted">
+              {getRoleLabel(user?.role || "")}
+            </p>
           </div>
         </div>
       </Dropdown.Trigger>
@@ -62,14 +66,26 @@ export default function DropdownUser({ user }: { user: UserData }) {
             </Avatar>
             <div className="flex flex-col gap-0">
               <p className="text-sm leading-5 font-medium">{user?.name}</p>
-              {unitName && (
-                <p className="text-xs leading-none text-muted">{unitName}</p>
-              )}
+              <p className="text-xs leading-none text-muted">
+                {getRoleLabel(user?.role || "")}
+              </p>
             </div>
           </div>
         </div>
 
         <Dropdown.Menu aria-label="User actions">
+          <Dropdown.Item
+            id={"change-password"}
+            textValue="Ganti Password"
+            onPress={() => {
+              router.push("/settings/change-password");
+            }}
+          >
+            <div className="flex w-full items-center justify-between gap-2">
+              <Label>Ganti Password</Label>
+              <CiLock className="text-gray-500" />
+            </div>
+          </Dropdown.Item>
           <Dropdown.Item
             id={"logout"}
             textValue={"Logout"}

@@ -24,3 +24,21 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type ToggleUserStatusInput = z.infer<typeof toggleUserStatusSchema>;
 export type PromoteUserInput = z.infer<typeof promoteUserSchema>;
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Password lama wajib diisi"),
+    newPassword: z
+      .string()
+      .min(8, "Password baru minimal 8 karakter")
+      .regex(/[A-Z]/, "Harus mengandung huruf besar")
+      .regex(/[0-9]/, "Harus mengandung angka"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Password baru dan konfirmasi password tidak cocok",
+    path: ["confirmPassword"],
+  });
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+

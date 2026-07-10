@@ -46,9 +46,8 @@ export async function POST(req: NextRequest) {
   try {
     await requireAdmin();
 
-  const url = new URL(req.url);
-  const action = url.searchParams.get("action");
-
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action");
 
     // ═══════════════════════════════════════════════════════════
     // ACTION: PREVIEW — Menerima File Excel
@@ -65,26 +64,74 @@ export async function POST(req: NextRequest) {
       // Parse Excel
       const buffer = Buffer.from(await file.arrayBuffer());
       const workbook = XLSX.read(buffer);
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
-        workbook.Sheets[workbook.SheetNames[0]],
+
+      // HEADER VALIDATION
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+      const rawHeaders = XLSX.utils.sheet_to_json<string[]>(sheet, {
+        header: 1,
+        range: 0,
+      });
+
+      if (!rawHeaders.length || !rawHeaders[0]) {
+        return NextResponse.json(
+          errorResponse("File Excel kosong atau tidak memiliki header", 400),
+          { status: 400 },
+        );
+      }
+
+      const headers = rawHeaders[0].map((h: any) =>
+        String(h ?? "")
+          .trim()
+          .toUpperCase(),
       );
 
+      const REQUIRED_HEADERS = [
+        "NIP",
+        "NAMA",
+        "JAB_LKP",
+        "KODE_DOLOG",
+        "KODE_SUBDOLOG",
+        "KODE_ORG",
+        "NAMA_ORG",
+        "NAMA_SATKER",
+        "NAMA_INDUK",
+      ];
+
+      // Validasi apakah semua header wajib ada
+      const missingHeaders = REQUIRED_HEADERS.filter(
+        (required) => !headers.includes(required),
+      );
+
+      if (missingHeaders.length > 0) {
+        return NextResponse.json(
+          errorResponse(
+            `Header tidak ditemukan: ${missingHeaders.join(", ")}`,
+            400,
+          ),
+          { status: 400 },
+        );
+      }
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+
       // ── Load data master PARALEL ──────────────────────────────
-      const [{ unitByDologMap, unitByExactOrg, unitByName, unitById }, existingUsers] =
-        await Promise.all([
-          getUnitMaps(),
-          // Ambil semua SSO user aktif untuk deteksi mutasi
-          prisma.user.findMany({
-            where: { authProvider: "SSO" },
-            select: {
-              id: true,
-              username: true, // = NIP
-              name: true,
-              unitId: true,
-              isActive: true,
-            },
-          }),
-        ]);
+      const [
+        { unitByDologMap, unitByExactOrg, unitByName, unitById },
+        existingUsers,
+      ] = await Promise.all([
+        getUnitMaps(),
+        // Ambil semua SSO user aktif untuk deteksi mutasi
+        prisma.user.findMany({
+          where: { authProvider: "SSO" },
+          select: {
+            id: true,
+            username: true, // = NIP
+            name: true,
+            unitId: true,
+            isActive: true,
+          },
+        }),
+      ]);
 
       // Map NIP → user yang sudah ada di DB
       const existingByNip = new Map(existingUsers.map((u) => [u.username, u]));
@@ -103,16 +150,24 @@ export async function POST(req: NextRequest) {
         //   NAMA_ORG    = nama sub-unit (paling spesifik, tapi sering sub-level)
         //   NAMA_SATKER = nama satuan kerja (lebih tinggi, sering cocok ke DB)
         //   NAMA_INDUK  = nama unit induk (paling umum)
-        const namaOrg = String(row["NAMA_ORG"] ?? "").trim().toUpperCase();
-        const namaSatker = String(row["NAMA_SATKER"] ?? "").trim().toUpperCase();
-        const namaInduk = String(row["NAMA_INDUK"] ?? "").trim().toUpperCase();
+        const namaOrg = String(row["NAMA_ORG"] ?? "")
+          .trim()
+          .toUpperCase();
+        const namaSatker = String(row["NAMA_SATKER"] ?? "")
+          .trim()
+          .toUpperCase();
+        const namaInduk = String(row["NAMA_INDUK"] ?? "")
+          .trim()
+          .toUpperCase();
 
         // Resolusi unit dari kode
-        type UnitType = Awaited<
-          ReturnType<typeof getUnitMaps>
-        >["unitById"] extends Map<string, infer U>
-          ? U
-          : never;
+        type UnitType =
+          Awaited<ReturnType<typeof getUnitMaps>>["unitById"] extends Map<
+            string,
+            infer U
+          >
+            ? U
+            : never;
         let unit: UnitType | null = null;
 
         if (dolog !== "00") {

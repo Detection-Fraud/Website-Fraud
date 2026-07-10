@@ -53,6 +53,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           unitType: user.unit?.type || null,
           parentUnitId: user.unit?.parent?.id || null,
           parentUnitName: user.unit?.parent?.name || null,
+          passwordChangedAt: user.passwordChangedAt?.toISOString() || null,
+          authProvider: user.authProvider || "LOCAL",
         };
       },
     }),
@@ -111,6 +113,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             unitType: user.unit?.type || null,
             parentUnitId: user.unit?.parent?.id || null,
             parentUnitName: user.unit?.parent?.name || null,
+            passwordChangedAt: user.passwordChangedAt?.toISOString() || null,
+            authProvider: user.authProvider || "SSO",
           };
         } catch (error) {
           console.error("[SSO] Token verification failed: ", error);

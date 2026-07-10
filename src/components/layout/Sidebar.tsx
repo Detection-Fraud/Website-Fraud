@@ -5,7 +5,9 @@ import {
   SidebarMenuPIC,
 } from "@/constants/sidebar.constants";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useRejectedCount } from "@/hooks/useRejectedCount";
 import { useLayoutStore } from "@/store/useLayoutStore";
+import { Chip } from "@heroui/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -15,7 +17,7 @@ export default function Sidebar() {
   const { user } = useCurrentUser();
   const pathname = usePathname();
   const { isSidebarOpen, closeSidebar, setSidebarOpen } = useLayoutStore();
-  
+
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -41,6 +43,8 @@ export default function Sidebar() {
       closeSidebar();
     }
   }, [pathname, closeSidebar, isMobile]);
+
+  const { rejectedCount } = useRejectedCount(user?.role);
 
   const getMenuItems = () => {
     switch (user?.role) {
@@ -74,14 +78,15 @@ export default function Sidebar() {
           transition-all duration-300 ease-in-out
           flex flex-col overflow-hidden
           ${isMobile ? "fixed top-0 left-0" : "static border-r"}
-          ${isSidebarOpen 
-              ? "w-[260px] translate-x-0" 
-              : isMobile 
-                ? "w-[260px] -translate-x-full" 
-                : "w-0 border-r-0"}
+          ${
+            isSidebarOpen
+              ? "w-[260px] translate-x-0"
+              : isMobile
+                ? "w-[260px] -translate-x-full"
+                : "w-0 border-r-0"
+          }
         `}
       >
-        
         <div className="w-[260px] min-w-[260px] h-full flex flex-col">
           {/* Logo */}
           <div className="px-4 py-6 flex items-center justify-center">
@@ -119,9 +124,14 @@ export default function Sidebar() {
                     }`}
                 >
                   {item.icon}
-                  <span className="font-semibold text-sm group-hover:text-white whitespace-nowrap">
+                  <span className="font-semibold text-sm group-hover:text-white whitespace-nowrap flex-1">
                     {item.label}
                   </span>
+                  {item.hasBadge && rejectedCount > 0 && (
+                    <Chip color="danger" size="sm" variant="primary">
+                      {rejectedCount > 99 ? "99+" : rejectedCount}
+                    </Chip>
+                  )}
                 </Link>
               );
             })}

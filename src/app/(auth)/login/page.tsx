@@ -66,10 +66,10 @@ export default function LoginPage() {
                 </div>
                 <div className="ml-5">
                   <h1 className="text-2xl font-bold text-white drop-shadow-sm">
-                    BULOG
+                    DICE
                   </h1>
                   <h2 className="text-lg font-semibold text-blue-100 tracking-wide mt-1">
-                    Aktivasi Budaya
+                    Digital Culture & Engagement Center
                   </h2>
                 </div>
               </div>
@@ -78,12 +78,11 @@ export default function LoginPage() {
               <div className="space-y-4">
                 <div className="w-12 h-1 bg-blue-500/50 rounded-full mb-4"></div>
                 <h1 className="text-2xl font-bold leading-snug text-white/90">
-                  Sistem Deteksi Keaslian Foto Kegiatan
+                  Platform Aktivasi & Monitoring Budaya Kerja
                 </h1>
                 <p className="text-blue-100/70 text-base leading-relaxed font-light">
-                  Teknologi AI canggih untuk memastikan integritas dan
-                  autentisitas setiap dokumentasi kegiatan di lingkungan Perum
-                  BULOG.
+                  Sistem digital untuk monitoring, pelaporan, dan evaluasi
+                  kegiatan budaya kerja di seluruh unit kerja Perum BULOG.
                 </p>
               </div>
             </Card.Content>

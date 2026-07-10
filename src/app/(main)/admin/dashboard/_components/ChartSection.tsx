@@ -230,7 +230,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                         </div>
                       </div>
                       <div className="text-[11px] text-gray-400 font-medium">
-                        {wilayah.kegiatan} kegiatan • {wilayah.unit} unit
+                        {wilayah.kegiatan} kegiatan
                       </div>
                     </div>
                   </div>

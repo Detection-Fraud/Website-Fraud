@@ -2,8 +2,6 @@ import { api } from "@/lib/api";
 import { StatusType } from "@/types/status.types";
 import { toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 interface ApprovalPayload {
   id: string;
   status: StatusType;

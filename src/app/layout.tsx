@@ -1,9 +1,9 @@
+import { auth } from "@/auth";
+import QueryProvider from "@/components/providers/QueryProvider";
+import SessionProvider from "@/components/providers/SessionProvider";
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
-import SessionProvider from "@/components/providers/SessionProvider";
-import { auth } from "@/auth";
-import QueryProvider from "@/components/providers/QueryProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -17,10 +17,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "BULOG Aktivasi Budaya",
-    template: "%s | BULOG Aktivasi Budaya",
+    default: "DICE",
+    template: "%s | DICE",
   },
-  description: "Sistem Deteksi Keaslian Foto Kegiatan",
+  description: "Digital Culture & Engagement Center - Sistem Aktivasi Budaya Perum BULOG",
 };
 
 export default async function RootLayout({

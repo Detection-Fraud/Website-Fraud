@@ -1,6 +1,6 @@
 // auth.config.ts
-import type { NextAuthConfig } from "next-auth";
 import { getDashboardByRole } from "@/lib/routes";
+import type { NextAuthConfig } from "next-auth";
 
 const PUBLIC_ROUTES = ["/login", "/login/sso"];
 
@@ -66,6 +66,31 @@ export const authConfig: NextAuthConfig = {
         }
       }
 
+      if (isLoggedIn && auth.user) {
+        const authProvider = (auth.user as any).authProvider;
+        const pwChangeAt = (auth.user as any).passwordChangedAt;
+        const isChangePasswordPage = pathname === "/settings/change-password";
+
+        if (authProvider === "LOCAL" && !isChangePasswordPage) {
+          if (!pwChangeAt) {
+            return Response.redirect(
+              new URL("/settings/change-password", nextUrl),
+            );
+          }
+
+          const daySinceChange = Math.floor(
+            (Date.now() - new Date(pwChangeAt).getTime()) /
+              (1000 * 60 * 60 * 24),
+          );
+
+          if (daySinceChange > 90) {
+            return Response.redirect(
+              new URL("/settings/change-password", nextUrl),
+            );
+          }
+        }
+      }
+
       return true;
     },
 
@@ -81,6 +106,8 @@ export const authConfig: NextAuthConfig = {
         token.unitType = user.unitType || null;
         token.parentUnitId = user.parentUnitId || null;
         token.parentUnitName = user.parentUnitName || null;
+        token.passwordChangedAt = user.passwordChangedAt || null;
+        token.authProvider = user.authProvider || "LOCAL";
       }
       return token;
     },
@@ -97,6 +124,10 @@ export const authConfig: NextAuthConfig = {
         session.user.unitType = token.unitType as string | null;
         session.user.parentUnitId = token.parentUnitId as string | null;
         session.user.parentUnitName = token.parentUnitName as string | null;
+        session.user.passwordChangedAt = token.passwordChangedAt as
+          | string
+          | null;
+        session.user.authProvider = token.authProvider as string;
       }
       return session;
     },

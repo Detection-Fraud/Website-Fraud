@@ -1,5 +1,6 @@
 import { useApproval } from "@/hooks/useApproval";
 import { Button, Form, Label, Modal, TextArea, TextField } from "@heroui/react";
+import { useState } from "react";
 import { FiAlertTriangle } from "react-icons/fi";
 import { IoCloseCircleOutline } from "react-icons/io5";
 
@@ -17,6 +18,11 @@ export default function ModalNotes({
 }: PropTypes) {
   const { handleReject, isLoading } = useApproval();
 
+  const [notes, setNotes] = useState("");
+  const isTooShort = notes.trim().length > 0 && notes.trim().length < 10;
+
+  const canSubmit = notes.trim().length >= 10;
+
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -24,9 +30,12 @@ export default function ModalNotes({
 
     if (!notes?.trim()) return;
 
+    if (!canSubmit) return;
+
     try {
       await handleReject(id, notes);
       onClose();
+      setNotes("");
     } catch (e) {
       // Error is handled via toast in useApproval
     }
@@ -60,8 +69,26 @@ export default function ModalNotes({
                     id="notes"
                     placeholder="Tuliskan alasan penolakan secara jelas agar pengirim dapat memahami dan memperbaiki pengajuannya..."
                     rows={4}
-                    className={"border border-gray-200 shadow-sm"}
+                    className={`border ${isTooShort ? "border-red-500" : "border-gray-200"} shadow-sm`}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                   />
+                  <div className="flex justify-between items-center mt-1">
+                    <div>
+                      {isTooShort && (
+                        <p className="text-xs text-red-500">
+                          Minimal 10 karakter ({notes.trim().length}/10)
+                        </p>
+                      )}
+                    </div>
+                    <p
+                      className={`text-xs ${
+                        canSubmit ? "text-green-600" : "text-gray-400"
+                      }`}
+                    >
+                      {notes.trim().length} karakter
+                    </p>
+                  </div>
                 </TextField>
 
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-5 flex gap-2.5 mt-3">
@@ -85,6 +112,7 @@ export default function ModalNotes({
                     className="flex-1"
                     type="submit"
                     isPending={isLoading}
+                    isDisabled={!canSubmit}
                   >
                     {!isLoading && <IoCloseCircleOutline />}
                     Konfirmasi Tolak
