@@ -1,6 +1,6 @@
 import { CgFileDocument } from "react-icons/cg";
 import { MdOutlinePendingActions, MdOutlineShowChart } from "react-icons/md";
-import { PiCalendar, PiFile, PiImage, PiNotebookLight } from "react-icons/pi";
+import { PiCalendar, PiImage, PiNotebookLight } from "react-icons/pi";
 import { RxDashboard } from "react-icons/rx";
 
 import { AiOutlineScan } from "react-icons/ai";
@@ -9,10 +9,18 @@ import { FaRegUser } from "react-icons/fa6";
 export interface SidebarMenuItem {
   key: string;
   label: string;
-  href: string;
+  href?: string;
   icon: React.ReactNode;
   hasBadge?: boolean;
+  children?: SidebarMenuChild[];
 }
+
+export interface SidebarMenuChild {
+  key: string;
+  label: string;
+  href: string;
+}
+
 export const SidebarMenuAdmin: SidebarMenuItem[] = [
   {
     key: "dashboard",
@@ -39,17 +47,23 @@ export const SidebarMenuAdmin: SidebarMenuItem[] = [
     icon: <PiNotebookLight />,
   },
   {
-    key: "import",
-    label: "Import Karyawan",
-    href: "/admin/import",
-    icon: <PiFile />,
-  },
-  {
-    key: "management",
-    label: "Management",
-    href: "/admin/management",
+    key: "user-management",
+    label: "Manajemen User",
     icon: <FaRegUser />,
+    children: [
+      {
+        key: "management",
+        label: "Daftar Karyawan",
+        href: "/admin/management",
+      },
+      {
+        key: "import",
+        label: "Import Karyawan",
+        href: "/admin/import",
+      },
+    ],
   },
+
   {
     key: "program-budaya",
     label: "Program Budaya",

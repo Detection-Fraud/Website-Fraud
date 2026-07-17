@@ -2,6 +2,7 @@
 
 import {
   SidebarMenuAdmin,
+  SidebarMenuItem,
   SidebarMenuPIC,
 } from "@/constants/sidebar.constants";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -12,6 +13,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PiCaretDownBold } from "react-icons/pi";
 
 export default function Sidebar() {
   const { user } = useCurrentUser();
@@ -20,6 +22,11 @@ export default function Sidebar() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+
+  const toggleMenu = (key: string) => {
+    setOpenMenus((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Hindari hydration mismatch (Sidebar putih kosong)
   useEffect(() => {
@@ -27,12 +34,11 @@ export default function Sidebar() {
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      // Jika masuk mode mobile, otomatis tutup. Jika desktop, otomatis buka.
       if (mobile) setSidebarOpen(false);
       else setSidebarOpen(true);
     };
 
-    handleResize(); // Cek saat pertama kali diload
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [setSidebarOpen]);
@@ -44,9 +50,26 @@ export default function Sidebar() {
     }
   }, [pathname, closeSidebar, isMobile]);
 
+  // Auto-open submenu jika salah satu child sedang aktif
+  useEffect(() => {
+    if (!mounted) return;
+    const newOpenMenus: Record<string, boolean> = {};
+    getMenuItems().forEach((item) => {
+      if (item.children) {
+        const hasActiveChild = item.children.some((child) =>
+          pathname.startsWith(child.href),
+        );
+        if (hasActiveChild) {
+          newOpenMenus[item.key] = true;
+        }
+      }
+    });
+    setOpenMenus(newOpenMenus);
+  }, [pathname, mounted]);
+
   const { rejectedCount } = useRejectedCount(user?.role);
 
-  const getMenuItems = () => {
+  const getMenuItems = (): SidebarMenuItem[] => {
     switch (user?.role) {
       case "ADMIN":
         return SidebarMenuAdmin;
@@ -57,7 +80,11 @@ export default function Sidebar() {
     }
   };
 
-  // JANGAN render sidebar sebelum client siap untuk mencegah UI glitch/kosong
+  const isParentActive = (item: SidebarMenuItem): boolean => {
+    if (!item.children) return false;
+    return item.children.some((child) => pathname.startsWith(child.href));
+  };
+
   if (!mounted) return null;
 
   return (
@@ -102,19 +129,85 @@ export default function Sidebar() {
           {/* Navigation */}
           <nav className="flex-1 flex flex-col gap-1 px-3 overflow-y-auto">
             {getMenuItems().map((item) => {
+              // ─── CASE 1: Menu dengan Submenu ───────────────────────────
+              if (item.children && item.children.length > 0) {
+                const isOpen = openMenus[item.key] ?? false;
+                const isActive = isParentActive(item);
+
+                return (
+                  <div key={item.key}>
+                    <button
+                      onClick={() => toggleMenu(item.key)}
+                      className={`w-full flex flex-row items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors
+                        hover:bg-slate-800 hover:text-white
+                        ${
+                          isActive
+                            ? "bg-blue-600/20 text-blue-400 border-r-2 border-blue-500"
+                            : "text-slate-300"
+                        }`}
+                    >
+                      {item.icon}
+                      <span className="font-semibold text-sm group-hover:text-white whitespace-nowrap flex-1 text-left">
+                        {item.label}
+                      </span>
+                      <PiCaretDownBold
+                        className={`text-xs transition-transform duration-200 ${
+                          isOpen ? "rotate-180" : "rotate-0"
+                        }`}
+                      />
+                    </button>
+
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ease-in-out ${
+                        isOpen ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-0.5 pl-3 pt-1 pb-1">
+                        {item.children.map((child) => {
+                          const isChildActive = pathname.startsWith(child.href);
+                          return (
+                            <Link
+                              key={child.key}
+                              href={child.href}
+                              className={`flex flex-row items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
+                                hover:bg-slate-800 hover:text-white
+                                ${
+                                  isChildActive
+                                    ? "text-blue-400 bg-blue-600/10"
+                                    : "text-slate-400"
+                                }`}
+                            >
+                              <span
+                                className={`w-1 h-1 rounded-full shrink-0 ${
+                                  isChildActive ? "bg-blue-400" : "bg-slate-600"
+                                }`}
+                              />
+                              {child.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // ─── CASE 2: Menu Biasa ─────────────────────────────────────
               const isDashboardRoot = [
                 "/pic",
                 "/admin/dashboard",
                 "/viewer",
-              ].includes(item.href);
+              ].includes(item.href ?? "");
               const isActive = isDashboardRoot
                 ? pathname === item.href
-                : pathname.startsWith(item.href);
+                : item.href
+                  ? pathname.startsWith(item.href)
+                  : false;
 
               return (
                 <Link
                   key={item.key}
-                  href={item.href}
+                  href={item.href ?? "#"}
                   className={`flex flex-row items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors
                     hover:bg-slate-800 hover:text-white
                     ${
