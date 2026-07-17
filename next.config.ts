@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+    ],
+  },
 
   // ✅ FIX: Cegah Turbopack scan folder public/uploads (symlink ke luar project)
   // Tanpa ini, build akan CRASH karena Turbopack menemukan symlink yang

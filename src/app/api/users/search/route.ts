@@ -7,26 +7,38 @@ export async function GET(req: NextRequest) {
   try {
     await requireAdmin();
 
-  const q = req.nextUrl.searchParams.get("q") ?? "";
-  const unitId = req.nextUrl.searchParams.get("unitId") ?? "";
+    const q = req.nextUrl.searchParams.get("q") ?? "";
+    const unitId = req.nextUrl.searchParams.get("unitId") ?? "";
+    const role = req.nextUrl.searchParams.get("role") ?? "VIEWER";
 
-  if (q.trim().length < 2) {
-    return NextResponse.json(errorResponse("Query minimal 2 karakter", 400), {
-      status: 400,
-    });
-  }
+    if (q.trim().length < 2) {
+      return NextResponse.json(errorResponse("Query minimal 2 karakter", 400), {
+        status: 400,
+      });
+    }
+
+    const where: any = {
+      role,
+      name: { contains: q, mode: "insensitive" },
+      isActive: true,
+    };
+
+    if (role === "VIEWER") {
+      if (unitId && unitId !== "ALL") {
+        where.unitId = unitId;
+      } else {
+        where.unitId = null;
+      }
+    } else if (role === "PIC") {
+      where.unitId = { not: null };
+      if (unitId && unitId !== "ALL") {
+        where.unitId = unitId;
+      }
+    }
 
 
-    // User di sistem berawal sebagai VIEWER, lalu dipromote jadi PIC
-    // saat Admin assign ke unit kerja tertentu.
-    // Exclude user yang sudah punya unitId (sudah jadi PIC di unit lain)
     const users = await prisma.user.findMany({
-      where: {
-        role: "VIEWER",
-        name: { contains: q, mode: "insensitive" },
-
-        ...(unitId && unitId !== "ALL" ? { unitId } : { unitId: null }),
-      },
+      where,
       take: 10,
       orderBy: { name: "asc" },
       select: {

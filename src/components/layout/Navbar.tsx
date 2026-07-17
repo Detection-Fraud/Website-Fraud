@@ -1,11 +1,10 @@
 "use client";
 
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import Image from "next/image";
-import DropdownUser, { UserData } from "./DropdownUser";
 import { useLayoutStore } from "@/store/useLayoutStore";
 import { Button } from "@heroui/react";
 import { PiSidebarSimpleBold } from "react-icons/pi";
+import DropdownUser, { UserData } from "./DropdownUser";
 
 export default function Navbar() {
   const { user, isLoading } = useCurrentUser();
@@ -26,10 +25,10 @@ export default function Navbar() {
           </Button>
           <div className="flex flex-col justify-center">
             <h1 className="text-sm sm:text-base md:text-xl font-bold text-gray-900 leading-tight">
-              BULOG Aktivasi Budaya
+              DICE
             </h1>
             <p className="text-xs text-gray-600 hidden sm:block">
-              Sistem Deteksi Keaslian Foto Kegiatan
+              Digital Culture & Engagement Center
             </p>
           </div>
         </div>

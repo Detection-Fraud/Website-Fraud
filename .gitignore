@@ -41,7 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /generated/prisma
-.agent/
+.agents/
 refactor/
 
 public/uploads

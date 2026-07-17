@@ -181,3 +181,18 @@ model ActivityPhoto {
   publicId  String? // Cloudinary public_id untuk keperluan delete
 }
 
+model LoginBanner {
+  id String @id @default(uuid())
+  imageUrl String
+  name String
+  role String
+  unit String
+  period String
+  order Int @default(0)
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+

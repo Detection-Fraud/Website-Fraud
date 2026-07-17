@@ -1,6 +1,6 @@
 import { CgFileDocument } from "react-icons/cg";
 import { MdOutlinePendingActions, MdOutlineShowChart } from "react-icons/md";
-import { PiCalendar, PiFile, PiNotebookLight } from "react-icons/pi";
+import { PiCalendar, PiFile, PiImage, PiNotebookLight } from "react-icons/pi";
 import { RxDashboard } from "react-icons/rx";
 
 import { AiOutlineScan } from "react-icons/ai";
@@ -61,6 +61,12 @@ export const SidebarMenuAdmin: SidebarMenuItem[] = [
     label: "Kalendar",
     href: "/admin/kalendar",
     icon: <PiCalendar />,
+  },
+  {
+    key: "banners",
+    label: "Banner Login",
+    href: "/admin/banners",
+    icon: <PiImage />,
   },
 ];
 
