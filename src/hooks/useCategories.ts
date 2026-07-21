@@ -1,7 +1,6 @@
 import { api } from "@/lib/api";
 import { Categories, GlobalSummary } from "@/types/categories.types";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 
 interface CategoriesResponse {
   data: Categories[];

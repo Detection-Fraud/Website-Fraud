@@ -1,13 +1,12 @@
 "use client";
 
-import { useReportSubmission } from "@/hooks/useReportSubmission";
+import { useProgramList } from "@/hooks/useProgramList";
 import { useReportStore } from "@/store/useReportStore";
 import { Card, Link, Spinner } from "@heroui/react";
-import { useEffect, useState } from "react";
-import { ProgramBudaya } from "@generated/prisma";
-import { CiImageOn } from "react-icons/ci";
+import { useReportDetail } from "@/hooks/useReportDetail";
+import { useEffect } from "react";
 import Dropzone from "../../_components/dropzone";
-import FormDetection, { InitialData } from "../../_components/form-detection";
+import FormDetection from "../../_components/form-detection";
 import GridPreview from "../../_components/gridPreview";
 import { useParams, useRouter } from "next/navigation";
 
@@ -16,70 +15,33 @@ export default function EditDetectionPage() {
   const router = useRouter();
   const { resetStore } = useReportStore();
 
-  const [programs, setPrograms] = useState<ProgramBudaya[]>([]);
-  const [initialData, setInitialData] = useState<InitialData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Memanggil hook dengan mode Edit
-  const {
-    loadingText,
-    handleCheckFraud,
-    tanganiSubmitFinal,
-    adaGambarIdle,
-    adaGambarFraud,
-    adaGambarLoading,
-    semuaLulus,
-    totalGambar,
-  } = useReportSubmission(id, () => {
-    router.push(`/pic/dashboard`); // Kembali ke dashboard setelah sukses
-  });
-
-  // Fetch report data & program budaya
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [progRes, reportRes] = await Promise.all([
-          fetch("/api/programs"),
-          fetch(`/api/reports/${id}`),
-        ]);
-
-        if (progRes.ok) {
-          const progJson = await progRes.json();
-          setPrograms(progJson.data || []);
-        }
-
-        if (reportRes.ok) {
-          const reportJson = await reportRes.json();
-          const report = reportJson.data;
-          setInitialData({
-            activityName: report.activityName,
-            programId: report.programId,
-            tanggalKegiatan: report.tanggalKegiatan,
-            lokasi: report.lokasi,
-            picKegiatan: report.picKegiatan,
-            description: report.description,
-          });
-        }
-      } catch (error) {
-        console.error("Gagal mengambil data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    if (id) fetchData();
-  }, [id]);
+  const { programs, isLoading: loadingPrograms } = useProgramList();
+  const { report, loading: isLoadingReport } = useReportDetail(id);
 
   useEffect(() => {
     return () => resetStore();
   }, [resetStore]);
 
-  if (isLoading) {
+  if (isLoadingReport || loadingPrograms) {
     return (
       <div className="flex justify-center items-center h-64 w-full">
         <Spinner size="lg" />
       </div>
     );
   }
+
+  const initialDataMapped = report
+    ? {
+        activityName: report.activityName,
+        programId: report.program?.id,
+        tanggalKegiatan: report.tanggalKegiatan
+          ? new Date(report.tanggalKegiatan).toISOString()
+          : undefined,
+        lokasi: report.lokasi,
+        picKegiatan: report.picKegiatan,
+        description: report.description,
+      }
+    : undefined;
 
   return (
     <div className="w-full space-y-6">
@@ -113,16 +75,9 @@ export default function EditDetectionPage() {
 
         <div className="lg:col-span-1">
           <FormDetection
-            loadingText={loadingText}
-            handleCheckFraud={handleCheckFraud}
-            tanganiSubmitFinal={tanganiSubmitFinal}
-            adaGambarIdle={adaGambarIdle}
-            adaGambarFraud={adaGambarFraud}
-            adaGambarLoading={adaGambarLoading}
-            semuaLulus={semuaLulus}
-            totalGambar={totalGambar}
             programs={programs}
-            initialData={initialData || undefined}
+            initialData={initialDataMapped}
+            reportId={id}
           />
         </div>
       </div>

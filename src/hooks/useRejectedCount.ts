@@ -12,7 +12,7 @@ export function useRejectedCount(role?: string) {
   });
 
   return {
-    rejectedCount: data?.data?.count ?? 0,
+    rejectedCount: data?.count ?? 0,
     isLoading,
   };
 }

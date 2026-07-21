@@ -1,8 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 export interface UnitItem {
   id: string;
@@ -30,7 +29,7 @@ export function useUnitList(unitType: string) {
   });
 
   return {
-    units: (data?.data ?? []) as UnitItem[],
+    units: (data ?? []) as UnitItem[],
     isLoading,
     error: error ? (error as Error).message : null,
     refetch,

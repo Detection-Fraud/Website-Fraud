@@ -7,14 +7,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
-  const { images, updateImageStatus, resetStore } = useReportStore();
+  const imageStore = useReportStore();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [loadingText, setLoadingText] = useState("");
 
   // --- Mutation 1: Fraud Check ---
   const fraudCheckMutation = useMutation({
-    mutationFn: async (imagesToCheck: typeof images) => {
+    mutationFn: async (imagesToCheck: typeof imageStore.images) => {
       const formData = new FormData();
       imagesToCheck.forEach((img) => formData.append("foto_baru", img.file));
       const res = await api.post("/fraud-check", formData, {
@@ -26,29 +26,31 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
       setLoadingText("Ai sedang memeriksa foto Anda...");
     },
     onSuccess: (data, imagesToCheck) => {
-      const rapor = data.data.detail_gambar;
+      const rapor = data.detail_gambar;
       imagesToCheck.forEach((img) => {
         const hasilGambarIni = rapor.find(
           (r: any) => r.nama_file === img.file.name,
         );
         if (hasilGambarIni) {
           if (hasilGambarIni.status === "FRAUD") {
-            updateImageStatus(
+            imageStore.updateImageStatus(
               img.id,
               "FRAUD",
               hasilGambarIni.url_referensi_pelaku,
             );
           } else {
-            updateImageStatus(img.id, "LULUS");
+            imageStore.updateImageStatus(img.id, "LULUS");
           }
         } else {
-          updateImageStatus(img.id, "IDLE");
+          imageStore.updateImageStatus(img.id, "IDLE");
         }
       });
     },
     onError: (_, imagesToCheck) => {
       toast.danger("Terjadi kesalahan saat mengecek fraud. Silakan coba lagi.");
-      imagesToCheck.forEach((img) => updateImageStatus(img.id, "IDLE"));
+      imagesToCheck.forEach((img) =>
+        imageStore.updateImageStatus(img.id, "IDLE"),
+      );
     },
     onSettled: () => {
       setLoadingText("");
@@ -60,7 +62,7 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
     mutationFn: async (dataForm: ReportFormData) => {
       // Step 1: Upload semua gambar
       setLoadingText("Sedang mengunggah gambar ke awan...");
-      const uploadPromises = images.map(async (img) => {
+      const uploadPromises = imageStore.images.map(async (img) => {
         const formData = new FormData();
         formData.append("file", img.file);
         const res = await api.post("/upload", formData, {
@@ -87,12 +89,14 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
       );
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       router.push("/pic/dashboard");
-      resetStore();
+      imageStore.resetStore();
     },
     onError: (error: any) => {
       const message =
         error?.response?.data?.message ||
-        (error instanceof Error ? error.message : "Terjadi kesalahan tidak terduga");
+        (error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan tidak terduga");
       toast.danger(message);
     },
     onSettled: () => {
@@ -102,9 +106,13 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
 
   // --- Handlers ---
   const handleCheckFraud = async () => {
-    const imageNotCheck = images.filter((img) => img.status === "IDLE");
+    const imageNotCheck = imageStore.images.filter(
+      (img) => img.status === "IDLE",
+    );
     if (imageNotCheck.length === 0) return;
-    imageNotCheck.forEach((img) => updateImageStatus(img.id, "LOADING"));
+    imageNotCheck.forEach((img) =>
+      imageStore.updateImageStatus(img.id, "LOADING"),
+    );
     fraudCheckMutation.mutate(imageNotCheck);
   };
 
@@ -124,21 +132,34 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
   };
 
   // --- Derived state (tetap sama) ---
-  const adaGambarIdle = images.some((img) => img.status === "IDLE");
-  const adaGambarFraud = images.some((img) => img.status === "FRAUD");
-  const adaGambarLoading = images.some((img) => img.status === "LOADING");
+  const adaGambarIdle = imageStore.images.some((img) => img.status === "IDLE");
+  const adaGambarFraud = imageStore.images.some(
+    (img) => img.status === "FRAUD",
+  );
+  const adaGambarLoading = imageStore.images.some(
+    (img) => img.status === "LOADING",
+  );
   const semuaLulus =
-    images.length > 0 && images.every((img) => img.status === "LULUS");
-  const totalGambar = images.length;
+    imageStore.images.length > 0 &&
+    imageStore.images.every((img) => img.status === "LULUS");
+  const totalGambar = imageStore.images.length;
 
   return {
-    loadingText,
-    handleCheckFraud,
-    tanganiSubmitFinal,
-    adaGambarIdle,
-    adaGambarFraud,
-    adaGambarLoading,
-    semuaLulus,
-    totalGambar,
+    state: {
+      images: imageStore.images,
+      loadingText,
+      adaGambarIdle,
+      adaGambarFraud,
+      adaGambarLoading,
+      semuaLulus,
+      totalGambar,
+    },
+    actions: {
+      addImages: imageStore.addImages,
+      removeImage: imageStore.removeImage,
+      handleCheckFraud,
+      tanganiSubmitFinal,
+      resetStore: imageStore.resetStore,
+    },
   };
 }

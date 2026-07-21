@@ -1,6 +1,7 @@
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import { Prisma, Role } from "@generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -17,25 +18,25 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const where: any = {
-      role,
+    let where: Prisma.UserWhereInput = {
+      role: role as Role,
       name: { contains: q, mode: "insensitive" },
-      isActive: true,
     };
 
     if (role === "VIEWER") {
+      // Mencari user VIEWER untuk di-promote jadi PIC
+      // Tidak filter isActive & unitId agar semua kandidat bisa ditemukan
       if (unitId && unitId !== "ALL") {
         where.unitId = unitId;
-      } else {
-        where.unitId = null;
       }
     } else if (role === "PIC") {
+      // Mencari PIC aktif (misalnya untuk banner)
+      where.isActive = true;
       where.unitId = { not: null };
       if (unitId && unitId !== "ALL") {
         where.unitId = unitId;
       }
     }
-
 
     const users = await prisma.user.findMany({
       where,

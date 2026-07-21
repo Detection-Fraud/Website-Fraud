@@ -4,7 +4,8 @@ import { UnitTypeFilter } from "@/components/ui/SelectUnitType";
 import { api } from "@/lib/api";
 import { DashboardData } from "@/types/analytics.type";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, useMemo, useReducer } from "react";
+import { useMemo, useState } from "react";
+import { useWilayahFilter } from "./useWilayahFilter";
 
 export type PeriodeFilter =
   | "ALL"
@@ -15,132 +16,47 @@ export type PeriodeFilter =
   | "SM1"
   | "SM2";
 
-interface DashboardFilters {
-  year: number;
-  kanwilId: string;
-  programId: string;
-  kancabId: string;
-  periode: PeriodeFilter;
-  unitType: UnitTypeFilter;
-  divisiId: string;
-  rankingPage: number;
-  rankingUnitId: string;
-}
-
-type FilterAction =
-  | { type: "SET_YEAR"; value: number }
-  | { type: "SET_KANWIL"; value: string }
-  | { type: "SET_KANCAB"; value: string }
-  | { type: "SET_PROGRAM"; value: string }
-  | { type: "SET_PERIODE"; value: PeriodeFilter }
-  | { type: "SET_UNIT_TYPE"; value: UnitTypeFilter }
-  | { type: "SET_DIVISI"; value: string }
-  | { type: "SET_RANKING_PAGE"; value: number }
-  | { type: "SET_RANKING_UNIT"; value: string };
-
-const initialFilters: DashboardFilters = {
-  year: new Date().getFullYear(),
-  kanwilId: "ALL",
-  programId: "ALL",
-  kancabId: "ALL",
-  periode: "ALL",
-  unitType: "WILAYAH",
-  divisiId: "ALL",
-  rankingPage: 1,
-  rankingUnitId: "ALL",
-};
-
-function filterReducer(
-  state: DashboardFilters,
-  action: FilterAction,
-): DashboardFilters {
-  switch (action.type) {
-    case "SET_YEAR":
-      return { ...state, year: action.value, rankingPage: 1 };
-
-    case "SET_KANWIL":
-      // Pilih kanwil → reset kancab, divisi, ranking
-      return {
-        ...state,
-        kanwilId: action.value,
-        kancabId: "ALL",
-        divisiId: "ALL",
-        rankingPage: 1,
-      };
-
-    case "SET_KANCAB":
-      return { ...state, kancabId: action.value, rankingPage: 1 };
-
-    case "SET_PROGRAM":
-      return { ...state, programId: action.value };
-
-    case "SET_PERIODE":
-      return { ...state, periode: action.value, rankingPage: 1 };
-
-    case "SET_UNIT_TYPE":
-      // Ganti unit type → reset semua wilayah filter
-      return {
-        ...state,
-        unitType: action.value,
-        kanwilId: "ALL",
-        kancabId: "ALL",
-        divisiId: "ALL",
-        rankingPage: 1,
-      };
-
-    case "SET_DIVISI":
-      // Pilih divisi → clear kanwil & kancab (mutually exclusive — AGENTS Rule #5)
-      return {
-        ...state,
-        divisiId: action.value,
-        kanwilId: action.value !== "ALL" ? "ALL" : state.kanwilId,
-        kancabId: action.value !== "ALL" ? "ALL" : state.kancabId,
-        rankingPage: 1,
-      };
-
-    case "SET_RANKING_PAGE":
-      return { ...state, rankingPage: action.value };
-
-    case "SET_RANKING_UNIT":
-      return { ...state, rankingUnitId: action.value };
-
-    default:
-      return state;
-  }
-}
-
 export function useDashboardAnalytics() {
-  const [filters, dispatch] = useReducer(filterReducer, initialFilters);
+  const wilayah = useWilayahFilter();
+
+  const [extraFilters, setExtraFilters] = useState({
+    year: new Date().getFullYear(),
+    programId: "ALL",
+    periode: "ALL" as PeriodeFilter,
+    unitType: "WILAYAH" as UnitTypeFilter,
+    rankingPage: 1,
+    rankingUnitId: "ALL",
+  });
 
   const { data, isLoading, error } = useQuery<DashboardData>({
-    queryKey: ["dashboard", filters],
+    queryKey: ["dashboard", wilayah.kanwilId, wilayah.kancabId, wilayah.divisiId, extraFilters],
     queryFn: async () => {
       const params = new URLSearchParams();
-      params.set("year", String(filters.year));
-      params.set("periode", filters.periode);
-      params.set("unitType", filters.unitType);
+      params.set("year", String(extraFilters.year));
+      params.set("periode", extraFilters.periode);
+      params.set("unitType", extraFilters.unitType);
 
-      if (filters.kanwilId !== "ALL") params.set("kanwilId", filters.kanwilId);
-      if (filters.programId !== "ALL")
-        params.set("programId", filters.programId);
-      if (filters.kancabId !== "ALL") params.set("kancabId", filters.kancabId);
-      if (filters.unitType === "DIVISI" && filters.divisiId !== "ALL") {
-        params.set("divisiId", filters.divisiId);
+      if (wilayah.kanwilId !== "ALL") params.set("kanwilId", wilayah.kanwilId);
+      if (extraFilters.programId !== "ALL")
+        params.set("programId", extraFilters.programId);
+      if (wilayah.kancabId !== "ALL") params.set("kancabId", wilayah.kancabId);
+      if (extraFilters.unitType === "DIVISI" && wilayah.divisiId !== "ALL") {
+        params.set("divisiId", wilayah.divisiId);
       }
-      params.set("rankingPage", String(filters.rankingPage));
-      if (filters.rankingUnitId !== "ALL") {
-        params.set("rankingUnitId", filters.rankingUnitId);
+      params.set("rankingPage", String(extraFilters.rankingPage));
+      if (extraFilters.rankingUnitId !== "ALL") {
+        params.set("rankingUnitId", extraFilters.rankingUnitId);
       }
 
       const res = await api.get(`/analytics/dashboard?${params.toString()}`);
-      return res.data.data as DashboardData;
+      return res.data;
     },
   });
 
   const areaChartData = useMemo(() => {
     const dataBulanan = data?.charts.kegiatanPerBulan;
     if (!dataBulanan) return [];
-    switch (filters.periode) {
+    switch (extraFilters.periode) {
       case "TW1":
         return dataBulanan.slice(0, 3);
       case "TW2":
@@ -156,7 +72,7 @@ export function useDashboardAnalytics() {
       default:
         return dataBulanan;
     }
-  }, [data, filters.periode]);
+  }, [data, extraFilters.periode]);
 
   const pieChartData = useMemo(
     () => data?.charts.distribusiProgram ?? [],
@@ -185,30 +101,24 @@ export function useDashboardAnalytics() {
     isLoading,
     error: error ? (error as Error).message : null,
 
-    // Filter values (baca dari reducer state)
-    year: filters.year,
-    kanwilId: filters.kanwilId,
-    programId: filters.programId,
-    kancabId: filters.kancabId,
-    periode: filters.periode,
-    divisiId: filters.divisiId,
-    unitType: filters.unitType,
-    rankingPage: filters.rankingPage,
-    rankingUnitId: filters.rankingUnitId,
+    // Filter wilayah
+    ...wilayah,
+
+    // Filter spesifik dashboard
+    ...extraFilters,
 
     // Setters → dispatch actions
-    setYear: (v: number) => dispatch({ type: "SET_YEAR", value: v }),
-    setKanwilId: (v: string) => dispatch({ type: "SET_KANWIL", value: v }),
-    setKancabId: (v: string) => dispatch({ type: "SET_KANCAB", value: v }),
-    setProgramId: (v: string) => dispatch({ type: "SET_PROGRAM", value: v }),
+    setYear: (v: number) =>
+      setExtraFilters((p) => ({ ...p, year: v, rankingPage: 1 })),
+    setProgramId: (v: string) =>
+      setExtraFilters((p) => ({ ...p, programId: v, rankingPage: 1 })),
     setPeriode: (v: PeriodeFilter) =>
-      dispatch({ type: "SET_PERIODE", value: v }),
+      setExtraFilters((p) => ({ ...p, periode: v, rankingPage: 1 })),
     setUnitType: (v: UnitTypeFilter) =>
-      dispatch({ type: "SET_UNIT_TYPE", value: v }),
-    setDivisiId: (v: string) => dispatch({ type: "SET_DIVISI", value: v }),
+      setExtraFilters((p) => ({ ...p, unitType: v, rankingPage: 1 })),
     setRankingPage: (v: number) =>
-      dispatch({ type: "SET_RANKING_PAGE", value: v }),
+      setExtraFilters((p) => ({ ...p, rankingPage: v })),
     setRankingUnitId: (v: string) =>
-      dispatch({ type: "SET_RANKING_UNIT", value: v }),
+      setExtraFilters((p) => ({ ...p, rankingUnitId: v, rankingPage: 1 })),
   };
 }

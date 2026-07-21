@@ -1,4 +1,4 @@
-import { getActiveUnits } from "@/lib/api/active-units";
+import { resolveScope } from "@/lib/api/unit-scope";
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
@@ -21,12 +21,11 @@ export async function GET(req: Request) {
     );
 
     // ── Ambil unit aktif via shared helper ──
-    const activeUnits = await getActiveUnits({
+    const { activeUnits } = await resolveScope(user, {
       kanwilId,
       kancabId,
       divisiId,
       unitTypeFilter,
-      user,
     });
 
     const yearStart = new Date(year, 0, 1);

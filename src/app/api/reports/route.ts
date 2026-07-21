@@ -1,5 +1,5 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
-import { buildUnitScope } from "@/lib/api/unit-scope";
+import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
 import { createReportSchema } from "@/schemas/report.schema";
@@ -25,8 +25,7 @@ export async function GET(request: NextRequest) {
     const kanwilFilter = searchParams.get("kanwilId") || "ALL";
     const kancabFilter = searchParams.get("kancabId") || "ALL";
 
-    const unitScope = await buildUnitScope({
-      user,
+    const { whereClause: unitScope } = await resolveScope(user, {
       kanwilId: kanwilFilter,
       kancabId: kancabFilter,
     });
@@ -105,21 +104,24 @@ export async function GET(request: NextRequest) {
     ]);
 
     return NextResponse.json(
-      {
-        ...successResponse(reports, "Berhasil mengambil data laporan"),
-        summary: {
-          total: summaryTotal,
-          pending: summaryPending,
-          approved: summaryApproved,
-          rejected: summaryRejected,
+      successResponse(
+        {
+          data: reports, // letakkan list laporan di dalam properti data
+          summary: {
+            total: summaryTotal,
+            pending: summaryPending,
+            approved: summaryApproved,
+            rejected: summaryRejected,
+          },
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          },
         },
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
-      },
+        "Berhasil mengambil data laporan",
+      ),
       { status: 200 },
     );
   } catch (error) {
@@ -156,13 +158,6 @@ export async function POST(request: Request) {
       programId,
       uploadedPhotos,
     } = parsedData.data;
-
-    if (!programId || !tanggalKegiatan) {
-      return NextResponse.json(
-        errorResponse("Program dan tanggal kegiatan wajib diisi", 400),
-        { status: 400 },
-      );
-    }
 
     const programData = await prisma.programBudaya.findUnique({
       where: { id: programId },
@@ -237,8 +232,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      successResponse(result, "Laporan berhasil dibuat"),
-      { status: 200 },
+      successResponse(result, "Laporan berhasil dibuat", 201),
+      { status: 201 },
     );
   } catch (error: any) {
     return handleApiError(error, "POST /api/reports");

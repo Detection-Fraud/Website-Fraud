@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { ActivityReportItem, SummaryStats } from "@/types/report.types";
-import { useUrlParams } from "./useUrlParams";
-import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { ActivityReportItem, SummaryStats } from "@/types/report.types";
+import { useQuery } from "@tanstack/react-query";
+import { useUrlParams } from "./useUrlParams";
+import { useWilayahFilter } from "./useWilayahFilter";
 
 export interface PaginationInfo {
   total: number;
@@ -11,7 +10,7 @@ export interface PaginationInfo {
   limit: number;
   totalPages: number;
 }
-export interface ReportListResponse {
+export interface ReportListPayload {
   data: ActivityReportItem[];
   pagination: PaginationInfo;
   summary: SummaryStats;
@@ -34,9 +33,7 @@ export function useReportList() {
   const statusFilter = getParam("status") || "ALL";
   const programFilter = getParam("programId") || "ALL";
 
-  // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
-  const kanwilFilter = getParam("kanwilId") || "ALL";
-  const kancabFilter = getParam("kancabId") || "ALL";
+  const wilayah = useWilayahFilter();
 
   const filters = {
     page,
@@ -44,26 +41,14 @@ export function useReportList() {
     search,
     status: statusFilter,
     programId: programFilter,
-    kanwilId: kanwilFilter,
-    kancabId: kancabFilter,
+    kanwilId: wilayah.kanwilId,
+    kancabId: wilayah.kancabId,
+    divisiId: wilayah.divisiId,
   };
 
-  const { data, isLoading, error, refetch } = useQuery<ReportListResponse>({
+  const { data, isLoading, error, refetch } = useQuery<ReportListPayload>({
     queryKey: ["reports", filters],
-    queryFn: () =>
-      api
-        .get("/reports", {
-          params: {
-            page,
-            limit,
-            search,
-            status: statusFilter,
-            programId: programFilter,
-            kanwilId: kanwilFilter,
-            kancabId: kancabFilter,
-          },
-        })
-        .then((res) => res.data),
+    queryFn: () => api.get("/reports", { params: filters }).then((res) => res.data),
   });
 
   return {
@@ -89,8 +74,7 @@ export function useReportList() {
     updateParams,
     statusFilter,
     router,
-    kanwilFilter,
-    kancabFilter,
+    ...wilayah,
     programFilter,
     refetch,
   };

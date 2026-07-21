@@ -16,7 +16,6 @@ import SelectKancab from "@/components/ui/SelectKancab";
 import StatusTagGroup from "@/components/ui/StatusTagGroup";
 import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useMasterWilayah } from "@/hooks/useMasterWilayah";
 import { useReportList } from "@/hooks/useReportList";
 import { useState } from "react";
 
@@ -33,6 +32,7 @@ export default function PicView() {
     router,
     statusFilter,
     summary,
+    kanwilList,
   } = useReportList();
 
   const { user } = useCurrentUser();
@@ -41,7 +41,6 @@ export default function PicView() {
   const [unitLevel, setUnitLevel] = useState<"KANWIL" | "KANCAB">("KANWIL");
   const searchParams = useSearchParams();
 
-  const { kanwilList } = useMasterWilayah();
   const myKanwil = kanwilList.find((k:any ) => k.id === user?.unitId);
   const myKancabList = myKanwil ? myKanwil.children : [];
 

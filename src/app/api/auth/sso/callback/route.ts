@@ -1,7 +1,7 @@
 import { saml } from "@/lib/saml";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 
 function getBaseUrl(request: Request): string {
   if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -23,8 +23,6 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const relayState = formData.get("RelayState") as string;
     const storedState = request.cookies.get("sso_csrf_state")?.value;
-
-    const isDev = process.env.NODE_ENV === "development";
 
     if (!relayState || !storedState) {
       console.error(
@@ -61,32 +59,11 @@ export async function POST(request: NextRequest) {
       return redirectWithError(request, "InvalidSAMLResponse");
     }
 
-    if (isDev) {
-      try {
-        const decodedXml = Buffer.from(samlResponse, "base64").toString("utf8");
-        console.log("[SSO DEBUG] ====== RAW SAML RESPONSE XML ======");
-        console.log(decodedXml);
-        console.log("[SSO DEBUG] ====== END SAML RESPONSE XML ======");
-      } catch (decodeErr) {
-        console.error(
-          "[SSO DEBUG] Gagal decode SAMLResponse base64:",
-          decodeErr,
-        );
-      }
-    }
-
     const { profile } = await saml.validatePostResponseAsync({
       SAMLResponse: samlResponse,
     });
 
     // STEP 4: EXTRACT NIP DARI SAML PROFILE
-
-    if (isDev) {
-      console.log(
-        "[SSO DEBUG] Full SAML profile:",
-        JSON.stringify(profile, null, 2),
-      );
-    }
 
     const nip =
       (profile as any)?.nip ||

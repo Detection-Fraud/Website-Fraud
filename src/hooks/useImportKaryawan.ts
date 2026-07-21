@@ -44,8 +44,8 @@ export function useImportKaryawan() {
 
       const data = res.data;
 
-      setPreviewRows(data.data.rows as PreviewRow[]);
-      setStats(data.data.stats as ImportStats);
+      setPreviewRows(data.rows as PreviewRow[]);
+      setStats(data.stats as ImportStats);
       setStep(2);
     } catch (err: any) {
       setErrorMsg(
@@ -88,7 +88,7 @@ export function useImportKaryawan() {
 
       setImportProgress(100);
       setProcessCount(totalToProcess);
-      setImportResult(data.data as ImportResult);
+      setImportResult(data as ImportResult);
 
       setTimeout(() => setStep(4), 600);
     } catch (err: any) {

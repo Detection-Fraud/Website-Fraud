@@ -18,6 +18,7 @@ export default function FilterProgram({
   className,
 }: FilterProgramProps) {
   const { programs } = useProgramList();
+  const programList = Array.isArray(programs) ? programs : [];
 
   return (
     <div className={cn("w-48", className)}>
@@ -38,7 +39,7 @@ export default function FilterProgram({
               <ListBox.ItemIndicator />
               Semua Program
             </ListBox.Item>
-            {programs.map((program: any) => (
+            {programList.map((program: any) => (
               <ListBox.Item
                 key={program.id}
                 id={program.id}

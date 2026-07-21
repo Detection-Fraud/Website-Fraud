@@ -1,3 +1,4 @@
+import { Prisma } from "@generated/prisma";
 import { prisma } from "../prisma";
 
 export interface ScopeUser {
@@ -6,58 +7,140 @@ export interface ScopeUser {
   unitType?: string | null;
 }
 
+export interface ScopeFilters {
+  kanwilId?: string | null;
+  kancabId?: string | null;
+  divisiId?: string | null;
+  unitTypeFilter?: string;
+}
+
+export interface ActiveUnit {
+  id: string;
+  name: string;
+  type: string;
+  wilayah: string;
+  parentId?: string | null;
+}
+
+export interface ResolvedScope {
+  whereClause: Prisma.ActivityReportWhereInput;
+  activeUnits: ActiveUnit[];
+}
+
+export async function resolveScope(
+  user: ScopeUser,
+  filters: ScopeFilters,
+): Promise<ResolvedScope> {
+  const { kanwilId, kancabId, divisiId, unitTypeFilter } = filters;
+
+  const kw = kanwilId && kanwilId !== "ALL" ? kanwilId : null;
+  const kc = kancabId && kancabId !== "ALL" ? kancabId : null;
+  const dv = divisiId && divisiId !== "ALL" ? divisiId : null;
+
+  let scopeUnitIds: string[] | null = null;
+
+  if (user.role === "ADMIN") {
+    if (kc) {
+      scopeUnitIds = [kc];
+    } else if (kw) {
+      const childIds = await getChildUnitIds(kw);
+      scopeUnitIds = [kw, ...childIds];
+    } else if (dv) {
+      scopeUnitIds = [dv];
+    }
+  } else if (user.unitId) {
+    if (user.unitType === "KANTOR_WILAYAH") {
+      const childIds = await getChildUnitIds(user.unitId);
+      const allScopeIds = [user.unitId, ...childIds];
+
+      if (kc && allScopeIds.includes(kc)) {
+        scopeUnitIds = [kc];
+      } else {
+        scopeUnitIds = allScopeIds;
+      }
+    } else {
+      scopeUnitIds = [user.unitId];
+    }
+  } else {
+    scopeUnitIds = ["BLOCKED"];
+  }
+
+  const whereClause: Prisma.ActivityReportWhereInput =
+    scopeUnitIds === null
+      ? {}
+      : scopeUnitIds.length === 1
+        ? { unitId: scopeUnitIds[0] }
+        : { unitId: { in: scopeUnitIds } };
+
+  let activeUnits: ActiveUnit[] = [];
+
+  if (scopeUnitIds === null) {
+    const units = await prisma.unit.findMany({
+      where: { users: { some: { role: "PIC" } } },
+      include: { parent: true },
+    });
+    activeUnits = units.map((u) => ({
+      id: u.id,
+      name: u.name,
+      type: u.type,
+      wilayah:
+        u.type === "DIVISI"
+          ? "Kantor Pusat"
+          : u.type === "KANTOR_WILAYAH"
+            ? u.name
+            : u.parent?.name || "Unknown",
+      parentId: u.parentId,
+    }));
+  } else {
+    const units = await prisma.unit.findMany({
+      where: {
+        id: { in: scopeUnitIds.filter((id) => id !== "BLOCKED") },
+        users: { some: { role: "PIC" } },
+      },
+      include: { parent: true },
+    });
+    activeUnits = units.map((u) => ({
+      id: u.id,
+      name: u.name,
+      type: u.type,
+      wilayah:
+        u.type === "DIVISI"
+          ? "Kantor Pusat"
+          : u.type === "KANTOR_WILAYAH"
+            ? u.name
+            : u.parent?.name || "Unknown",
+      parentId: u.parentId,
+    }));
+  }
+
+  if (unitTypeFilter && unitTypeFilter !== "NASIONAL") {
+    const TYPE_MAP: Record<string, string> = {
+      KANWIL: "KANTOR_WILAYAH",
+      KANCAB: "KANTOR_CABANG",
+      DIVISI: "DIVISI",
+      KANWIL_AND_KANCAB: "", // special case
+    };
+
+    if (unitTypeFilter === "KANWIL_AND_KANCAB") {
+      activeUnits = activeUnits.filter(
+        (u) => u.type === "KANTOR_WILAYAH" || u.type === "KANTOR_CABANG",
+      );
+    } else if (TYPE_MAP[unitTypeFilter]) {
+      activeUnits = activeUnits.filter(
+        (u) => u.type === TYPE_MAP[unitTypeFilter],
+      );
+    }
+  }
+
+  return { whereClause, activeUnits };
+}
+
 export async function getChildUnitIds(parentId: string): Promise<string[]> {
   const children = await prisma.unit.findMany({
     where: { parentId },
     select: { id: true },
   });
   return children.map((c) => c.id);
-}
-
-interface BuildUnitScopeParams {
-  user: ScopeUser;
-  kanwilId?: string | null;
-  kancabId?: string | null;
-  divisiId?: string | null;
-}
-
-type UnitScopeResult = Record<string, any>;
-
-export async function buildUnitScope(
-  params: BuildUnitScopeParams,
-): Promise<UnitScopeResult> {
-  const { user, kanwilId, kancabId, divisiId } = params;
-
-  const kw = kanwilId && kanwilId !== "ALL" ? kanwilId : null;
-  const kc = kancabId && kancabId !== "ALL" ? kancabId : null;
-  const dv = divisiId && divisiId !== "ALL" ? divisiId : null;
-
-  if (user.role === "ADMIN") {
-    if (kc) return { unitId: kc };
-    if (kw) {
-      const childIds = await getChildUnitIds(kw);
-      return { unitId: { in: [kw, ...childIds] } };
-    }
-    if (dv) return { unitId: dv };
-    return {};
-  }
-
-  if (!user.unitId) {
-    return { unitId: "BLOCKED" };
-  }
-
-  if (user.unitType === "KANTOR_WILAYAH") {
-    const childIds = await getChildUnitIds(user.unitId);
-    const scopeIds = [user.unitId, ...childIds];
-
-    if (kc && scopeIds.includes(kc)) {
-      return { unitId: kc };
-    }
-
-    return { unitId: { in: scopeIds } };
-  }
-
-  return { unitId: user.unitId };
 }
 
 export function checkReportAccess(

@@ -3,7 +3,6 @@
 import { api } from "@/lib/api";
 import { PaginationMeta, UserWithUnit } from "@/types/user.types";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
 
 interface UseManagementUsersOptions {
   unitId: string;
@@ -29,7 +28,7 @@ export function useManagementUsers({
         .get("/users", {
           params: { unitId, search, page: String(page), limit: String(limit) },
         })
-        .then((res) => res.data.data),
+        .then((res) => res.data),
     enabled: !!unitId && unitId !== "ALL",
   });
 

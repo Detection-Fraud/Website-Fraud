@@ -26,7 +26,7 @@ export function useSearchPic({ unitId }: UseSearchPICOptions) {
       if (unitId && unitId !== "ALL") params.unitId = unitId;
 
       const res = await api.get("/users/search", { params });
-      return (res.data.data ?? []) as PicSearchResult[];
+      return (res.data ?? []) as PicSearchResult[];
     },
     enabled: debouncedQuery.trim().length >= 2,
   });

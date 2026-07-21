@@ -18,7 +18,7 @@ export function useBanners() {
   const useGetBanners = () => {
     return useQuery<Banner[]>({
       queryKey: ["banners"],
-      queryFn: () => api.get("/banners").then((res) => res.data.data),
+      queryFn: () => api.get("/banners").then((res) => res.data),
       staleTime: 5 * 60 * 1000,
     });
   };
@@ -29,7 +29,7 @@ export function useBanners() {
       queryFn: () =>
         api
           .get("/banners", { params: { all: "true" } })
-          .then((res) => res.data.data),
+          .then((res) => res.data),
       staleTime: 5 * 60 * 1000,
     });
   };

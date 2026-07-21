@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
-import { ProgramBudaya } from "@generated/prisma";
-import { useOverlayState } from "@heroui/react";
-import { useUrlParams } from "./useUrlParams";
-import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { ProgramBudaya } from "@generated/prisma";
+import { useQuery } from "@tanstack/react-query";
+import { useUrlParams } from "./useUrlParams";
 
 export type ProgramSummary = {
   active: number;
@@ -20,7 +17,7 @@ export type PaginationData = {
   totalPages: number;
 };
 
-interface ProgramListResponse {
+interface ProgramListPayload {
   data: ProgramBudaya[];
   summary: ProgramSummary;
   pagination: PaginationData;
@@ -41,7 +38,7 @@ export function useProgramQuery() {
   const limit = Number(getParam("limit") || "10");
   const search = getParam("search") || "";
 
-  const { data, isLoading, error } = useQuery<ProgramListResponse>({
+  const { data, isLoading, error } = useQuery<ProgramListPayload>({
     queryKey: ["programs", { page, limit, search }],
     queryFn: () =>
       api

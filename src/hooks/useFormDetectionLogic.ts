@@ -44,7 +44,8 @@ export function useFormDetectionLogic({
         isDateDisabled: true,
       };
     }
-    const program = programs.find((p) => p.id === selectedProgramId);
+    const programList = Array.isArray(programs) ? programs : [];
+    const program = programList.find((p) => p.id === selectedProgramId);
     if (!program) {
       return { minDate: undefined, maxDate: undefined, isDateDisabled: true };
     }

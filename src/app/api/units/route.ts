@@ -1,6 +1,7 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { successResponse } from "@/lib/response";
+import { Prisma } from "@generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -11,8 +12,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type");
     const parentId = searchParams.get("parentId");
 
-    let where: any = {};
-    if (type) where.type = type;
+    let where: Prisma.UnitWhereInput = {};
+    if (type) where.type = type as any;
     if (parentId) where.parentId = parentId;
 
     const units = await prisma.unit.findMany({

@@ -46,7 +46,7 @@ export default function ModalAddPic({
     setQuery,
     setSelectedUser,
     clearSelected,
-  } = useSearchPic({ unitId: selectedUnit?.id });
+  } = useSearchPic({});
 
   const handleClose = () => {
     clearSelected();

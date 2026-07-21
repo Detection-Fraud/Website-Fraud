@@ -2,12 +2,8 @@ import { api } from "@/lib/api";
 import { ProgramBand } from "@/types/calendar.types";
 import { useQuery } from "@tanstack/react-query";
 
-interface CalendarProgramsResponse {
-  data: ProgramBand[];
-}
-
 export function useCalendarPrograms(quarter: number, year: number) {
-  const { data, isLoading } = useQuery<CalendarProgramsResponse>({
+  const { data, isLoading } = useQuery<ProgramBand[]>({
     queryKey: ["calendar-programs", quarter, year],
     queryFn: () =>
       api
@@ -16,7 +12,7 @@ export function useCalendarPrograms(quarter: number, year: number) {
   });
 
   return {
-    programs: data?.data ?? ([] as ProgramBand[]),
+    programs: data ?? ([] as ProgramBand[]),
     isLoading,
   };
 }

@@ -23,31 +23,29 @@ export interface InitialData {
   description?: string;
 }
 
-interface PropTypes {
-  loadingText: string;
-  handleCheckFraud: () => void;
-  tanganiSubmitFinal: (formData: ReportFormData) => void;
-  adaGambarIdle: boolean;
-  adaGambarFraud: boolean;
-  adaGambarLoading: boolean;
-  semuaLulus: boolean;
-  totalGambar: number;
-  programs: ProgramBudaya[];
+import { useReportSubmission } from "@/hooks/useReportSubmission";
 
+interface PropTypes {
+  programs: ProgramBudaya[];
   initialData?: InitialData;
+  reportId?: string;
 }
 export default function FormDetection({
-  loadingText,
-  handleCheckFraud,
-  tanganiSubmitFinal,
-  adaGambarIdle,
-  adaGambarFraud,
-  adaGambarLoading,
-  semuaLulus,
-  totalGambar,
   programs,
   initialData,
+  reportId,
 }: PropTypes) {
+  const { state, actions } = useReportSubmission(reportId);
+  const {
+    loadingText,
+    adaGambarIdle,
+    adaGambarFraud,
+    adaGambarLoading,
+    semuaLulus,
+    totalGambar,
+  } = state;
+
+  const { handleCheckFraud, tanganiSubmitFinal } = actions;
   const {
     selectedProgramId,
     setSelectedProgramId,
@@ -66,7 +64,8 @@ export default function FormDetection({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const availablePrograms = programs.filter((program) => {
+  const safePrograms = Array.isArray(programs) ? programs : [];
+  const availablePrograms = safePrograms.filter((program) => {
     // Keep if it's the currently edited program
     if (initialData?.programId === program.id) return true;
     // Filter out if end date has passed

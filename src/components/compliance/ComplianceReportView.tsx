@@ -13,16 +13,22 @@ export default function ComplianceReportView() {
   const {
     activeTab,
     handleTabChange,
-    filters,
+    kanwilId,
+    kancabId,
+    divisiId,
+    programId,
+    year,
     options,
     data,
     isLoading,
-    handleKancabChange,
-    handleDivisiChange,
+    setKancabId,
+    setDivisiId,
     handleProgramChange,
-    handleKanwilChange,
+    setKanwilId,
     handleYearChange,
   } = useComplianceReport();
+
+  const filters = { kanwilId, kancabId, divisiId, programId, year };
 
   const { user } = useCurrentUser();
   let defaultTab = "NASIONAL";
@@ -98,10 +104,10 @@ export default function ComplianceReportView() {
         <FilterSection
           filters={filters}
           options={options}
-          handleKancabChange={handleKancabChange}
-          handleDivisiChange={handleDivisiChange}
+          handleKancabChange={setKancabId}
+          handleDivisiChange={setDivisiId}
           handleProgramChange={handleProgramChange}
-          handleKanwilChange={handleKanwilChange}
+          handleKanwilChange={setKanwilId}
           isFilterActive={isFilterActive}
           activeTab={activeTab}
           handleTabChange={handleTabChange}

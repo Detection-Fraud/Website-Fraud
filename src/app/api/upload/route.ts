@@ -1,12 +1,14 @@
+import { requireAuth } from "@/lib/api/auth-guard";
 import { errorResponse } from "@/lib/response";
 import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
 
-
 export async function POST(request: Request) {
   try {
+    await requireAuth();
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -18,10 +20,9 @@ export async function POST(request: Request) {
 
     const MAX_SIZE_BYTES = 2 * 1024 * 1024; // Maksimal 2MB
     if (file.size > MAX_SIZE_BYTES) {
-      return NextResponse.json(
-        errorResponse(`File maksimal 2MB`, 400),
-        { status: 400 },
-      );
+      return NextResponse.json(errorResponse(`File maksimal 2MB`, 400), {
+        status: 400,
+      });
     }
 
     const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/jpg"];
@@ -33,6 +34,17 @@ export async function POST(request: Request) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // Validasi Magic Bytes
+    const jpegMagic = buffer[0] === 0xff && buffer[1] === 0xd8;
+    const pngMagic = buffer[0] === 0x89 && buffer[1] === 0x50;
+
+    if (!jpegMagic && !pngMagic) {
+      return NextResponse.json(
+        errorResponse("Konten file bukan gambar yang valid", 400),
+        { status: 400 },
+      );
+    }
 
     // Lokasi folder upload: baca dari env UPLOAD_DIR (server production)
     // atau fallback ke public/uploads (local development)
@@ -58,7 +70,7 @@ export async function POST(request: Request) {
       { status: 200 },
     );
   } catch (e) {
-    console.log(e);
+    console.log("Upload error:", e);
     return NextResponse.json(errorResponse("Internal Server Error"), {
       status: 500,
     });

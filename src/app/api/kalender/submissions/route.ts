@@ -1,6 +1,6 @@
 
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
-import { buildUnitScope } from "@/lib/api/unit-scope";
+import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
@@ -26,8 +26,7 @@ export async function GET(req: Request) {
     const startDate = new Date(year, month, 1);
     const endDate = new Date(year, month + 1, 0, 23, 59, 59);
 
-    const unitScope = await buildUnitScope({
-      user,
+    const { whereClause: unitScope } = await resolveScope(user, {
       kanwilId,
       kancabId,
       divisiId,

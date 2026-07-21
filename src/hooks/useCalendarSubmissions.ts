@@ -2,10 +2,6 @@ import { api } from "@/lib/api";
 import { CalendarSubmission } from "@/types/calendar.types";
 import { useQuery } from "@tanstack/react-query";
 
-interface CalendarSubmissionsResponse {
-  data: CalendarSubmission[];
-}
-
 interface Params {
   month: number;
   year: number;
@@ -22,21 +18,21 @@ export function useCalendarSubmissions({
   kancabId,
   divisiId,
 }: Params) {
-  const { data, isLoading } = useQuery<CalendarSubmissionsResponse>({
+  const { data, isLoading } = useQuery<CalendarSubmission[]>({
     queryKey: [
       "calendar-submissions",
       { month, year, kanwilId, kancabId, divisiId },
     ],
     queryFn: () =>
       api
-        .get("/kalendar/submissions", {
+        .get("/kalender/submissions", {
           params: { month, year, kanwilId, kancabId, divisiId },
         })
         .then((res) => res.data),
   });
 
   return {
-    submissions: data?.data ?? ([] as CalendarSubmission[]),
+    submissions: data ?? ([] as CalendarSubmission[]),
     isLoading,
   };
 }

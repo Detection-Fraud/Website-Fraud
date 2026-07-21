@@ -18,6 +18,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const showAll = searchParams.get("all") === "true";
 
+    if (showAll) {
+      await requireAdmin();
+    }
+
     const whereClause = showAll ? {} : { isActive: true };
 
     const banners = await prisma.loginBanner.findMany({
@@ -41,6 +45,7 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json(
         errorResponse(parsed.error.issues[0].message, 400),
+        { status: 400 },
       );
     }
 

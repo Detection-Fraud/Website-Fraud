@@ -1,8 +1,13 @@
-import { handleApiError, requireAdmin, requireAuth } from "@/lib/api/auth-guard";
+import {
+  handleApiError,
+  requireAdmin,
+  requireAuth,
+} from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
-import { NextResponse } from "next/server";
 import { createProgramSchema } from "@/schemas/program.schema";
+import { Prisma } from "@generated/prisma";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 export async function GET(req: Request) {
@@ -16,7 +21,8 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
-    const whereClause: any = user.role === "ADMIN" ? {} : { isActive: true };
+    const whereClause: Prisma.ProgramBudayaWhereInput =
+      user.role === "ADMIN" ? {} : { isActive: true };
 
     if (search) {
       whereClause.name = { contains: search, mode: "insensitive" };
@@ -26,7 +32,6 @@ export async function GET(req: Request) {
       programs,
       activeCount,
       inactiveCount,
-      totalCount,
       filteredCount,
       categoryCount,
       uncategorizedCount,
@@ -36,45 +41,37 @@ export async function GET(req: Request) {
         orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
         skip,
         take: limit,
-        include: {
-          category: true,
-        },
+        include: { category: true },
       }),
-      prisma.programBudaya.count({
-        where: { isActive: true },
-      }),
-      prisma.programBudaya.count({
-        where: { isActive: false },
-      }),
-      prisma.programBudaya.count(),
+      prisma.programBudaya.count({ where: { isActive: true } }),
+      prisma.programBudaya.count({ where: { isActive: false } }),
       prisma.programBudaya.count({ where: whereClause }),
-      prisma.programCategory.count(), // <-- Hitung Total Kategori
-      prisma.programBudaya.count({
-        // <-- Hitung Tidak Berkategori
-        where: { categoryId: null },
-      }),
+      prisma.programCategory.count(),
+      prisma.programBudaya.count({ where: { categoryId: null } }),
     ]);
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Berhasil mengambil data program budaya",
-        data: programs,
+    const totalCount = activeCount + inactiveCount;
 
-        summary: {
-          active: activeCount,
-          inActive: inactiveCount,
-          total: totalCount,
-          totalCategory: categoryCount,
-          uncategorized: uncategorizedCount,
+    return NextResponse.json(
+      successResponse(
+        {
+          data: programs,
+          summary: {
+            active: activeCount,
+            inActive: inactiveCount,
+            total: totalCount,
+            totalCategory: categoryCount,
+            uncategorized: uncategorizedCount,
+          },
+          pagination: {
+            total: filteredCount,
+            page,
+            limit,
+            totalPages: Math.ceil(filteredCount / limit),
+          },
         },
-        pagination: {
-          total: filteredCount,
-          page,
-          limit,
-          totalPages: Math.ceil(filteredCount / limit),
-        },
-      },
+        "Berhasil mengambil data program budaya",
+      ),
       { status: 200 },
     );
   } catch (error) {

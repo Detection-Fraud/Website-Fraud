@@ -26,7 +26,7 @@ export function useSearchActivePic() {
       const res = await api.get("/users/search", {
         params: { q: debounceQuery.trim(), role: "PIC" },
       });
-      return (res.data.data ?? []) as ActivePicResult[];
+      return (res.data ?? []) as ActivePicResult[];
     },
     enabled: debounceQuery.trim().length >= 2,
   });

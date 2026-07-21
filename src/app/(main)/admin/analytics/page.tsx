@@ -8,7 +8,6 @@ import {
   PeriodeFilter,
   useDashboardAnalytics,
 } from "@/hooks/useDashboardAnalytics";
-import { useMasterWilayah } from "@/hooks/useMasterWilayah";
 import { Card, Label, ListBox, Select } from "@heroui/react";
 import { BiFilterAlt } from "react-icons/bi";
 import AnalyticChart from "./_components/AnalyticChart";
@@ -35,9 +34,10 @@ export default function AnalyticsAdmin() {
     setRankingPage,
     unitType,
     setUnitType,
+    kanwilList,
+    divisiList,
+    kancabList,
   } = useDashboardAnalytics();
-
-  const { kanwilList, divisiList } = useMasterWilayah();
 
   const currentMonth = summary?.laporanBulanIni || 0;
   const lastMonth = summary?.laporanBulanLalu || 0;
@@ -45,19 +45,15 @@ export default function AnalyticsAdmin() {
   const diff = dynamicSummary.currentValue - dynamicSummary.previousValue;
   const dynamicSubText =
     diff >= 0 ? `+${diff} vs tahun lalu` : `${diff} vs tahun lalu`;
+
   const percentage = (
     ((summary?.totalApproved || 0) / (summary?.totalKegiatan || 1)) *
     100
   ).toFixed(2);
-
-  const selectedKanwil = kanwilList.find((k: any) => k.id === kanwilId);
-  const kancabChildren = selectedKanwil ? selectedKanwil.children : [];
-
+  
   const handleUnitTypeChange = (val: UnitTypeFilter) => {
     setUnitType(val);
     setKanwilId("ALL");
-    setKancabId("ALL");
-    setDivisiId("ALL");
   };
 
   return (
@@ -90,10 +86,6 @@ export default function AnalyticsAdmin() {
                 value={kanwilId}
                 onChange={(val) => {
                   setKanwilId(val);
-                  setKancabId("ALL");
-                  if (val !== "ALL") {
-                    setDivisiId("ALL");
-                  }
                   setRankingPage(1);
                 }}
                 className="w-full sm:w-52 lg:w-62"
@@ -105,7 +97,7 @@ export default function AnalyticsAdmin() {
           {unitType === "CABANG" && (
             <div className="flex-1 min-w-[200px]">
               <SelectKancab
-                branches={kancabChildren}
+                branches={kancabList}
                 value={kancabId}
                 isDisabled={kanwilId === "ALL" || divisiId !== "ALL"}
                 onChange={(val) => {

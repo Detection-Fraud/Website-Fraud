@@ -1,4 +1,4 @@
-import { getActiveUnits, type ActiveUnit } from "@/lib/api/active-units";
+import { resolveScope, type ActiveUnit } from "@/lib/api/unit-scope";
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { MONTHS_NAMES_ID, PERIODE_CONFIG } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
@@ -19,12 +19,11 @@ export async function GET(req: Request) {
     const divisiId = searchParams.get("divisiId") || "ALL";
     const unitTypeFilter = searchParams.get("unitType") || "NASIONAL";
 
-    const activeUnits = await getActiveUnits({
+    const { activeUnits } = await resolveScope(session.user, {
       kanwilId,
       kancabId,
       divisiId,
       unitTypeFilter,
-      user: session.user,
     });
 
     const programs = await prisma.programBudaya.findMany({

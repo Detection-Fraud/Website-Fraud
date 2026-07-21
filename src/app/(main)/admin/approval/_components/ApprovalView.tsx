@@ -4,7 +4,6 @@ import AppBar from "@/components/layout/Appbar";
 import { useReportList } from "@/hooks/useReportList";
 import { Button, Card, useOverlayState } from "@heroui/react";
 
-import { useMasterWilayah } from "@/hooks/useMasterWilayah";
 
 import FilterProgram from "@/components/ui/FilterProgram";
 import SelectKancab from "@/components/ui/SelectKancab";
@@ -33,8 +32,12 @@ export default function ApprovalView() {
     handleSearch,
     handleClearSearch,
     updateParams,
-    kanwilFilter,
-    kancabFilter,
+    kanwilId,
+    kancabId,
+    setKanwilId,
+    setKancabId,
+    kanwilList,
+    kancabList,
     router,
     statusFilter,
     programFilter,
@@ -111,10 +114,6 @@ export default function ApprovalView() {
     },
   ];
 
-  const { kanwilList } = useMasterWilayah();
-
-  const selectedKanwil = kanwilList.find((k: any) => k.id === kanwilFilter);
-  const kancabList = selectedKanwil ? selectedKanwil.children : [];
 
   return (
     <div className="space-y-8 mb-10">
@@ -134,19 +133,23 @@ export default function ApprovalView() {
 
         <SelectWilayah
           regions={kanwilList}
-          value={kanwilFilter}
+          value={kanwilId}
           className="w-full sm:w-56 lg:w-70"
-          onChange={(val) =>
-            updateParams({ kanwilId: val, kancabId: "ALL", page: "1" })
-          }
+          onChange={(val) => {
+            setKanwilId(val);
+            updateParams({ page: "1" });
+          }}
         />
 
         <SelectKancab
           branches={kancabList}
-          value={kancabFilter}
+          value={kancabId}
           className="w-full sm:w-56 lg:w-70"
-          isDisabled={kanwilFilter === "ALL" || !selectedKanwil}
-          onChange={(val) => updateParams({ kancabId: val, page: "1" })}
+          isDisabled={kanwilId === "ALL" || kanwilList.length === 0}
+          onChange={(val) => {
+            setKancabId(val);
+            updateParams({ page: "1" });
+          }}
         />
       </div>
 

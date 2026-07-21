@@ -1,6 +1,5 @@
 "use client";
 
-import { useReportSubmission } from "@/hooks/useReportSubmission";
 import { useReportStore } from "@/store/useReportStore";
 import { Card, Link } from "@heroui/react";
 import { useEffect } from "react";
@@ -14,18 +13,6 @@ import GridPreview from "./_components/gridPreview";
 
 export default function DetectionPage() {
   const { resetStore } = useReportStore();
-
-  const {
-    loadingText,
-    handleCheckFraud,
-    tanganiSubmitFinal,
-    adaGambarIdle,
-    adaGambarFraud,
-    adaGambarLoading,
-    semuaLulus,
-    totalGambar,
-  } = useReportSubmission();
-
   const { programs } = useProgramList();
 
   useEffect(() => {
@@ -67,14 +54,6 @@ export default function DetectionPage() {
         {/* KOLOM KANAN (Kecil): FORM TEKS & TOMBOL */}
         <div className="lg:col-span-1 flex flex-col gap-6 sticky top-6 mb-10">
           <FormDetection
-            loadingText={loadingText}
-            handleCheckFraud={handleCheckFraud}
-            tanganiSubmitFinal={tanganiSubmitFinal}
-            adaGambarIdle={adaGambarIdle}
-            adaGambarFraud={adaGambarFraud}
-            adaGambarLoading={adaGambarLoading}
-            semuaLulus={semuaLulus}
-            totalGambar={totalGambar}
             programs={programs}
           />
 

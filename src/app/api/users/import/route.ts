@@ -375,53 +375,65 @@ export async function POST(req: NextRequest) {
       const existingByNip = new Map(existingUsers.map((u) => [u.username, u]));
       const processedNips = new Set<string>();
 
-      let createdCount = 0;
-      let updatedCount = 0;
-
-      for (const row of rowsToImport) {
-        // Catat NIP yang valid agar tidak di-deactivate (termasuk yang tidak berubah)
+      const validRows = rowsToImport.filter((row) => {
         if (row.status !== "error" && row.nip) {
           processedNips.add(row.nip);
         }
+        return row.status !== "error" && row.status !== "tidak_berubah";
+      });
 
-        // Skip baris error dan tidak_berubah
-        if (row.status === "error" || row.status === "tidak_berubah") continue;
-        const existing = existingByNip.get(row.nip);
+      let createdCount = 0;
+      let updatedCount = 0;
 
-        if (!existing) {
-          // CREATE — status "baru" dan belum ada di DB
-          await prisma.user.create({
-            data: {
-              username: row.nip,
-              samlNameId: row.nip,
-              name: row.nama,
-              role: "VIEWER",
-              authProvider: "SSO",
-              isActive: true,
-              unitId: row.unitId,
-            },
+      await prisma.$transaction(async (tx) => {
+        const toCreate = validRows.filter((r) => !existingByNip.has(r.nip));
+        const toUpdate = validRows.filter((r) => existingByNip.has(r.nip));
+
+        if (toCreate.length > 0) {
+          const createData = toCreate.map((row) => ({
+            username: row.nip,
+            samlNameId: row.nip,
+            name: row.nama,
+            role: "VIEWER" as const,
+            authProvider: "SSO",
+            isActive: true,
+            unitId: row.unitId,
+          }));
+          const created = await tx.user.createMany({
+            data: createData,
           });
-          createdCount++;
-        } else {
-          // UPDATE — status "baru" (nama berubah) atau "mutasi" (unit berubah)
-          await prisma.user.update({
-            where: { id: existing.id },
-            data: { name: row.nama, unitId: row.unitId },
-          });
-          updatedCount++;
+          createdCount = created.count;
         }
-      }
+
+        if (toUpdate.length > 0) {
+          await Promise.all(
+            toUpdate.map((row) =>
+              tx.user.update({
+                where: { id: existingByNip.get(row.nip)!.id },
+                data: { name: row.nama, unitId: row.unitId },
+              }),
+            ),
+          );
+
+          updatedCount = toUpdate.length;
+        }
+      });
 
       // ── Soft-delete user lama yang tidak ada di file ─────────
       let deactivatedCount = 0;
+      const toDeactivate = [];
       for (const [nip, user] of existingByNip.entries()) {
         if (nip && !processedNips.has(nip) && user.isActive) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { isActive: false },
-          });
-          deactivatedCount++;
+          toDeactivate.push(user.id);
         }
+      }
+
+      if (toDeactivate.length > 0) {
+        const deactivated = await prisma.user.updateMany({
+          where: { id: { in: toDeactivate } },
+          data: { isActive: false },
+        });
+        deactivatedCount = deactivated.count;
       }
 
       return NextResponse.json(

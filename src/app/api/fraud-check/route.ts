@@ -1,6 +1,5 @@
-
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
-import { buildUnitScope } from "@/lib/api/unit-scope";
+import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
@@ -28,9 +27,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const reportWhereClause = await buildUnitScope({
-      user,
-    });
+    const { whereClause: reportWhereClause } = await resolveScope(user, {});
 
     const references = await prisma.activityPhoto.findMany({
       where: {
@@ -41,8 +38,6 @@ export async function POST(request: Request) {
         imageUrl: true,
       },
     });
-
-    console.log(`Ditemukan ${references.length} foto referensi untuk dicek`);
 
     const urlMapping: Record<string, string> = {};
 
@@ -106,7 +101,6 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("Mengirim data ke Python AI...");
     const pythonResponse = await fetch(PYTHON_API_URL, {
       method: "POST",
       headers: {
@@ -138,8 +132,6 @@ export async function POST(request: Request) {
         return item;
       });
     }
-
-    console.log(result);
 
     return NextResponse.json(successResponse(result, "Data berhasil dicek"), {
       status: 200,

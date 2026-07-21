@@ -110,7 +110,7 @@ export default function SelesaiStep({
         <Button
           variant="primary"
           size="md"
-          onPress={() => router.push("/admin/users")}
+          onPress={() => router.push("/admin/management")}
         >
           Lihat User Management
           <FiArrowRight size={14} />
