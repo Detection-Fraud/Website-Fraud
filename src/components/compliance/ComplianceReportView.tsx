@@ -80,7 +80,10 @@ export default function ComplianceReportView() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Rekap_Program_Budaya Tahun ${filters.year}.xlsx`;
+      const disposition = response.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="([^"]+)"/);
+      a.download =
+        match?.[1] ?? `Rekap_Program_Budaya Tahun ${filters.year}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();

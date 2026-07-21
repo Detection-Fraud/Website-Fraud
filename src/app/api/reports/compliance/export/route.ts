@@ -1,13 +1,13 @@
-import { resolveScope, type ActiveUnit } from "@/lib/api/unit-scope";
-import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { MONTHS_NAMES_ID, PERIODE_CONFIG } from "@/lib/api/constants";
+import { resolveScope, type ActiveUnit } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { Prisma, ProgramBudaya } from "@generated/prisma";
 import ExcelJS from "exceljs";
 
 export async function GET(req: Request) {
   try {
-    const session = await requireAdmin();
+    const session = await requireAuth();
 
     const { searchParams } = new URL(req.url);
     const year = parseInt(
@@ -57,11 +57,39 @@ export async function GET(req: Request) {
 
     const buffer = await workbook.xlsx.writeBuffer();
 
+    const sanitize = (str: string) =>
+      str
+        .replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, "_")
+        .replace(/_+/g, "_")
+        .trim();
+
+    let scopeLabel = "Nasional";
+
+    if (session.user.role === "PIC") {
+      const unitName = session.user.unitName ?? session.user.unitId ?? "Unit";
+      scopeLabel = sanitize(unitName);
+    } else if (session.user.role === "ADMIN") {
+      if (kancabId !== "ALL") {
+        const kancabUnit = activeUnits.find((u) => u.id === kancabId);
+        if (kancabUnit) scopeLabel = sanitize(kancabUnit.name);
+      } else if (kanwilId !== "ALL") {
+        const kanwilUnit = activeUnits.find(
+          (u) => u.id === kanwilId || u.type === "KANTOR_WILAYAH",
+        );
+        if (kanwilUnit) scopeLabel = sanitize(kanwilUnit.name);
+      } else if (divisiId !== "ALL") {
+        const divisiUnit = activeUnits.find((u) => u.id === divisiId);
+        if (divisiUnit) scopeLabel = sanitize(divisiUnit.name);
+      }
+    }
+
+    const fileName = `Rekap_Program_Budaya_${scopeLabel}_${year}.xlsx`;
+
     return new Response(buffer as ArrayBuffer, {
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="Rekap_Compliance_${year}.xlsx"`,
+        "Content-Disposition": `attachment; filename="${fileName}"`,
       },
     });
   } catch (error) {

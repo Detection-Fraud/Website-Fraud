@@ -147,7 +147,7 @@ export default function FilterSection({
               Reset
             </Button>
           )}
-          {user?.role === "ADMIN" && (
+          {(user?.role === "ADMIN" || user?.role === "PIC") && (
             <Button
               variant="secondary"
               className={"mt-3 rounded-xl shadow-sm border border-gray-200"}
