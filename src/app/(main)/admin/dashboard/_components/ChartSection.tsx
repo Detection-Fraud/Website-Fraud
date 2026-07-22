@@ -1,6 +1,7 @@
 import { DashboardCharts, DashboardSummary } from "@/types/analytics.type";
 import { Card, Chip, Link, ProgressBar, Tabs } from "@heroui/react";
 import { BiAward, BiLineChart } from "react-icons/bi";
+import { FaUser } from "react-icons/fa";
 import { FiBarChart2 } from "react-icons/fi";
 import { GoArrowUpRight, GoTrophy } from "react-icons/go";
 import { LuMedal } from "react-icons/lu";
@@ -25,8 +26,13 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
       <span className="text-sm font-bold text-gray-500">#{rank}</span>
     );
   return (
-    <div className="space-y-8 mb-12">
+    <div className="space-y-6 mb-12">
+      {/* =========================================
+          ROW 1: Grafik Kegiatan & Top 5 Unit
+          ========================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
+        {/* CARD: GRAFIK KEGIATAN PER BULAN */}
+
         <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-3">
           {/* Tabs membungkus SELURUH isi Card */}
           <Tabs>
@@ -71,7 +77,8 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           </Tabs>
         </Card>
 
-        <Card className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+        {/* CARD: TOP 5 UNIT TERAKTIF */}
+        <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-2">
           <Card.Header className="flex flex-row justify-between items-center">
             <div>
               <Card.Title className="font-bold text-gray-900">
@@ -135,7 +142,13 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
         </Card>
       </div>
 
+      {/* =========================================
+          ROW 2: Distribusi Program & Ranking Wilayah
+          ========================================= */}
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
+        {/* CARD: DISTRIBUSI PROGRAM */}
+
         <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-2">
           <Card.Header>
             <Card.Title className="font-bold text-gray-900">
@@ -150,6 +163,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           </Card.Content>
         </Card>
 
+        {/* CARD: RANKING UNIT KERJA PER WILAYAH */}
         <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-3">
           <Card.Header className="flex flex-row justify-between items-center">
             <div>
@@ -239,6 +253,105 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
             })}
           </Card.Content>
 
+          <Card.Footer className="flex justify-center border-t border-gray-100 mt-4 pt-4 pb-0">
+            <Link
+              href="/admin/analytics"
+              className={
+                "text-xs text-blue-600 font-medium hover:underline no-underline"
+              }
+            >
+              Lihat ranking lengkap ↗
+            </Link>
+          </Card.Footer>
+        </Card>
+      </div>
+
+      {/* ROW 3 TOP 10 CC */}
+      <div>
+        <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-3 lg:col-start-2">
+          <Card.Header className="flex flex-row justify-between items-center">
+            <div>
+              <Card.Title className="font-bold text-gray-900">
+                Top 10 Culture Catalyst
+              </Card.Title>
+              <Card.Description className="text-xs text-gray-400 mt-0.5">
+                Culture Catalyst dengan performa approval terbaik
+              </Card.Description>
+            </div>
+            <FaUser className="w-4 h-4 text-blue-500" />
+          </Card.Header>
+
+          <Card.Content
+            className="space-y-4 pt-4
+          "
+          >
+            {charts?.rankingCC && charts.rankingCC.length > 0 ? (
+              charts.rankingCC.slice(0, 10).map((cc, index) => {
+                // Color mapping sesuai status
+                let statusColor: "success" | "default" | "warning" | "danger" =
+                  "default";
+                if (cc.status === "Sangat Baik") statusColor = "success";
+                else if (cc.status === "Baik") statusColor = "default";
+                else if (cc.status === "Cukup") statusColor = "warning";
+                else if (cc.status === "Perlu Perhatian")
+                  statusColor = "danger";
+
+                return (
+                  <div key={cc.userId} className="flex gap-4 items-start py-1">
+                    {/* Ranking Icon */}
+                    <div className="w-8 pt-0.5 flex justify-center shrink-0">
+                      {rankIcon(index + 1)}
+                    </div>
+
+                    <div className="flex-1 space-y-2">
+                      {/* Nama & Chip */}
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-[10px] font-bold">
+                            {cc.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-semibold text-sm text-gray-900">
+                            {cc.name}
+                          </span>
+                          <Chip
+                            size="sm"
+                            color={statusColor}
+                            variant="soft"
+                            className="text-[10px] h-5 px-1.5 font-medium border-none"
+                          >
+                            {cc.status}
+                          </Chip>
+                        </div>
+                        <div className="flex items-center text-sm font-bold text-gray-900">
+                          {cc.approved}{" "}
+                          <span className="text-gray-400 font-normal ml-1 text-xs">
+                            / {cc.submitted}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar & Unit Info */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                            style={{ width: `${cc.approvalRate}%` }}
+                          />
+                        </div>
+                        <div className="text-[11px] text-gray-400 font-medium whitespace-nowrap w-24 text-right truncate">
+                          {cc.unitName}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex items-center justify-center py-8 text-sm text-gray-400">
+                Tidak ada data Culture Catalyst
+              </div>
+            )}
+          </Card.Content>
           <Card.Footer className="flex justify-center border-t border-gray-100 mt-4 pt-4 pb-0">
             <Link
               href="/admin/analytics"

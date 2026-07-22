@@ -16,28 +16,33 @@ export default function SummaryCard({
   color,
 }: SummaryCardProps) {
   const colorClasses = {
-    blue: "bg-blue-600 text-white",
-    green: "bg-green-600 text-white",
-    red: "bg-red-600 text-white",
-    orange: "bg-orange-600 text-white",
-    purple: "bg-purple-600 text-white",
+    blue: "bg-blue-50 text-blue-600",
+    green: "bg-green-50 text-green-600",
+    red: "bg-red-50 text-red-600",
+    orange: "bg-orange-50 text-orange-600",
+    purple: "bg-purple-50 text-purple-600",
   };
+
   return (
-    <Card className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-      <Card.Content className="flex items-start justify-between gap-3">
-        <div
-          className={`${colorClasses[color]} p-3 rounded-xl shadow-sm w-11 h-11 flex items-center justify-center`}
-        >
-          {icon}
+    <Card className="bg-white rounded-2xl p-6 border border-gray-100 shadow-none hover:shadow-sm transition-all duration-200">
+      <Card.Content className="flex flex-col gap-4">
+        <div className="flex justify-between items-start">
+          <div className="space-y-1">
+            <Card.Title className="text-sm font-medium text-gray-500">
+              {title}
+            </Card.Title>
+            <Card.Description className="text-3xl font-bold text-gray-900">
+              {value}
+            </Card.Description>
+          </div>
+          <div
+            className={`${colorClasses[color]} p-2.5 rounded-xl w-10 h-10 flex items-center justify-center`}
+          >
+            {icon}
+          </div>
         </div>
-        <div className="flex-1">
-          <Card.Title className="text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">
-            {title}
-          </Card.Title>
-          <Card.Description className="text-3xl font-bold text-gray-900 mb-1">
-            {value}
-          </Card.Description>
-          <p className="text-xs text-gray-400 mt-3">{description}</p>
+        <div className="flex items-center gap-1.5 mt-2">
+          <p className="text-[13px] font-medium text-gray-400">{description}</p>
         </div>
       </Card.Content>
     </Card>

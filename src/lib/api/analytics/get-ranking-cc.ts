@@ -126,8 +126,8 @@ export async function getRankingCC(params: RankingCCParams) {
     .sort(
       (a, b) =>
         b.approved - a.approved ||
-        b.submitted - a.submitted ||
-        b.approvalRate - a.approvalRate,
+        b.approvalRate - a.approvalRate ||
+        b.submitted - a.submitted,
     );
 
   // 5. Pagination

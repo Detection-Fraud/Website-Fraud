@@ -1,5 +1,6 @@
 "use client";
 
+import AppBar from "@/components/layout/Appbar";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
 import { IoIosCheckmarkCircleOutline } from "react-icons/io";
 import { LuBuilding2, LuCalendarDays } from "react-icons/lu";
@@ -20,8 +21,14 @@ export default function DashboardAdmin() {
   ).toFixed(2);
 
   return (
-    <div className="space-y-7">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="space-y-6">
+      <AppBar
+        title="Dashboard Monitoring"
+        description={`Pentauan performa kegiatan budaya perusahaan tahun ${year}`}
+        showAddButton={false}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* SUMMARY KEGIATAN */}
         <SummaryCard
           title="Total Kegiatan"
@@ -41,14 +48,14 @@ export default function DashboardAdmin() {
           title="Laporan Bulan Ini"
           value={summary?.laporanBulanIni || 0}
           icon={<LuCalendarDays className="w-5 h-5" />}
-          description={`Data untuk bulan ${currentMonthName} ${year}`}
+          description={`Data bulan ${currentMonthName} ${year}`}
           color="purple"
         />
         <SummaryCard
           title="Tingkat Persetujuan"
           value={`${percentage}%`}
           icon={<IoIosCheckmarkCircleOutline className="w-5 h-5" />}
-          description={"Tervalidasi"}
+          description={"Tervalidasi (Approved)"}
           color="orange"
         />
       </div>
