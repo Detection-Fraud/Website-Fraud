@@ -26,15 +26,23 @@ export function useDashboardAnalytics() {
     unitType: "WILAYAH" as UnitTypeFilter,
     rankingPage: 1,
     rankingUnitId: "ALL",
+    rankingCCPage: 1,
   });
 
   const { data, isLoading, error } = useQuery<DashboardData>({
-    queryKey: ["dashboard", wilayah.kanwilId, wilayah.kancabId, wilayah.divisiId, extraFilters],
+    queryKey: [
+      "dashboard",
+      wilayah.kanwilId,
+      wilayah.kancabId,
+      wilayah.divisiId,
+      extraFilters,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("year", String(extraFilters.year));
       params.set("periode", extraFilters.periode);
       params.set("unitType", extraFilters.unitType);
+      params.set("rankingCCPage", String(extraFilters.rankingCCPage));
 
       if (wilayah.kanwilId !== "ALL") params.set("kanwilId", wilayah.kanwilId);
       if (extraFilters.programId !== "ALL")
@@ -109,16 +117,38 @@ export function useDashboardAnalytics() {
 
     // Setters → dispatch actions
     setYear: (v: number) =>
-      setExtraFilters((p) => ({ ...p, year: v, rankingPage: 1 })),
+      setExtraFilters((p) => ({
+        ...p,
+        year: v,
+        rankingPage: 1,
+        rankingCCPage: 1,
+      })),
     setProgramId: (v: string) =>
-      setExtraFilters((p) => ({ ...p, programId: v, rankingPage: 1 })),
+      setExtraFilters((p) => ({
+        ...p,
+        programId: v,
+        rankingPage: 1,
+        rankingCCPage: 1,
+      })),
     setPeriode: (v: PeriodeFilter) =>
-      setExtraFilters((p) => ({ ...p, periode: v, rankingPage: 1 })),
+      setExtraFilters((p) => ({
+        ...p,
+        periode: v,
+        rankingPage: 1,
+        rankingCCPage: 1,
+      })),
     setUnitType: (v: UnitTypeFilter) =>
-      setExtraFilters((p) => ({ ...p, unitType: v, rankingPage: 1 })),
+      setExtraFilters((p) => ({
+        ...p,
+        unitType: v,
+        rankingPage: 1,
+        rankingCCPage: 1,
+      })),
     setRankingPage: (v: number) =>
       setExtraFilters((p) => ({ ...p, rankingPage: v })),
     setRankingUnitId: (v: string) =>
       setExtraFilters((p) => ({ ...p, rankingUnitId: v, rankingPage: 1 })),
+    setRankingCCPage: (v: number) =>
+      setExtraFilters((p) => ({ ...p, rankingCCPage: v })),
   };
 }

@@ -1,5 +1,4 @@
 import { useFormDetectionLogic } from "@/hooks/useFormDetectionLogic";
-import { ReportFormData } from "@/types/report.types";
 import { ProgramBudaya } from "@generated/prisma";
 import {
   Button,
@@ -19,7 +18,6 @@ export interface InitialData {
   programId?: string;
   tanggalKegiatan?: string;
   lokasi?: string;
-  picKegiatan?: string;
   description?: string;
 }
 

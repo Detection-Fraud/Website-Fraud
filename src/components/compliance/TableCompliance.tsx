@@ -117,7 +117,7 @@ export default function TableCompliance({
       // 👇 TAMBAHKAN LOGIKA INI: Jika fokus ke 1 program, tampilkan Progress Bar
       if (selectedProgramId !== "ALL") {
         return (
-          <div className="min-w-[120px]">
+          <div className="min-w-30">
             <ProgressBar value={progData.pct} color={pctColor} size="md">
               <ProgressBar.Output />
               <ProgressBar.Track>

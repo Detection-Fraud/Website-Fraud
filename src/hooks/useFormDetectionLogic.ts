@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
-import type { Key } from "@heroui/react";
-import { parseDate, type DateValue } from "@internationalized/date";
 import { InitialData, ReportFormData } from "@/types/report.types";
 import { ProgramBudaya } from "@generated/prisma";
+import type { Key } from "@heroui/react";
+import { parseDate, type DateValue } from "@internationalized/date";
+import { useMemo, useState } from "react";
 import { useCurrentUser } from "./useCurrentUser";
 
 interface UseFormDetectionLogicProps {
@@ -73,7 +73,6 @@ export function useFormDetectionLogic({
       programId: selectedProgramId ? String(selectedProgramId) : "",
       tanggalKegiatan: selectedDate ? selectedDate.toString() : "",
       lokasi: nativeData.lokasi || "",
-      picKegiatan: user?.name || "",
       description: nativeData.description || "",
     };
 

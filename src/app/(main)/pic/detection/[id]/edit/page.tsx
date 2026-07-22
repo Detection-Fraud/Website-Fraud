@@ -1,14 +1,14 @@
 "use client";
 
 import { useProgramList } from "@/hooks/useProgramList";
+import { useReportDetail } from "@/hooks/useReportDetail";
 import { useReportStore } from "@/store/useReportStore";
 import { Card, Link, Spinner } from "@heroui/react";
-import { useReportDetail } from "@/hooks/useReportDetail";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Dropzone from "../../_components/dropzone";
 import FormDetection from "../../_components/form-detection";
 import GridPreview from "../../_components/gridPreview";
-import { useParams, useRouter } from "next/navigation";
 
 export default function EditDetectionPage() {
   const { id } = useParams() as { id: string };
@@ -38,7 +38,6 @@ export default function EditDetectionPage() {
           ? new Date(report.tanggalKegiatan).toISOString()
           : undefined,
         lokasi: report.lokasi,
-        picKegiatan: report.picKegiatan,
         description: report.description,
       }
     : undefined;

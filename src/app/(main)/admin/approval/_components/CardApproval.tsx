@@ -38,11 +38,11 @@ export default function CardApproval({
     activityName,
     tanggalKegiatan,
     lokasi,
-    picKegiatan,
     status,
     unit,
     notes,
     program,
+    createdBy,
     photos,
   } = report;
 
@@ -157,7 +157,7 @@ export default function CardApproval({
 
           <div className="flex items-center gap-2">
             <FiUser className="text-sky-500 w-3.5 h-3.5 shrink-0" />
-            <span className="truncate text-xs">{picKegiatan}</span>
+            <span className="truncate text-xs">{createdBy?.name}</span>
           </div>
           <div className="flex items-center gap-2">
             <FiFolder className="text-sky-500 w-3.5 h-3.5 shrink-0" />

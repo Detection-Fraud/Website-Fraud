@@ -1,9 +1,4 @@
-import {
-  Pagination,
-  SearchField,
-  SearchFieldGroup,
-  Table,
-} from "@heroui/react";
+import { Pagination, Table } from "@heroui/react";
 import { BsFillInboxFill } from "react-icons/bs";
 
 export interface TableColumn {
@@ -119,7 +114,7 @@ export default function DataTable<T>({
           <Table.Header className={"sticky z-10 top-0"}>
             {column.map((col, idx) => (
               <Table.Column
-                className={"px-6 py-3.5 bg-[#f8fafc]"}
+                className={"px-6 py-3.5 bg-[#f8fafc] whitespace-nowrap"}
                 key={col.key}
                 isRowHeader={idx === 0}
               >
@@ -140,7 +135,7 @@ export default function DataTable<T>({
                 {column.map((col) => (
                   <Table.Cell
                     key={col.key}
-                    className={"rounded-none px-6 text-start"}
+                    className={"rounded-none px-6 text-start whitespace-nowrap"}
                   >
                     {renderCell
                       ? renderCell(item, col.key)

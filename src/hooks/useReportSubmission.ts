@@ -122,7 +122,6 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
       !dataForm.programId ||
       !dataForm.lokasi ||
       !dataForm.tanggalKegiatan ||
-      !dataForm.picKegiatan ||
       !dataForm.description
     ) {
       toast.danger("Data belum lengkap! Harap isi semua informasi laporan.");

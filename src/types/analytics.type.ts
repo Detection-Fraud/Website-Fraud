@@ -44,6 +44,18 @@ export interface DashboardSummary {
   laporanBulanLalu: number;
 }
 
+export interface RankingCC {
+  rank: number;
+  userId: string;
+  name: string;
+  unitName: string;
+  unitType: string;
+  submitted: number;
+  approved: number;
+  approvalRate: number;
+  status: string;
+}
+
 export interface DashboardCharts {
   kegiatanPerBulan: KegiatanPerPeriode[];
   kegiatanPerTriwulan: KegiatanPerPeriode[];
@@ -54,6 +66,10 @@ export interface DashboardCharts {
   rankingTotal: number;
   rankingPage: number;
   rankingTotalPages: number;
+  rankingCC: RankingCC[];
+  rankingCCTotal: number;
+  rankingCCPage: number;
+  rankingCCTotalPages: number;
 }
 export interface DashboardData {
   summary: DashboardSummary;

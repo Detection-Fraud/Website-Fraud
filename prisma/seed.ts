@@ -192,8 +192,9 @@ async function main() {
   }
 
   // PIC KANCAB (BANDUNG)
+  let picBandung: any = null;
   if (kancabBandung) {
-    await prisma.user.create({
+    picBandung = await prisma.user.create({
       data: {
         name: "Agus Kancab Bandung",
         username: "pic.bandung",
@@ -292,7 +293,7 @@ async function main() {
         lokasi: "Kantor Cabang Bandung",
         description:
           "Kegiatan rutin penyuluhan anti fraud kepada seluruh pegawai cabang.",
-        picKegiatan: "Agus Kancab Bandung",
+        createdById: picBandung?.id || null,
         status: "PENDING",
         unitId: kancabBandung.id,
         programId: prog1.id,
@@ -306,7 +307,7 @@ async function main() {
         lokasi: "Kantor Cabang Bandung",
         description:
           "Workshop berbagi pengetahuan teknologi terbaru antar pegawai.",
-        picKegiatan: "Agus Kancab Bandung",
+        createdById: picBandung?.id || null,
         status: "PENDING",
         unitId: kancabBandung.id,
         programId: prog2.id,

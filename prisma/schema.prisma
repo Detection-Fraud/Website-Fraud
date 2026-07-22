@@ -85,6 +85,8 @@ model User {
 
   passwordChangedAt DateTime? @default(now())
 
+  createdReports ActivityReport[] @relation("CreatedReports")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -125,6 +127,9 @@ model ActivityReport {
   unitId String?
   unit Unit? @relation(fields: [unitId], references: [id])
 
+  createdById String?
+  createdBy User? @relation("CreatedReports", fields: [createdById], references: [id])
+
   programId String?
   program ProgramBudaya? @relation(fields: [programId], references: [id])
 
@@ -134,8 +139,6 @@ model ActivityReport {
 
   lokasi String
   description String
-
-  picKegiatan String
 
   status ReportStatus @default(PENDING)
 
@@ -151,6 +154,7 @@ model ActivityReport {
   logs ActivityLog[]
 
   @@index([unitId])
+  @@index([createdById])
 }
 
 model ActivityLog {

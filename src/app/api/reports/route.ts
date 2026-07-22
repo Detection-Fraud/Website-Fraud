@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
         { activityName: { contains: search, mode: "insensitive" } },
         { lokasi: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
-        { picKegiatan: { contains: search, mode: "insensitive" } },
         { program: { name: { contains: search, mode: "insensitive" } } },
+        { createdBy: { name: { contains: search, mode: "insensitive" } } },
       ];
     }
 
@@ -90,6 +90,7 @@ export async function GET(request: NextRequest) {
             },
           },
           program: { select: { name: true } },
+          createdBy: { select: { id: true, name: true } },
           photos: {
             select: {
               id: true,
@@ -154,7 +155,6 @@ export async function POST(request: Request) {
       tanggalKegiatan,
       lokasi,
       description,
-      picKegiatan,
       programId,
       uploadedPhotos,
     } = parsedData.data;
@@ -201,10 +201,10 @@ export async function POST(request: Request) {
           tanggalKegiatan: new Date(tanggalKegiatan),
           lokasi,
           description,
-          picKegiatan,
           programId: programId || null,
           // === PERUBAHAN: regionId/branchId/divisionId → unitId ===
           unitId: user.unitId || null,
+          createdById: user.id,
 
           photos: {
             create:
@@ -225,6 +225,7 @@ export async function POST(request: Request) {
         },
         include: {
           photos: true,
+          createdBy: { select: { id: true, name: true } },
         },
       });
 

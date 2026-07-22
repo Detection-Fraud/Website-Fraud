@@ -7,7 +7,6 @@ export const createReportSchema = z.object({
   }),
   lokasi: z.string().min(3, "Lokasi minimal 3 karakter"),
   description: z.string().min(10, "Deskripsi minimal 10 karakter"),
-  picKegiatan: z.string().min(1, "PIC Kegiatan wajib diisi"),
   programId: z.uuid("Program ID tidak valid"),
   uploadedPhotos: z.array(
     z.object({

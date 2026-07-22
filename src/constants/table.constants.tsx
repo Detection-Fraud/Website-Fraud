@@ -1,5 +1,4 @@
 import { TableColumn } from "@/components/layout/DataTable";
-import { formatDate } from "@/lib/formatDate";
 import { ActivityReportItem } from "@/types/report.types";
 import { Avatar, Button, Chip } from "@heroui/react";
 import { FaEye } from "react-icons/fa";
@@ -10,7 +9,7 @@ export const REPORT_COLUMNS: TableColumn[] = [
   { key: "activityName", label: "Nama Kegiatan" },
   { key: "lokasi", label: "Lokasi" },
   { key: "unit", label: "Unit" },
-  { key: "picKegiatan", label: "PIC" },
+  { key: "createdBy", label: "PIC" },
   { key: "program", label: "Program" },
   { key: "status", label: "Status" },
   { key: "createdAt", label: "Tanggal Dibuat" },
@@ -59,16 +58,16 @@ export const renderReportCell = (
           </span>
         </div>
       );
-    case "picKegiatan":
+    case "createdBy":
       return (
         <div className="flex flex-row items-center gap-2">
           <Avatar variant="soft" color="accent" size="sm">
             <Avatar.Fallback>
-              {item.picKegiatan.charAt(0).toUpperCase()}
+              {item.createdBy?.name.charAt(0).toUpperCase()}
             </Avatar.Fallback>
           </Avatar>
           <span className="text-xs font-light text-slate-700 max-w-[200px] truncate">
-            {item.picKegiatan}
+            {item.createdBy?.name}
           </span>
         </div>
       );

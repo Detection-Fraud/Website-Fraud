@@ -1,7 +1,8 @@
 "use client";
 
-import { formatDate } from "@/lib/formatDate";
+import ActivityTimeline from "@/components/reports/ActivityTimeline";
 import { useReportDetail } from "@/hooks/useReportDetail";
+import { formatDate } from "@/lib/formatDate";
 import { StatusType } from "@/types/status.types";
 import { Card, Chip, Skeleton } from "@heroui/react";
 import Image from "next/image";
@@ -15,7 +16,6 @@ import {
 } from "react-icons/fi";
 import { LuBuilding2 } from "react-icons/lu";
 import StatusView from "./StatusView";
-import ActivityTimeline from "@/components/reports/ActivityTimeline";
 
 export default function DetailView({ id }: { id: string }) {
   const { report, loading, user } = useReportDetail(id);
@@ -98,7 +98,7 @@ export default function DetailView({ id }: { id: string }) {
             </Card.Header>
             <Card.Content className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+                <div className="bg-[#f8fafc] p-3.5 rounded-lg">
                   <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
                     <LuBuilding2 className="text-slate-500 w-3.5 h-3.5" />
                     <p className="text-xs">Unit Kerja</p>
@@ -108,7 +108,7 @@ export default function DetailView({ id }: { id: string }) {
                   </p>
                 </div>
 
-                <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+                <div className="bg-[#f8fafc] p-3.5 rounded-lg">
                   <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
                     <FiCalendar className="text-slate-500 w-3.5 h-3.5" />
                     <p className="text-xs">Tanggal Kegiatan</p>
@@ -131,7 +131,7 @@ export default function DetailView({ id }: { id: string }) {
                   </p>
                 </div>
 
-                <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+                <div className="bg-[#f8fafc] p-3.5 rounded-lg">
                   <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
                     <FiMapPin className="text-slate-500 w-3.5 h-3.5" />
                     <p className="text-xs">Lokasi</p>
@@ -140,25 +140,25 @@ export default function DetailView({ id }: { id: string }) {
                     {report?.lokasi}
                   </p>
                 </div>
-                <div className="bg-[#f8fafc] p-[14px] rounded-lg">
+                <div className="bg-[#f8fafc] p-3.5 rounded-lg">
                   <div className="flex flex-row items-center gap-2 text-gray-500 shrink-0">
                     <FiUser className="text-slate-500 w-3.5 h-3.5" />
                     <p className="text-xs">PIC Pelapor</p>
                   </div>
                   <p className="font-semibold text-md text-[#314158]">
-                    {report?.picKegiatan}
+                    {report?.createdBy?.name || "-"}
                   </p>
                 </div>
               </div>
 
-              <div className="bg-[#e0f2fe] p-[14px] rounded-2xl w-full">
+              <div className="bg-[#e0f2fe] p-3.5 rounded-2xl w-full">
                 <p className="text-[#0ea5e9]">Program Budaya</p>
                 <p className="text-md font-semibold text-[#0369a1]">
                   {report?.program?.name}
                 </p>
               </div>
 
-              <div className="space-y-1 px-[10px]">
+              <div className="space-y-1 px-2.5">
                 <p className="text-md font-semibold text-[#62748e]">
                   Deskripsi Kegiatan
                 </p>
@@ -182,7 +182,7 @@ export default function DetailView({ id }: { id: string }) {
               </Card.Title>
             </Card.Header>
             <Card.Content className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {report?.photos?.map((photos, idx) => (
+              {report?.photos?.map((photos: any, idx: number) => (
                 <div
                   key={idx}
                   className="relative w-full h-40 overflow-hidden rounded-xl group cursor-pointer"

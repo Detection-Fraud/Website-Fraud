@@ -20,3 +20,12 @@ export interface RankingParams extends AnalyticsScope {
     unitType?: string | null;
   };
 }
+
+export interface RankingCCParams extends AnalyticsScope {
+  page: number;
+  limit: number;
+  kanwilId?: string;
+  kancabId?: string;
+  divisiId?: string;
+  unitType?: string;
+}

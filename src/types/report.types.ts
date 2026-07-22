@@ -5,13 +5,13 @@ export interface ActivityReportItem {
   activityName: string;
   tanggalKegiatan: string | Date;
   lokasi: string;
-  picKegiatan: string;
   description: string;
   status: string;
   createdAt: string;
   notes?: string | null;
   unit?: { name: string; id: string; type: UnitType } | null;
   program?: { name: string; id: string } | null;
+  createdBy?: { id: string; name: string } | null;
   photos?: {
     id: number;
     originalName: string;
@@ -51,7 +51,6 @@ export interface ReportFormData {
   programId: string;
   tanggalKegiatan: string;
   lokasi: string;
-  picKegiatan: string;
   description: string;
   uploadedPhotos?: { originalName: string; imageUrl: string }[];
 }
@@ -61,6 +60,5 @@ export interface InitialData {
   programId?: string;
   tanggalKegiatan?: string;
   lokasi?: string;
-  picKegiatan?: string;
   description?: string;
 }

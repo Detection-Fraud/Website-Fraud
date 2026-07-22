@@ -4,7 +4,6 @@ import AppBar from "@/components/layout/Appbar";
 import { useReportList } from "@/hooks/useReportList";
 import { Button, Card, useOverlayState } from "@heroui/react";
 
-
 import FilterProgram from "@/components/ui/FilterProgram";
 import SelectKancab from "@/components/ui/SelectKancab";
 import SelectWilayah from "@/components/ui/SelectWilayah";
@@ -114,7 +113,6 @@ export default function ApprovalView() {
     },
   ];
 
-
   return (
     <div className="space-y-8 mb-10">
       <AppBar
@@ -219,7 +217,7 @@ export default function ApprovalView() {
           isOpen={state.isOpen}
           onClose={handleCloseRejectModal}
           id={selectedReport.id}
-          namaPic={selectedReport.picKegiatan}
+          namaPic={selectedReport.createdBy?.name || ""}
         />
       )}
 

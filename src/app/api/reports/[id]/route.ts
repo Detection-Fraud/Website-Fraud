@@ -29,6 +29,7 @@ export async function GET(
           },
         },
         program: { select: { name: true } },
+        createdBy: { select: { id: true, name: true } },
         photos: { select: { id: true, originalName: true, imageUrl: true } },
         logs: {
           orderBy: { createdAt: "asc" },
@@ -85,7 +86,6 @@ export async function PUT(
       tanggalKegiatan,
       lokasi,
       description,
-      picKegiatan,
       photos,
     } = body;
 
@@ -139,7 +139,6 @@ export async function PUT(
           tanggalKegiatan: new Date(tanggalKegiatan),
           lokasi,
           description,
-          picKegiatan,
           status: "PENDING",
           notes: null,
           ...(photos &&

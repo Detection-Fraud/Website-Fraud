@@ -32,6 +32,7 @@ export default function AnalyticsAdmin() {
     setDivisiId,
     rankingPage,
     setRankingPage,
+    setRankingCCPage,
     unitType,
     setUnitType,
     kanwilList,
@@ -50,7 +51,7 @@ export default function AnalyticsAdmin() {
     ((summary?.totalApproved || 0) / (summary?.totalKegiatan || 1)) *
     100
   ).toFixed(2);
-  
+
   const handleUnitTypeChange = (val: UnitTypeFilter) => {
     setUnitType(val);
     setKanwilId("ALL");
@@ -80,13 +81,14 @@ export default function AnalyticsAdmin() {
           </div>
           {/* Select Filter Wilayah */}
           {(unitType === "WILAYAH" || unitType === "CABANG") && (
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-50">
               <SelectWilayah
                 regions={kanwilList}
                 value={kanwilId}
                 onChange={(val) => {
                   setKanwilId(val);
                   setRankingPage(1);
+                  setRankingCCPage(1);
                 }}
                 className="w-full sm:w-52 lg:w-62"
               />
@@ -103,6 +105,7 @@ export default function AnalyticsAdmin() {
                 onChange={(val) => {
                   setKancabId(val);
                   setRankingPage(1);
+                  setRankingCCPage(1);
                 }}
                 className="w-full sm:w-52 lg:w-62"
               />
@@ -117,6 +120,7 @@ export default function AnalyticsAdmin() {
                 onChange={(val) => {
                   setDivisiId(val);
                   setRankingPage(1); // ← reset pagination
+                  setRankingCCPage(1);
                 }}
                 isDisabled={kanwilId !== "ALL"} // ← disable jika Kanwil sedang dipilih
                 className="w-full sm:w-52 lg:w-62"
@@ -133,6 +137,7 @@ export default function AnalyticsAdmin() {
               onChange={(key) => {
                 setPeriode((key ?? "ALL") as PeriodeFilter);
                 setRankingPage(1);
+                setRankingCCPage(1);
               }}
               className="w-full sm:w-48 lg:w-62"
             >
@@ -216,13 +221,21 @@ export default function AnalyticsAdmin() {
       <div className="mb-20">
         <AnalyticTableRanking
           data={charts?.rankingWilayah || []}
+          ccData={charts?.rankingCC || []}
           pagination={{
             total: charts?.rankingTotal ?? 0,
             page: charts?.rankingPage ?? 1,
             limit: 10,
             totalPages: charts?.rankingTotalPages ?? 1,
           }}
+          ccPagination={{
+            total: charts?.rankingCCTotal ?? 0,
+            page: charts?.rankingCCPage ?? 1,
+            limit: 10,
+            totalPages: charts?.rankingCCTotalPages ?? 1,
+          }}
           onPageChange={(page) => setRankingPage(page)}
+          onCCPageChange={(page) => setRankingCCPage(page)}
         />
       </div>
     </div>
