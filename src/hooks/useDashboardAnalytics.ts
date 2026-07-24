@@ -23,7 +23,7 @@ export function useDashboardAnalytics() {
     year: new Date().getFullYear(),
     programId: "ALL",
     periode: "ALL" as PeriodeFilter,
-    unitType: "WILAYAH" as UnitTypeFilter,
+    unitType: "ALL" as UnitTypeFilter,
     rankingPage: 1,
     rankingUnitId: "ALL",
     rankingCCPage: 1,

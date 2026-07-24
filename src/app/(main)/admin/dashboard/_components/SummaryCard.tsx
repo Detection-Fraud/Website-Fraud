@@ -31,7 +31,7 @@ export default function SummaryCard({
             <Card.Title className="text-sm font-medium text-gray-500">
               {title}
             </Card.Title>
-            <Card.Description className="text-3xl font-bold text-gray-900">
+            <Card.Description className="text-2xl sm:text-3xl font-bold text-gray-900">
               {value}
             </Card.Description>
           </div>

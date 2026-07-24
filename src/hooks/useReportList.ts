@@ -32,8 +32,15 @@ export function useReportList() {
 
   const statusFilter = getParam("status") || "ALL";
   const programFilter = getParam("programId") || "ALL";
+  const initialKanwilId = getParam("kanwilId") || "ALL";
+  const initialKancabId = getParam("kancabId") || "ALL";
+  const initialDivisiId = getParam("divisiId") || "ALL";
 
-  const wilayah = useWilayahFilter();
+  const wilayah = useWilayahFilter({
+    kanwilId: initialKanwilId,
+    kancabId: initialKancabId,
+    divisiId: initialDivisiId,
+  });
 
   const filters = {
     page,

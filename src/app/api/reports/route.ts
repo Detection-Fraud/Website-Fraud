@@ -21,13 +21,15 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get("status") || "ALL";
     const programFilter = searchParams.get("programId") || "ALL";
 
-    // === PERUBAHAN: regionId/branchId → kanwilId/kancabId ===
+    // === PERUBAHAN: regionId/branchId/divisiId → kanwilId/kancabId/divisiId ===
     const kanwilFilter = searchParams.get("kanwilId") || "ALL";
     const kancabFilter = searchParams.get("kancabId") || "ALL";
+    const divisiFilter = searchParams.get("divisiId") || "ALL";
 
     const { whereClause: unitScope } = await resolveScope(user, {
       kanwilId: kanwilFilter,
       kancabId: kancabFilter,
+      divisiId: divisiFilter,
     });
 
     let whereClause: Prisma.ActivityReportWhereInput = {

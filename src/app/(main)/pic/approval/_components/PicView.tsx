@@ -61,7 +61,7 @@ export default function PicView() {
             <p className="text-sm font-medium text-gray-600">Filter :</p>
           </div>
           {isKanwil && (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               <Select
                 aria-label="Pilih Unit"
                 placeholder="Pilih Level Unit"

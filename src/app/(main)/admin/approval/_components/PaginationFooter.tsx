@@ -49,7 +49,7 @@ export default function PaginationFooter({
   return (
     <Card className="shadow-sm border border-slate-100 rounded-2xl">
       <Pagination className="w-full flex flex-col sm:flex-row justify-between items-center gap-4">
-        <Pagination.Summary className="w-full flex flex-col sm:flex-row justify-start items-center gap-2">
+        <Pagination.Summary className="text-xs sm:text-sm text-slate-500 text-center sm:text-left">
           Menampilkan{" "}
           <span className="font-semibold text-slate-700">
             {startItem}-{endItem}
@@ -59,7 +59,7 @@ export default function PaginationFooter({
           laporan
         </Pagination.Summary>
 
-        <Pagination.Content className="order-1 sm:order-2 flex gap-1 items-center">
+        <Pagination.Content className="order-1 sm:order-2 flex gap-1 items-center overflow-x-auto">
           <Pagination.Item>
             <Pagination.Previous
               isDisabled={page === 1}

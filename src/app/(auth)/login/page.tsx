@@ -77,12 +77,12 @@ export default function LoginPage() {
 
               {/* Tagline */}
               <div>
-                <h1 className="text-3xl font-extrabold text-white leading-tight">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
                   Digital Culture &
                   <br />
                   Engagement Center
                 </h1>
-                <p className="text-blue-200/60 text-sm mt-3 leading-relaxed max-w-sm">
+                <p className="text-blue-200/60 text-sm mt-3 leading-relaxed max-w-sm hidden sm:block">
                   Teknologi AI canggih untuk memastikan integritas dan
                   autentisitas setiap dokumentasi kegiatan di lingkungan Perum
                   BULOG.
@@ -109,6 +109,13 @@ export default function LoginPage() {
 
           {/* Login Form Card */}
           <LoginForm />
+
+          {/* Mobile-only mini carousel */}
+          {banners.length > 0 && (
+            <div className="block lg:hidden">
+              <LoginCarousel banners={banners} variant="compact" />
+            </div>
+          )}
         </div>
       </div>
     </div>

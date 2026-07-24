@@ -95,15 +95,16 @@ export default function FilterSection({
             </TagGroup>
           </div>
         )}
-        <div className="flex gap-4 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <SelectYear
             value={filters.year}
             onChange={(val) => handleYearChange(val)}
-            className="w-48"
+            className="w-full"
           />
           <FilterProgram
             value={filters.programId}
             onChange={(val) => handleProgramChange(val)}
+            className="w-full"
           />
           {!hideSelectWilayah &&
             (activeTab === "KANWIL_AND_KANCAB" ||
@@ -113,7 +114,7 @@ export default function FilterSection({
                 regions={options?.kanwilList || []}
                 value={filters.kanwilId}
                 onChange={(val) => handleKanwilChange(val)}
-                className="w-48"
+                className="w-full"
               />
             )}
 
@@ -125,13 +126,14 @@ export default function FilterSection({
                 !options?.kancabList || options.kancabList.length === 0
               }
               onChange={(val) => handleKancabChange(val)}
-              className="w-59"
+              className="w-full"
             />
           )}
-
+        </div>
+        <div className="flex flex-wrap gap-3 pt-2">
           {isFilterActive && (
             <Button
-              className={"mt-3 rounded-xl"}
+              className={"rounded-xl"}
               variant="danger-soft"
               size="sm"
               onPress={() => {
@@ -150,7 +152,7 @@ export default function FilterSection({
           {(user?.role === "ADMIN" || user?.role === "PIC") && (
             <Button
               variant="secondary"
-              className={"mt-3 rounded-xl shadow-sm border border-gray-200"}
+              className={"rounded-xl shadow-sm border border-gray-200"}
               onPress={onExport}
               isDisabled={isExporting}
             >

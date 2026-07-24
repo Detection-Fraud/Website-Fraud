@@ -2,12 +2,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["pdfkit"],
   reactCompiler: true,
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
+        protocol: "https",
+        hostname: "images.unsplash.com",
       },
     ],
   },
@@ -16,10 +17,7 @@ const nextConfig: NextConfig = {
   // Tanpa ini, build akan CRASH karena Turbopack menemukan symlink yang
   // "menunjuk keluar dari filesystem root project".
   outputFileTracingExcludes: {
-    "*": [
-      "./public/uploads/**/*",
-      "./public/uploads",
-    ],
+    "*": ["./public/uploads/**/*", "./public/uploads"],
   },
 
   async rewrites() {

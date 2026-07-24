@@ -2,11 +2,13 @@
 
 import AppBar from "@/components/layout/Appbar";
 import { Banner, useBanners } from "@/hooks/useBanners";
-import { useOverlayState } from "@heroui/react";
+import { Card, useOverlayState } from "@heroui/react";
 import { useState } from "react";
+import { PiCheckCircleFill, PiImageFill, PiXCircleFill } from "react-icons/pi";
 import ModalConfirmAction from "../management/_components/ModalConfirmAction";
+import BannerCardGrid from "./_components/BannerCardGrid";
 import BannerFormModal, { BannerFormData } from "./_components/BannerFormModal";
-import BannerList from "./_components/BannerList";
+import BannerPreviewSimulator from "./_components/BannerPreviewSimulator";
 
 export default function BannersPage() {
   const {
@@ -97,30 +99,94 @@ export default function BannersPage() {
     deleteMutation.isPending ||
     reorderMutation.isPending;
 
+  const bannerList = (banners as Banner[]) || [];
+  const activeCount = bannerList.filter((b: Banner) => b.isActive).length;
+  const inactiveCount = bannerList.length - activeCount;
+
   return (
-    <div className="space-y-4 mb-10">
+    <div className="space-y-6 mb-12">
       <AppBar
         title="Manajemen Banner Login"
-        description="Kelola data PIC terbaik yang tampil di carousel halaman login"
+        description="Kelola data PIC terbaik yang tampil di carousel halaman login secara visual & real-time"
         textAddButton="Tambah Banner"
         onAdd={handleAddClick}
       />
 
-      {isLoading ? (
-        <div className="flex justify-center py-20">
-          <p className="text-slate-400">Memuat data banner...</p>
-        </div>
-      ) : (
-        <BannerList
-          banners={banners || []}
-          onEdit={handleEditClick}
-          onDelete={handleDeleteClick}
-          onToggleStatus={handleToggleStatus}
-          onReorder={handleReorder}
-          isUpdating={isMutating}
-        />
-      )}
+      {/* Metric Cards Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="p-4 border border-slate-200/80 shadow-sm flex flex-row items-center gap-4 bg-white">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <PiImageFill className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">Total Banner</p>
+            <h4 className="text-xl font-extrabold text-slate-800">
+              {bannerList.length}
+            </h4>
+          </div>
+        </Card>
 
+        <Card className="p-4 border border-slate-200/80 shadow-sm flex flex-row items-center gap-4 bg-white">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <PiCheckCircleFill className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">
+              Banner Aktif (Tayang)
+            </p>
+            <h4 className="text-xl font-extrabold text-slate-800">
+              {activeCount}
+            </h4>
+          </div>
+        </Card>
+
+        <Card className="p-4 border border-slate-200/80 shadow-sm flex flex-row items-center gap-4 bg-white">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+            <PiXCircleFill className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">Non-Aktif</p>
+            <h4 className="text-xl font-extrabold text-slate-800">
+              {inactiveCount}
+            </h4>
+          </div>
+        </Card>
+      </div>
+
+      {/* 1. Live Simulator Section */}
+      <BannerPreviewSimulator banners={bannerList} />
+
+      {/* 2. Visual Card Grid Section Header */}
+      <div className="space-y-4 pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">Daftar Banner</h3>
+            <p className="text-xs text-slate-500">
+              Atur urutan dan aktifkan banner yang ingin ditampilkan pada
+              carousel login
+            </p>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-20 bg-white rounded-xl border border-slate-200">
+            <p className="text-slate-400 text-sm font-medium">
+              Memuat data banner...
+            </p>
+          </div>
+        ) : (
+          <BannerCardGrid
+            banners={bannerList}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
+            onToggleStatus={handleToggleStatus}
+            onReorder={handleReorder}
+            isUpdating={isMutating}
+          />
+        )}
+      </div>
+
+      {/* Form Modal */}
       <BannerFormModal
         isOpen={formModalState.isOpen}
         onClose={formModalState.close}
@@ -129,6 +195,7 @@ export default function BannersPage() {
         banner={selectedBanner}
       />
 
+      {/* Delete Confirmation Modal */}
       <ModalConfirmAction
         isOpen={deleteModalState.isOpen}
         onClose={deleteModalState.close}

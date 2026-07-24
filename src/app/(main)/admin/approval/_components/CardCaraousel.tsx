@@ -66,9 +66,9 @@ export default function CardCaraousel({
         ))}
       </CarouselContent>
 
-      <CarouselPrevious className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 min-w-8 min-h-8 rounded-full border border-slate-200/50 bg-white/80 hover:bg-white text-slate-700 shadow-sm backdrop-blur-sm opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-200 flex items-center justify-center p-0" />
+      <CarouselPrevious className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-8 sm:h-8 min-w-10 min-h-10 sm:min-w-8 sm:min-h-8 rounded-full border border-slate-200/50 bg-white/80 hover:bg-white text-slate-700 shadow-sm backdrop-blur-sm opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 transition-opacity duration-200 flex items-center justify-center p-0" />
       {/* Tombol Berikutnya (Melayang di kanan) */}
-      <CarouselNext className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 min-w-8 min-h-8 rounded-full border border-slate-200/50 bg-white/80 hover:bg-white text-slate-700 shadow-sm backdrop-blur-sm opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-200 flex items-center justify-center p-0" />
+      <CarouselNext className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-8 sm:h-8 min-w-10 min-h-10 sm:min-w-8 sm:min-h-8 rounded-full border border-slate-200/50 bg-white/80 hover:bg-white text-slate-700 shadow-sm backdrop-blur-sm opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 transition-opacity duration-200 flex items-center justify-center p-0" />
     </Carousel>
   );
 }

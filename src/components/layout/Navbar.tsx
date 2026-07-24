@@ -12,7 +12,7 @@ export default function Navbar() {
 
   return (
     <header className="w-full shadow-sm shadow-slate-200 sticky top-0 z-30 border-b bg-white">
-      <div className="max-w-7xl mx-auto flex items-center py-3 justify-between px-4 sm:px-6 lg:px-8">
+      <div className="w-full mx-auto flex items-center py-3 justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex flex-row gap-4">
           <Button
             isIconOnly

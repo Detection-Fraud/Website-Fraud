@@ -52,3 +52,6 @@ data/
 
 public/uploads/
 public/uploads
+.code-review-graph/
+brainstorm-skill.txt
+caveman-skill-output.txt

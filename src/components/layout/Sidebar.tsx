@@ -159,7 +159,7 @@ export default function Sidebar() {
 
                     <div
                       className={`overflow-hidden transition-all duration-200 ease-in-out ${
-                        isOpen ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
+                        isOpen ? "max-h-64 opacity-100" : "max-h-0 opacity-0"
                       }`}
                     >
                       <div className="flex flex-col gap-0.5 pl-3 pt-1 pb-1">

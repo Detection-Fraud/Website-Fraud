@@ -2,15 +2,16 @@
 
 import CalendarGrid from "@/components/kalendar/CalendarGrid";
 import SidebarProgress from "@/components/kalendar/SidebarProgress";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import AppBar from "@/components/layout/Appbar";
 import { useCalendarPrograms } from "@/hooks/useCalendarPrograms";
 import { useCalendarSubmissions } from "@/hooks/useCalendarSubmissions";
-import { useState } from "react";
-import { addMonths, format, subMonths } from "date-fns";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { ProgramBand } from "@/types/calendar.types";
 import { Button, Tag, TagGroup } from "@heroui/react";
-import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
+import { addMonths, format, subMonths } from "date-fns";
 import { id } from "date-fns/locale";
-import AppBar from "@/components/layout/Appbar";
+import { useState } from "react";
+import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 
 export default function KalendarPage() {
   const { user } = useCurrentUser();
@@ -35,11 +36,11 @@ export default function KalendarPage() {
   });
 
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>(
-    programs.map((p) => String(p.id)),
+    programs.map((p: ProgramBand) => String(p.id)),
   );
 
   return (
-    <div className="p-6 flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <AppBar
         title="Kalender Kegiatan"
         description="Jadwal dan pengingat kegiatan program budaya BULOG"
@@ -57,7 +58,7 @@ export default function KalendarPage() {
           aria-label="Filter Program"
         >
           <TagGroup.List>
-            {programs.map((prog) => (
+            {programs.map((prog: ProgramBand) => (
               <Tag
                 key={prog.id}
                 id={prog.id}
@@ -78,7 +79,7 @@ export default function KalendarPage() {
         </TagGroup>
       </div>
 
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* KALENDER (GRID) */}
         <div className="flex-1 bg-white p-4 border rounded-xl shadow-sm">
           {/* -- HEADER NAVIGASI BULAN -- */}
@@ -107,7 +108,7 @@ export default function KalendarPage() {
           )}
         </div>
         {/* SIDEBAR WIDGETS */}
-        <div className="w-80 shrink-0 flex flex-col gap-4">
+        <div className="w-full lg:w-80 shrink-0 flex flex-col gap-4">
           <SidebarProgress
             programs={programs}
             submissions={submissions}

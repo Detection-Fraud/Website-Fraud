@@ -72,16 +72,16 @@ export default function AnalyticsAdmin() {
         <Card.Content
           className={`grid grid-cols-1 sm:grid-cols-2 ${unitType === "CABANG" ? "lg:grid-cols-2" : "lg:grid-cols-3"} gap-4 pt-4`}
         >
-          <div className="flex-1 min-w-[200px]">
+          <div>
             <SelectUnitType
               value={unitType}
               onChange={handleUnitTypeChange}
-              className="w-full sm:w-44"
+              className="w-full  sm:w-52 lg:w-62"
             />
           </div>
           {/* Select Filter Wilayah */}
           {(unitType === "WILAYAH" || unitType === "CABANG") && (
-            <div className="flex-1 min-w-50">
+            <div>
               <SelectWilayah
                 regions={kanwilList}
                 value={kanwilId}
@@ -90,14 +90,14 @@ export default function AnalyticsAdmin() {
                   setRankingPage(1);
                   setRankingCCPage(1);
                 }}
-                className="w-full sm:w-52 lg:w-62"
+                className="w-full  sm:w-52 lg:w-62"
               />
             </div>
           )}
 
           {/* Select Filter Kantor Cabang */}
           {unitType === "CABANG" && (
-            <div className="flex-1 min-w-[200px]">
+            <div>
               <SelectKancab
                 branches={kancabList}
                 value={kancabId}
@@ -107,13 +107,13 @@ export default function AnalyticsAdmin() {
                   setRankingPage(1);
                   setRankingCCPage(1);
                 }}
-                className="w-full sm:w-52 lg:w-62"
+                className="w-full  sm:w-52 lg:w-62"
               />
             </div>
           )}
 
           {unitType === "DIVISI" && (
-            <div className="flex-1 min-w-[200px]">
+            <div>
               <SelectDivisi
                 divisiList={divisiList}
                 value={divisiId}
@@ -129,7 +129,7 @@ export default function AnalyticsAdmin() {
           )}
 
           {/* Select Filter Periode */}
-          <div className="flex-1 min-w-[200px]">
+          <div>
             <Select
               aria-label="Filter Periode Waktu"
               placeholder="Pilih Periode"
