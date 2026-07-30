@@ -54,7 +54,7 @@ export const SidebarMenuAdmin: SidebarMenuItem[] = [
     children: [
       {
         key: "management",
-        label: "Daftar Karyawan",
+        label: "Daftar Culture Catalyst",
         href: "/admin/management",
       },
       {
@@ -98,22 +98,22 @@ export const SidebarMenuAdmin: SidebarMenuItem[] = [
 
 export const SidebarMenuPIC: SidebarMenuItem[] = [
   {
-    key: "dashboard",
-    label: "Dashboard",
-    href: "/pic/dashboard",
+    key: "halaman-utama",
+    label: "Halaman Utama",
+    href: "/pic/halaman-utama",
     icon: <RxDashboard />,
   },
   {
-    key: "approval",
-    label: "Approval",
-    href: "/pic/approval",
+    key: "dashboard",
+    label: "Dashboard",
+    href: "/pic/dashboard",
     icon: <CgFileDocument />,
     hasBadge: true,
   },
   {
-    key: "detection",
-    label: "Deteksi",
-    href: "/pic/detection",
+    key: "submit",
+    label: "Submit (Cek AI)",
+    href: "/pic/submit",
     icon: <AiOutlineScan />,
   },
   {

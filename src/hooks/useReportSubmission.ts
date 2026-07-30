@@ -88,7 +88,7 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
         reportId ? "Laporan berhasil diupdate!" : "Laporan berhasil dikirim!",
       );
       queryClient.invalidateQueries({ queryKey: ["reports"] });
-      router.push("/pic/dashboard");
+      router.push("/pic/halaman-utama");
       imageStore.resetStore();
     },
     onError: (error: any) => {

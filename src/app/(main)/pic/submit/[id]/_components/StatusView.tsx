@@ -105,7 +105,7 @@ export default function StatusView({
                   variant="danger"
                   className={"mt-3"}
                   onClick={() => {
-                    router.push(`/pic/detection/${reportId}/edit`);
+                    router.push(`/pic/submit/${reportId}/edit`);
                   }}
                 >
                   Upload Ulang

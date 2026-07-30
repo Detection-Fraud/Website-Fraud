@@ -6,7 +6,7 @@ export function getDashboardByRole(role: string): string {
     case "ADMIN":
       return "/admin/dashboard";
     case "PIC":
-      return "/pic/dashboard";
+      return "/pic/halaman-utama";
     case "VIEWER":
       return "/viewer/dashboard";
     default:

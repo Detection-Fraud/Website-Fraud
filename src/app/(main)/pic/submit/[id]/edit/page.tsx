@@ -46,7 +46,7 @@ export default function EditDetectionPage() {
     <div className="w-full space-y-6">
       <div className="max-w-5xl mx-auto px-4">
         <div className="mb-4">
-          <Link href={`/pic/detection/${id}`} className="text-sm font-semibold">
+          <Link href={`/pic/submit/${id}`} className="text-sm font-semibold">
             &larr; Kembali ke Detail
           </Link>
         </div>

@@ -60,7 +60,7 @@ export default function PicView() {
     <div className="space-y-8 mb-10">
       <AppBar
         onAdd={() => {
-          router.push("/pic/detection");
+          router.push("/pic/submit");
         }}
       />
 
@@ -169,7 +169,7 @@ export default function PicView() {
           column={REPORT_COLUMNS}
           renderCell={(item: any, key: any) =>
             renderReportCell(item, key, (id) =>
-              router.push(`/pic/detection/${id}`),
+              router.push(`/pic/submit/${id}`),
             )
           }
           data={reports}
