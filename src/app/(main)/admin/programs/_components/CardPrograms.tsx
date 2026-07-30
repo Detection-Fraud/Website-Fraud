@@ -1,14 +1,89 @@
+import { ProgramBudayaWithCategory } from "@/hooks/useProgramQuery";
 import { ProgramBudaya } from "@generated/prisma";
 import { Button, Card, Chip } from "@heroui/react";
-import { BiBookOpen, BiCheckCircle, BiPowerOff } from "react-icons/bi";
-import { BsCircleFill } from "react-icons/bs";
-import { FiCalendar, FiEdit2, FiTarget } from "react-icons/fi";
+import Image from "next/image";
+import { BiCheckCircle, BiPowerOff } from "react-icons/bi";
+import { FiCalendar, FiEdit2, FiFolder, FiGrid, FiTarget } from "react-icons/fi";
 
 interface CardProgramsProps {
-  programs: ProgramBudaya[];
+  programs: ProgramBudayaWithCategory[];
   onEdit?: (program: ProgramBudaya) => void;
   onToggleStatus?: (program: ProgramBudaya) => void;
 }
+
+const TW_LABELS: Record<number, string> = {
+  1: "TW I",
+  2: "TW II",
+  3: "TW III",
+  4: "TW IV",
+};
+
+const colorThemes = [
+  {
+    border: "border-t-sky-400",
+    chipBg: "bg-sky-100/60 dark:bg-sky-900/20",
+    chipText: "text-sky-700 dark:text-sky-400",
+    chipBorder: "border-sky-200/50 dark:border-sky-700/30",
+    bar: "bg-sky-400",
+    twBg: "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+  },
+  {
+    border: "border-t-emerald-400",
+    chipBg: "bg-emerald-100/60 dark:bg-emerald-900/20",
+    chipText: "text-emerald-700 dark:text-emerald-400",
+    chipBorder: "border-emerald-200/50 dark:border-emerald-700/30",
+    bar: "bg-emerald-400",
+    twBg: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  },
+  {
+    border: "border-t-violet-400",
+    chipBg: "bg-violet-100/60 dark:bg-violet-900/20",
+    chipText: "text-violet-700 dark:text-violet-400",
+    chipBorder: "border-violet-200/50 dark:border-violet-700/30",
+    bar: "bg-violet-400",
+    twBg: "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+  },
+  {
+    border: "border-t-amber-400",
+    chipBg: "bg-amber-100/60 dark:bg-amber-900/20",
+    chipText: "text-amber-700 dark:text-amber-400",
+    chipBorder: "border-amber-200/50 dark:border-amber-700/30",
+    bar: "bg-amber-400",
+    twBg: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  },
+  {
+    border: "border-t-rose-400",
+    chipBg: "bg-rose-100/60 dark:bg-rose-900/20",
+    chipText: "text-rose-700 dark:text-rose-400",
+    chipBorder: "border-rose-200/50 dark:border-rose-700/30",
+    bar: "bg-rose-400",
+    twBg: "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+  },
+  {
+    border: "border-t-indigo-400",
+    chipBg: "bg-indigo-100/60 dark:bg-indigo-900/20",
+    chipText: "text-indigo-700 dark:text-indigo-400",
+    chipBorder: "border-indigo-200/50 dark:border-indigo-700/30",
+    bar: "bg-indigo-400",
+    twBg: "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  },
+];
+
+const getCategoryTheme = (categoryName: string = "Uncategorized") => {
+  let hash = 0;
+  for (let i = 0; i < categoryName.length; i++) {
+    hash = categoryName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colorThemes[Math.abs(hash) % colorThemes.length];
+};
+
+const formatDate = (date: Date | string) =>
+  new Date(date).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
 export default function CardPrograms({
   programs,
   onEdit,
@@ -16,136 +91,239 @@ export default function CardPrograms({
 }: CardProgramsProps) {
   if (!programs || programs.length === 0) {
     return (
-      <div className="flex justify-center items-center py-20 text-slate-400">
-        Tidak ada data program budaya
+      <div className="flex flex-col items-center justify-center py-24 gap-2 text-zinc-400">
+        <FiGrid className="w-8 h-8 opacity-30" />
+        <p className="text-sm">Tidak ada data program budaya</p>
       </div>
     );
   }
-  const colorThemes = [
-    { border: "border-sky-600", bg: "bg-sky-600/20", text: "text-sky-600" },
-    {
-      border: "border-green-600",
-      bg: "bg-green-600/20",
-      text: "text-green-600",
-    },
-    {
-      border: "border-amber-600",
-      bg: "bg-amber-600/20",
-      text: "text-amber-600",
-    },
-    {
-      border: "border-orange-500",
-      bg: "bg-orange-500/20",
-      text: "text-orange-500",
-    },
-    { border: "border-blue-500", bg: "bg-blue-500/20", text: "text-blue-500" },
-  ];
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {programs.map((program, i) => {
+      {programs.map((program) => {
         const isActive = program.isActive;
-        const theme = colorThemes[i % colorThemes.length];
+        const categoryColor = program.category?.color || "#3b82f6";
+        const satuan =
+          program.category?.targetUnit === "PARTISIPASI_PERSEN"
+            ? "Partisipasi (%)"
+            : "Kegiatan";
+
+        const displayBanner = program.bannerUrl || program.category?.bannerUrl;
         return (
-          <div key={program.id}>
-            <Card
-              className={`border-t-5 transition-all shadow-sm hover:shadow-md ${isActive ? theme.border : "border-slate-300 opacity-75"}`}
-            >
-              <div className="flex flex-row justify-between items-start gap-3 mb-1.5">
+          <Card
+            key={program.id}
+            variant="default"
+            style={{ borderTopColor: categoryColor }}
+            className={`
+              flex flex-col
+              border border-zinc-200 dark:border-zinc-800
+              border-t-4
+              shadow-sm hover:shadow-md hover:-translate-y-0.5
+              transition-all duration-200
+              bg-white dark:bg-zinc-900
+              rounded-xl overflow-hidden
+              group
+            `}
+          >
+            {/* Top Banner Cover Header (3-tier Fallback Strategy) */}
+            <div className="relative h-24 w-full overflow-hidden bg-slate-900">
+              {displayBanner ? (
+                <Image
+                  src={displayBanner}
+                  alt={program.name}
+                  fill
+                  unoptimized
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
                 <div
-                  className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isActive ? theme.bg : "bg-slate-200"}`}
+                  className="w-full h-full relative flex items-center justify-between px-5 overflow-hidden"
+                  style={{
+                    background: `linear-gradient(135deg, ${categoryColor}ee, ${categoryColor}88, #0f172a)`,
+                  }}
                 >
-                  <BiBookOpen
-                    className={`w-5 h-5 ${isActive ? theme.text : "text-slate-500"}`}
+                  {/* Subtle SVG Dot Grid Pattern Overlay */}
+                  <div
+                    className="absolute inset-0 opacity-20 pointer-events-none"
+                    style={{
+                      backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.8) 1px, transparent 0)`,
+                      backgroundSize: "14px 14px",
+                    }}
                   />
+
+                  {/* Giant Watermark Initial Letter */}
+                  <div className="absolute -right-3 -bottom-5 text-7xl font-black text-white/10 select-none tracking-tighter uppercase font-mono">
+                    {program.category?.name?.slice(0, 2) || program.name.slice(0, 2)}
+                  </div>
+
+                  {/* Minimal Category Accent */}
+                  <div className="relative z-10 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-white shadow-sm animate-pulse" />
+                    <span className="text-xs font-bold text-white/90 uppercase tracking-widest drop-shadow-sm">
+                      {program.category?.name || "Program Budaya"}
+                    </span>
+                  </div>
+
+                  {/* Decorative Folder Icon Watermark */}
+                  <FiFolder className="relative z-10 size-7 text-white/25" />
                 </div>
-                <div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+            </div>
+            {/* ── Header ── */}
+            <Card.Header className="flex flex-col items-start px-5 pt-4 pb-0 gap-1.5">
+              <div className="flex w-full justify-between items-start gap-2">
+                {/* Kiri: chip kategori + badge TW */}
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <Chip
+                    size="sm"
                     variant="soft"
-                    color={isActive ? "success" : "danger"}
-                    size="md"
+                    style={{
+                      backgroundColor: `${categoryColor}18`,
+                      color: categoryColor,
+                      borderColor: `${categoryColor}40`,
+                    }}
+                    className="border font-semibold text-[10px] uppercase tracking-wider px-2"
                   >
-                    <BsCircleFill className="w-1 h-1" />
-                    <Chip.Label>
-                      {isActive ? "Aktif" : "Tidak Aktif"}
-                    </Chip.Label>
+                    {program.category?.name || "Uncategorized"}
                   </Chip>
+
+                  {/* Badge TW — hanya tampil jika tw diset */}
+                  {program.tw != null && (
+                    <span
+                      style={{
+                        backgroundColor: `${categoryColor}12`,
+                        color: categoryColor,
+                      }}
+                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide"
+                    >
+                      <FiGrid className="w-2.5 h-2.5" />
+                      {TW_LABELS[program.tw] ?? `TW ${program.tw}`}
+                    </span>
+                  )}
+                </div>
+
+                {/* Kanan: status pill */}
+                <span
+                  className={`
+                    inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                    text-[10px] font-medium shrink-0
+                    ${
+                      isActive
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                        : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                    }
+                  `}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isActive ? "bg-emerald-500" : "bg-zinc-400"
+                    }`}
+                  />
+                  {isActive ? "Aktif" : "Nonaktif"}
+                </span>
+              </div>
+
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug mt-0.5">
+                {program.name}
+              </h3>
+            </Card.Header>
+
+            {/* ── Body ── */}
+            <Card.Content className="px-5 py-3 flex flex-col gap-3 flex-1">
+              {/* Deskripsi */}
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed min-h-[2.5rem]">
+                {program.description ||
+                  "Tidak ada deskripsi untuk program ini."}
+              </p>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {/* Target frekuensi */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500">
+                    <FiTarget className="w-3 h-3 shrink-0" />
+                    <span className="text-[10px] uppercase tracking-wide">
+                      Target
+                    </span>
+                  </div>
+                  <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                    {program.frequency}x{" "}
+                    <span className="font-normal text-zinc-400">/ TW</span>
+                  </span>
+                </div>
+
+                {/* Satuan */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500">
+                    <span className="text-[10px] uppercase tracking-wide">
+                      Satuan
+                    </span>
+                  </div>
+                  <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                    {satuan}
+                  </span>
+                </div>
+
+                {/* Periode */}
+                <div className="col-span-2 flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500">
+                    <FiCalendar className="w-3 h-3 shrink-0" />
+                    <span className="text-[10px] uppercase tracking-wide">
+                      Periode
+                    </span>
+                  </div>
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300">
+                    {formatDate(program.startDate)} –{" "}
+                    {formatDate(program.endDate)}
+                  </span>
                 </div>
               </div>
-              <Card.Header>
-                <Card.Title className="text-sm text-slate-800 font-bold mb-3.5">
-                  {program.name}
-                </Card.Title>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-slate-500 text-xs">
-                    <FiTarget className="w-3 h-3" />
-                    <span>
-                      Target :{" "}
-                      <strong className="text-slate-700">
-                        {program.frequency} laporan
-                      </strong>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-slate-500 text-xs">
-                    <FiCalendar />
-                    <span>
-                      Periode :{" "}
-                      <strong className="text-slate-700">
-                        {new Date(program.startDate).toLocaleDateString(
-                          "id-ID",
-                          { month: "short", year: "numeric" },
-                        )}{" "}
-                        -{" "}
-                        {new Date(program.endDate).toLocaleDateString("id-ID", {
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </strong>
-                    </span>
-                  </div>
-                </div>
-              </Card.Header>
+            </Card.Content>
 
-              <Card.Footer className="grid grid-cols-2 gap-2">
-                <div>
-                  <Button
-                    fullWidth
-                    size="sm"
-                    className="rounded-xl border border-[#bae6fd] text-[#0284c7] font-semibold hover:bg-sky-50 transition-colors text-xs"
-                    variant="outline"
-                    onClick={() => onEdit?.(program)}
-                  >
-                    <FiEdit2 className="w-3 h-3" />
-                    Edit
-                  </Button>
-                </div>
-                <div>
-                  <Button
-                    fullWidth
-                    size="sm"
-                    className={`rounded-xl font-semibold transition-colors text-xs ${
-                      isActive
-                        ? "border-[#fee2e2] text-red-500 hover:bg-red-50"
-                        : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                    }`}
-                    variant="outline"
-                    onClick={() => onToggleStatus?.(program)}
-                  >
-                    {isActive ? (
-                      <>
-                        <BiPowerOff className="w-3 h-3" />
-                        Nonaktifkan
-                      </>
-                    ) : (
-                      <>
-                        <BiCheckCircle className="w-3 h-3" />
-                        Aktifkan
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </Card.Footer>
-            </Card>
-          </div>
+            {/* ── Footer ── */}
+            <div className="px-4 py-2.5 flex justify-between items-center mt-auto border-t border-zinc-100 dark:border-zinc-800/80">
+              {/* Info TW di footer jika tw null */}
+              {program.tw == null ? (
+                <span className="text-[10px] text-zinc-400 italic">
+                  Berlaku sepanjang tahun
+                </span>
+              ) : (
+                <span className="text-[10px] text-zinc-400">
+                  {TW_LABELS[program.tw]}
+                </span>
+              )}
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="tertiary"
+                  size="sm"
+                  className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium rounded-lg h-7 px-2.5 text-xs"
+                  onPress={() => onEdit?.(program)}
+                >
+                  <FiEdit2 className="w-3 h-3" />
+                  Edit
+                </Button>
+                <Button
+                  variant="tertiary"
+                  size="sm"
+                  className={`font-medium rounded-lg h-7 px-2.5 text-xs ${
+                    isActive
+                      ? "text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/10"
+                      : "text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+                  }`}
+                  onPress={() => onToggleStatus?.(program)}
+                >
+                  {isActive ? (
+                    <BiPowerOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <BiCheckCircle className="w-3.5 h-3.5" />
+                  )}
+                  {isActive ? "Nonaktifkan" : "Aktifkan"}
+                </Button>
+              </div>
+            </div>
+          </Card>
         );
       })}
     </div>

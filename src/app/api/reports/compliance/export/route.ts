@@ -2,7 +2,7 @@ import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { MONTHS_NAMES_ID, PERIODE_CONFIG } from "@/lib/api/constants";
 import { resolveScope, type ActiveUnit } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
-import { Prisma, ProgramBudaya } from "@generated/prisma";
+import { Prisma } from "@generated/prisma";
 import ExcelJS from "exceljs";
 
 export async function GET(req: Request) {
@@ -26,18 +26,30 @@ export async function GET(req: Request) {
       unitTypeFilter,
     });
 
-    const programs = await prisma.programBudaya.findMany({
+    const categories = await prisma.programCategory.findMany({
       where: {
-        isActive: true,
         ...(programId !== "ALL" && { id: programId }),
       },
-      orderBy: { createdAt: "asc" },
+      include: {
+        programs: {
+          where: {
+            isActive: true,
+          },
+          select: { id: true, tw: true, frequency: true },
+          orderBy: { tw: "asc" },
+        },
+      },
+      orderBy: { name: "asc" },
     });
+
+    const allProgramIds = categories.flatMap((c) =>
+      c.programs.map((p) => p.id),
+    );
 
     const monthlyData = await getMonthlySubmissions(
       year,
       activeUnits,
-      programId,
+      allProgramIds,
     );
 
     const workbook = new ExcelJS.Workbook();
@@ -48,9 +60,8 @@ export async function GET(req: Request) {
       buildSheet(workbook, {
         sheetName: periodeName,
         months: config.months,
-        divisor: config.divisor,
         activeUnits,
-        programs,
+        categories,
         monthlyData,
       });
     }
@@ -109,11 +120,11 @@ interface MonthlySubmission {
 async function getMonthlySubmissions(
   year: number,
   activeUnits: ActiveUnit[],
-  programId: string,
+  programIds: string[],
 ): Promise<MonthlySubmission[]> {
   const unitIds = activeUnits.map((u) => u.id);
 
-  if (unitIds.length === 0) return [];
+  if (unitIds.length === 0 || programIds.length === 0) return [];
 
   const result = await prisma.$queryRaw<MonthlySubmission[]>`
     SELECT
@@ -127,7 +138,7 @@ async function getMonthlySubmissions(
       AND "unitId" IS NOT NULL
       AND "unitId" IN (${Prisma.join(unitIds)})
       AND EXTRACT(YEAR FROM "tanggalKegiatan") = ${year}
-      ${programId !== "ALL" ? Prisma.sql`AND "programId" = ${programId}` : Prisma.empty}
+      ${programIds.length > 0 ? Prisma.sql`AND "programId" IN (${Prisma.join(programIds)})` : Prisma.empty}
     GROUP BY "unitId", "programId", "bulan"
     ORDER BY "unitId", "programId", "bulan"
   `;
@@ -152,27 +163,37 @@ function getSubmissionCount(
 
 // ── Helper: buildSheet ──
 
+interface CategoryWithTwPrograms {
+  id: string;
+  name: string;
+  programs: {
+    id: string;
+    tw: number | null;
+    frequency: number;
+  }[];
+}
+
 interface BuildSheetParams {
   sheetName: string;
   months: readonly number[];
-  divisor: number;
   activeUnits: ActiveUnit[];
-  programs: ProgramBudaya[];
+  categories: CategoryWithTwPrograms[];
   monthlyData: MonthlySubmission[];
 }
 
 function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
-  const { sheetName, months, divisor, activeUnits, programs, monthlyData } =
-    params;
+  const { sheetName, months, activeUnits, categories, monthlyData } = params;
 
   const ws = workbook.addWorksheet(sheetName);
   const monthCount = months.length;
+
+  const isTW = ["TW I", "TW II", "TW III", "TW IV"].includes(sheetName);
 
   const headerRow1 = [
     "NO",
     "KANWIL",
     "PROGRAM BUDAYA",
-    `TARGET/ ${divisor === 4 ? "TRIWULAN" : "SEMESTER"}`,
+    isTW ? "TARGET/ TRIWULAN" : "TARGET/ SEMESTER",
   ];
 
   headerRow1.push("REALISASI");
@@ -225,15 +246,58 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
       if (!unit) continue;
       const isKanwil = unit.type === "KANTOR_WILAYAH";
 
-      const programComplianceList = programs.map((prog) => {
-        const target = Math.round(prog.frequency / divisor);
-        const monthlyValues = months.map((m) =>
-          getSubmissionCount(monthlyData, unit.id, prog.id, m),
-        );
-        const totalRealisasi = monthlyValues.reduce((a, b) => a + b, 0);
-        const pctRealisasi = target > 0 ? totalRealisasi / target : 0;
-        return { prog, target, monthlyValues, totalRealisasi, pctRealisasi };
-      });
+      // Tentukan TW number dari sheetName (null = semester sheet)
+      const twNumber: number | null =
+        { "TW I": 1, "TW II": 2, "TW III": 3, "TW IV": 4 }[sheetName] ?? null;
+      const semesterTWs: Record<string, number[]> = {
+        "SEMESTER I": [1, 2],
+        "SEMESTER II": [3, 4],
+      };
+      const semesterTWList = semesterTWs[sheetName] ?? null;
+
+      const programComplianceList = categories
+        .map((cat) => {
+          let progIds: string[];
+          let target: number;
+
+          if (twNumber != null) {
+            // Sheet TW: cari program dengan tw=twNumber
+            const prog = cat.programs.find((p) => p.tw === twNumber);
+            if (!prog) return null; // category tidak aktif di TW ini
+            progIds = [prog.id];
+            target = prog.frequency;
+          } else if (semesterTWList) {
+            // Sheet Semester: ambil semua TW dalam semester
+            const semProgs = cat.programs.filter(
+              (p) => p.tw != null && semesterTWList.includes(p.tw),
+            );
+            if (semProgs.length === 0) return null;
+            progIds = semProgs.map((p) => p.id);
+            target = semProgs.reduce((s, p) => s + p.frequency, 0);
+          } else {
+            // Fallback: semua program di category
+            progIds = cat.programs.map((p) => p.id);
+            target = cat.programs.reduce((s, p) => s + p.frequency, 0);
+          }
+
+          const monthlyValues = months.map((m) =>
+            progIds.reduce(
+              (sum, pid) =>
+                sum + getSubmissionCount(monthlyData, unit.id, pid, m),
+              0,
+            ),
+          );
+          const totalRealisasi = monthlyValues.reduce((a, b) => a + b, 0);
+          const pctRealisasi = target > 0 ? totalRealisasi / target : 0;
+          return {
+            name: cat.name,
+            target,
+            monthlyValues,
+            totalRealisasi,
+            pctRealisasi,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
 
       const avgPct =
         programComplianceList.length > 0
@@ -249,7 +313,7 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
 
         rowData.push(idx === 0 && isKanwil ? kanwilNo : "");
         rowData.push(idx === 0 ? unit.name : "");
-        rowData.push(pc.prog.name);
+        rowData.push(pc.name);
         rowData.push(pc.target);
 
         pc.monthlyValues.forEach((v) => rowData.push(v));

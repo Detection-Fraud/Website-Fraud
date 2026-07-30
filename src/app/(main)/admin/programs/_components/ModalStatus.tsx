@@ -1,4 +1,4 @@
-import { Button, Modal } from "@heroui/react";
+import { Button, CloseButton, Modal } from "@heroui/react";
 import { BiCheckCircle, BiPowerOff } from "react-icons/bi";
 import { ProgramBudaya } from "@generated/prisma";
 

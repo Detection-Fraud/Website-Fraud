@@ -4,6 +4,7 @@ import { PiCalendar, PiImage, PiNotebookLight } from "react-icons/pi";
 import { RxDashboard } from "react-icons/rx";
 
 import { AiOutlineScan } from "react-icons/ai";
+import { BiCategory } from "react-icons/bi";
 import { FaRegUser } from "react-icons/fa6";
 
 export interface SidebarMenuItem {
@@ -63,13 +64,24 @@ export const SidebarMenuAdmin: SidebarMenuItem[] = [
       },
     ],
   },
-
   {
-    key: "program-budaya",
-    label: "Program Budaya",
-    href: "/admin/programs",
-    icon: <PiNotebookLight />,
+    key: "manage-program",
+    label: "Manajemen Program",
+    icon: <BiCategory />,
+    children: [
+      {
+        key: "categories",
+        label: "Daftar Category",
+        href: "/admin/categories",
+      },
+      {
+        key: "program-budaya",
+        label: "Program Budaya",
+        href: "/admin/programs",
+      },
+    ],
   },
+
   {
     key: "kalendar",
     label: "Kalendar",

@@ -2,9 +2,7 @@
 
 import AppBar from "@/components/layout/Appbar";
 import DataTable from "@/components/layout/DataTable";
-import {
-  Card
-} from "@heroui/react";
+import { Card } from "@heroui/react";
 
 import { ListBox, Select } from "@heroui/react";
 import { useSearchParams } from "next/navigation";
@@ -17,7 +15,7 @@ import StatusTagGroup from "@/components/ui/StatusTagGroup";
 import { REPORT_COLUMNS, renderReportCell } from "@/constants/table.constants";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useReportList } from "@/hooks/useReportList";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function PicView() {
   const {
@@ -38,10 +36,22 @@ export default function PicView() {
   const { user } = useCurrentUser();
   const isKanwil = user?.unitType === "KANTOR_WILAYAH";
 
-  const [unitLevel, setUnitLevel] = useState<"KANWIL" | "KANCAB">("KANWIL");
   const searchParams = useSearchParams();
+  const kancabIdParam = searchParams.get("kancabId");
 
-  const myKanwil = kanwilList.find((k:any ) => k.id === user?.unitId);
+  const [unitLevel, setUnitLevel] = useState<"KANWIL" | "KANCAB">(
+    kancabIdParam && kancabIdParam !== "ALL" && kancabIdParam !== ""
+      ? "KANCAB"
+      : "KANWIL",
+  );
+
+  useEffect(() => {
+    if (kancabIdParam && kancabIdParam !== "ALL" && kancabIdParam !== "") {
+      setUnitLevel("KANCAB");
+    }
+  }, [kancabIdParam]);
+
+  const myKanwil = kanwilList.find((k: any) => k.id === user?.unitId);
   const myKancabList = myKanwil ? myKanwil.children : [];
 
   const currentProgram = searchParams.get("programId") || "ALL";
@@ -54,68 +64,74 @@ export default function PicView() {
         }}
       />
 
-      <Card className="shadow-sm rounded-xl hover:shadow-md transition-shadow">
-        <Card.Content className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2">
-            <FiFilter className="size-5 text-gray-500" />
-            <p className="text-sm font-medium text-gray-600">Filter :</p>
+      <Card className="shadow-xs rounded-2xl border border-slate-200/80 bg-white p-2 md:p-3">
+        <Card.Content className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+          <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase tracking-wider md:pr-3 md:border-r border-slate-200 shrink-0">
+            <FiFilter className="size-4 text-slate-400" />
+            <span>Filter</span>
           </div>
-          {isKanwil && (
-            <div className="flex flex-wrap items-center gap-3">
-              <Select
-                aria-label="Pilih Unit"
-                placeholder="Pilih Level Unit"
-                value={unitLevel}
-                onChange={(key) => {
-                  const val = (key ?? "KANWIL") as "KANWIL" | "KANCAB";
-                  setUnitLevel(val);
 
-                  // Jika user memilih kembali ke "Kantor Wilayah", clear parameter kancabId
-                  if (val === "KANWIL") {
-                    updateParams({ kancabId: "", page: "1" });
-                  }
-                }}
-                className="w-full sm:w-56 lg:w-70"
-              >
-                <Select.Trigger className="shadow-sm bg-white border border-gray-200">
-                  <Select.Value />
-                  <Select.Indicator />
-                </Select.Trigger>
-                <Select.Popover>
-                  <ListBox>
-                    <ListBox.Item id="KANWIL" textValue="Kantor Wilayah">
-                      Semua Unit
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                    <ListBox.Item id="KANCAB" textValue="Kantor Cabang">
-                      Kantor Cabang
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  </ListBox>
-                </Select.Popover>
-              </Select>
-              {/* 2. FILTER PILIH KANCAB (Hanya render jika level == KANCAB) */}
-              {unitLevel === "KANCAB" && (
-                <SelectKancab
-                  branches={myKancabList}
-                  value={searchParams.get("kancabId") || ""}
-                  isDisabled={false}
-                  labelOff
-                  className="w-full sm:w-56 lg:w-70"
-                  onChange={(val) => updateParams({ kancabId: val, page: "1" })}
-                />
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-3 w-full">
+            {isKanwil && (
+              <>
+                <Select
+                  aria-label="Pilih Unit"
+                  placeholder="Pilih Level Unit"
+                  value={unitLevel}
+                  onChange={(key) => {
+                    const val = (key ?? "KANWIL") as "KANWIL" | "KANCAB";
+                    setUnitLevel(val);
 
-          <FilterProgram
-            value={currentProgram}
-            labelOff
-            className="w-full sm:w-56 lg:w-70"
-            onChange={(key) =>
-              updateParams({ programId: String(key), page: "1" })
-            }
-          />
+                    // Jika user memilih kembali ke "Kantor Wilayah", clear parameter kancabId
+                    if (val === "KANWIL") {
+                      updateParams({ kancabId: "", page: "1" });
+                    }
+                  }}
+                  className="w-full md:w-52"
+                >
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      <ListBox.Item id="KANWIL" textValue="Kantor Wilayah">
+                        Semua Unit
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                      <ListBox.Item id="KANCAB" textValue="Kantor Cabang">
+                        Kantor Cabang
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+
+                {/* 2. FILTER PILIH KANCAB (Hanya render jika level == KANCAB) */}
+                {unitLevel === "KANCAB" && (
+                  <SelectKancab
+                    branches={myKancabList}
+                    value={searchParams.get("kancabId") || ""}
+                    isDisabled={false}
+                    labelOff
+                    className="w-full md:w-52"
+                    onChange={(val) =>
+                      updateParams({ kancabId: val, page: "1" })
+                    }
+                  />
+                )}
+              </>
+            )}
+
+            <FilterProgram
+              value={currentProgram}
+              labelOff
+              className="w-full md:w-52"
+              onChange={(key) =>
+                updateParams({ programId: String(key), page: "1" })
+              }
+            />
+          </div>
         </Card.Content>
       </Card>
 

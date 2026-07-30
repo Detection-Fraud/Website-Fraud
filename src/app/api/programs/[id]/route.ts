@@ -1,7 +1,10 @@
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
-import { createProgramSchema, updateProgramSchema } from "@/schemas/program.schema";
+import {
+  createProgramSchema,
+  updateProgramSchema,
+} from "@/schemas/program.schema";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -70,12 +73,20 @@ export async function PUT(
       );
     }
 
-    const { name, frequency, startDate, endDate, categoryId, description } =
-      parsedData.data;
+    const {
+      name,
+      frequency,
+      startDate,
+      tw,
+      endDate,
+      categoryId,
+      description,
+      bannerUrl,
+    } = parsedData.data;
 
-    if (endDate <= startDate) {
+    if (new Date(endDate) < new Date(startDate)) {
       return NextResponse.json(
-        errorResponse("End date must be after start date", 400),
+        errorResponse("Tanggal selesai harus setelah tanggal mulai", 400),
         { status: 400 },
       );
     }
@@ -85,10 +96,12 @@ export async function PUT(
       data: {
         name,
         frequency,
-        startDate,
-        endDate,
+        tw: tw ?? null,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
         categoryId: categoryId || null,
         description: description || null,
+        bannerUrl: bannerUrl || null,
       },
     });
 

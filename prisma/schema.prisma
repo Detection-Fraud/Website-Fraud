@@ -20,6 +20,11 @@ enum Role {
   VIEWER
 }
 
+enum ProgramUnit {
+  KEGIATAN
+  PARTISIPASI_PERSEN
+}
+
 enum ReportStatus {
   PENDING
   APPROVED
@@ -95,6 +100,12 @@ model ProgramCategory {
   id String @id @default(uuid())
   name String @unique
   color String?
+
+  bannerUrl String?
+  targetUnit ProgramUnit @default(KEGIATAN)
+  defaultFrequency Int @default(1)
+
+  
   programs ProgramBudaya[]
 
   createdAt DateTime @default(now())
@@ -106,7 +117,10 @@ model ProgramBudaya {
 
   name String
 
-  frequency Int
+  bannerUrl String?
+
+  frequency Int @default(1)
+  tw Int?
   startDate DateTime
   endDate DateTime
   isActive Boolean @default(true)

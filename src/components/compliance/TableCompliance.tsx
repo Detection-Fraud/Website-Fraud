@@ -75,7 +75,7 @@ export default function TableCompliance({
     }
     if (columnKey === "unit") {
       return (
-        <div className="w-42">
+        <div className="min-w-56 max-w-72 whitespace-normal wrap-break-word">
           <p className="font-semibold text-slate-800">{item.unit.name}</p>
           <p className="text-xs text-slate-400">{item.unit.type}</p>
         </div>
@@ -83,7 +83,9 @@ export default function TableCompliance({
     }
     if (columnKey === "wilayah") {
       return (
-        <span className="text-sm text-slate-600">{item.unit.wilayah}</span>
+        <div className="min-w-48 max-w-64 whitespace-normal wrap-break-word">
+          <span className="text-sm text-slate-600 ">{item.unit.wilayah}</span>
+        </div>
       );
     }
     if (columnKey === "avg") {

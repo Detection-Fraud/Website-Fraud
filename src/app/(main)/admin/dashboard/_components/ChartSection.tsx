@@ -1,5 +1,5 @@
 import { DashboardCharts, DashboardSummary } from "@/types/analytics.type";
-import { Card, Chip, Link, ProgressBar, Tabs } from "@heroui/react";
+import { Card, Chip, Link, ProgressBar, Tabs, Tooltip } from "@heroui/react";
 import { BiAward, BiLineChart } from "react-icons/bi";
 import { FaUser } from "react-icons/fa";
 import { FiBarChart2 } from "react-icons/fi";
@@ -325,7 +325,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                         <div className="flex items-center text-sm font-bold text-gray-900">
                           {cc.approved}{" "}
                           <span className="text-gray-400 font-normal ml-1 text-xs">
-                            / {cc.submitted}
+                            / {cc.target} Target
                           </span>
                         </div>
                       </div>
@@ -335,11 +335,16 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                         <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                            style={{ width: `${cc.approvalRate}%` }}
+                            style={{
+                              width: `${Math.min(cc.approvalRate, 100)}%`,
+                            }}
                           />
                         </div>
                         <div className="text-[11px] text-gray-400 font-medium whitespace-nowrap w-24 text-right truncate">
-                          {cc.unitName}
+                          <Tooltip>
+                            <Tooltip.Trigger>{cc.unitName}</Tooltip.Trigger>
+                            <Tooltip.Content>{cc.unitName}</Tooltip.Content>
+                          </Tooltip>
                         </div>
                       </div>
                     </div>

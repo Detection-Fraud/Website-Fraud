@@ -1,22 +1,31 @@
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
-import { NextResponse } from "next/server";
+import { updateCategorySchema } from "@/schemas/program.schema";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-export async function PUT(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+type Params = { params: Promise<{ id: string }> };
+
+export async function PUT(req: NextRequest, { params }: Params) {
   try {
     await requireAdmin();
 
     const { id } = await params;
     const body = await req.json();
-    const { name, color } = body;
+
+    const parsed = updateCategorySchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        errorResponse("Validasi gagal", 400, z.treeifyError(parsed.error)),
+        { status: 400 },
+      );
+    }
 
     const category = await prisma.programCategory.update({
       where: { id },
-      data: { name, color },
+      data: parsed.data,
     });
 
     return NextResponse.json(
@@ -28,10 +37,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
     await requireAdmin();
 
@@ -43,7 +49,10 @@ export async function DELETE(
 
     if (programCount > 0) {
       return NextResponse.json(
-        errorResponse("Cannot delete category because it has programs", 400),
+        errorResponse(
+          `Kategori masih digunakan oleh ${programCount} program`,
+          400,
+        ),
         { status: 400 },
       );
     }

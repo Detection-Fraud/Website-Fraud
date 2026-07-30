@@ -2,7 +2,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { FilterOption, TabUnitType } from "@/types/compliance.types";
 import { Button, Card, Tag, TagGroup } from "@heroui/react";
 import { FiDownload, FiX } from "react-icons/fi";
-import FilterProgram from "../ui/FilterProgram";
+import FilterCategory from "../ui/FilterCategory";
 import SelectKancab from "../ui/SelectKancab";
 import SelectWilayah from "../ui/SelectWilayah";
 import SelectYear from "../ui/SelectYear";
@@ -101,8 +101,9 @@ export default function FilterSection({
             onChange={(val) => handleYearChange(val)}
             className="w-full"
           />
-          <FilterProgram
+          <FilterCategory
             value={filters.programId}
+            categories={options?.programList || []}
             onChange={(val) => handleProgramChange(val)}
             className="w-full"
           />

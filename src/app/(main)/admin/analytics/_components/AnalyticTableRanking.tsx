@@ -43,7 +43,8 @@ export default function AnalyticTableRanking({
     { key: "unitName", label: "UNIT KERJA" },
     { key: "submitted", label: "TOTAL SUBMIT" },
     { key: "approved", label: "DISETUJUI" },
-    { key: "approvalRate", label: "APPROVAL RATE" },
+    { key: "target", label: "TARGET" },
+    { key: "approvalRate", label: "COMPLIANCE" },
     { key: "status", label: "STATUS" },
   ];
 
@@ -149,21 +150,22 @@ export default function AnalyticTableRanking({
           </div>
         );
 
+      case "target":
+        return <span className="text-gray-500 text-sm">{item.target}</span>;
+
       case "approvalRate":
         return (
           <div className="flex items-center gap-3">
             <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${
-                  item.approvalRate >= 90
+                  item.approvalRate >= 50
                     ? "bg-green-500"
-                    : item.approvalRate >= 80
-                      ? "bg-blue-500"
-                      : item.approvalRate >= 70
-                        ? "bg-orange-500"
-                        : "bg-red-500"
+                    : item.approvalRate >= 25
+                      ? "bg-orange-500"
+                      : "bg-red-500"
                 }`}
-                style={{ width: `${item.approvalRate}%` }}
+                style={{ width: `${Math.min(item.approvalRate, 100)}%` }}
               />
             </div>
             <span className="font-bold text-gray-900">
@@ -172,11 +174,11 @@ export default function AnalyticTableRanking({
           </div>
         );
 
-      case "status":
-        let colorTheme: "success" | "default" | "warning" | "danger" = "danger";
-        if (item.status === "Sangat Baik") colorTheme = "success";
-        else if (item.status === "Baik") colorTheme = "default";
-        else if (item.status === "Cukup") colorTheme = "warning";
+      case "status": {
+        // On Track >= 50% | Behind 25-49% | At Risk < 25%
+        let colorTheme: "success" | "warning" | "danger" = "danger";
+        if (item.status === "On Track") colorTheme = "success";
+        else if (item.status === "Behind") colorTheme = "warning";
         return (
           <Chip
             color={colorTheme}
@@ -187,6 +189,7 @@ export default function AnalyticTableRanking({
             {item.status}
           </Chip>
         );
+      }
 
       default:
         return (item as any)[columnKey];

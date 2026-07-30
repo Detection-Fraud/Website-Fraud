@@ -1,15 +1,19 @@
 import { api } from "@/lib/api";
 import { ProgramBudaya } from "@generated/prisma";
-import { useOverlayState } from "@heroui/react";
+import { toast, useOverlayState } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 interface ProgramPayload {
   name: string;
   frequency: number;
+  tw?: number | null;
   startDate: string;
   endDate: string;
   isActive: boolean;
+  categoryId?: string | null;
+  description?: string | null;
+  bannerUrl?: string | null;
 }
 
 export function useProgramMutation() {
@@ -39,6 +43,13 @@ export function useProgramMutation() {
       queryClient.invalidateQueries({ queryKey: ["programs"] });
       modalAddState.close();
     },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message ||
+        error?.message ||
+        "Gagal menyimpan program";
+      toast.danger("Gagal Menyimpan", { description: message });
+    },
   });
 
   const toggleMutation = useMutation({
@@ -62,25 +73,30 @@ export function useProgramMutation() {
     modalAddState.open();
   };
 
-  const handleToggleClick = (program: ProgramBudaya) => {
-    setSelectedProgram(program);
-    modalState.open();
-  };
-
   const handleEditToggleClick = (program: ProgramBudaya) => {
     setSelectedProgram(program);
     modalAddState.open();
   };
 
+  const handleToggleClick = (program: ProgramBudaya) => {
+    setSelectedProgram(program);
+    modalState.open();
+  };
+
   const handleAddProgram = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     const formData = new FormData(e.currentTarget);
     const payload: ProgramPayload = {
       name: formData.get("name") as string,
       frequency: Number(formData.get("frequency")),
+      tw: Number(formData.get("tw")) || null,
       startDate: formData.get("startDate") as string,
       endDate: formData.get("endDate") as string,
       isActive: true,
+      categoryId: (formData.get("categoryId") as string) || null,
+      description: (formData.get("description") as string) || null,
+      bannerUrl: (formData.get("bannerUrl") as string) || null,
     };
 
     saveMutation.mutate({

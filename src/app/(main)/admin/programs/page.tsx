@@ -3,7 +3,7 @@
 import AppBar from "@/components/layout/Appbar";
 import { useProgramMutation } from "@/hooks/useProgramMutation";
 import { useProgramQuery } from "@/hooks/useProgramQuery";
-import { SearchField } from "@heroui/react";
+import { Pagination, SearchField } from "@heroui/react";
 import CardPrograms from "./_components/CardPrograms";
 import CardSummaryPrograms from "./_components/CardSummaryPrograms";
 import ModalForm from "./_components/ModalForm";
@@ -25,7 +25,6 @@ export default function ProgramsPage() {
   const {
     programs,
     isLoading,
-    error,
     summary,
     pagination,
     searchInput,
@@ -36,7 +35,7 @@ export default function ProgramsPage() {
   } = useProgramQuery();
 
   return (
-    <div className="space-y-4 mb-10">
+    <div className="space-y-6 mb-10">
       <AppBar
         title="Program Budaya"
         description="Kelola master data program kegiatan budaya BULOG"
@@ -44,13 +43,19 @@ export default function ProgramsPage() {
         onAdd={handleAddToggleClick}
       />
 
-      <div>
-        <CardSummaryPrograms data={summary} />
-      </div>
+      <CardSummaryPrograms data={summary} />
 
-      <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Menampilkan{" "}
+          <span className="font-medium text-zinc-700 dark:text-zinc-300">
+            {pagination.total}
+          </span>{" "}
+          program
+        </p>
+
         <SearchField
-          className={"max-w-2xs"}
+          className="w-full sm:max-w-xs"
           value={searchInput}
           onChange={setSearchInput}
           onSubmit={handleSearch}
@@ -58,19 +63,69 @@ export default function ProgramsPage() {
         >
           <SearchField.Group>
             <SearchField.SearchIcon />
-            <SearchField.Input placeholder="Cari Program..." />
+            <SearchField.Input placeholder="Cari program..." />
             <SearchField.ClearButton />
           </SearchField.Group>
         </SearchField>
       </div>
 
-      <div>
-        <CardPrograms
-          programs={programs || []}
-          onToggleStatus={handleToggleClick}
-          onEdit={handleEditToggleClick}
-        />
-      </div>
+      <CardPrograms
+        programs={programs}
+        onToggleStatus={handleToggleClick}
+        onEdit={handleEditToggleClick}
+      />
+
+      {/* Pagination Container */}
+      {pagination.totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="text-sm text-zinc-500">
+            Total{" "}
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+              {pagination.total}
+            </span>{" "}
+            program
+          </div>
+          <Pagination className="justify-center">
+            <Pagination.Content>
+              <Pagination.Item>
+                <Pagination.Previous
+                  isDisabled={pagination.page === 1}
+                  onPress={() =>
+                    updateParams({ page: (pagination.page - 1).toString() })
+                  }
+                >
+                  <Pagination.PreviousIcon />
+                  <span>Prev</span>
+                </Pagination.Previous>
+              </Pagination.Item>
+              {Array.from(
+                { length: pagination.totalPages },
+                (_, i) => i + 1,
+              ).map((p) => (
+                <Pagination.Item key={p}>
+                  <Pagination.Link
+                    isActive={p === pagination.page}
+                    onPress={() => updateParams({ page: p.toString() })}
+                  >
+                    {p}
+                  </Pagination.Link>
+                </Pagination.Item>
+              ))}
+              <Pagination.Item>
+                <Pagination.Next
+                  isDisabled={pagination.page === pagination.totalPages}
+                  onPress={() =>
+                    updateParams({ page: (pagination.page + 1).toString() })
+                  }
+                >
+                  <span>Next</span>
+                  <Pagination.NextIcon />
+                </Pagination.Next>
+              </Pagination.Item>
+            </Pagination.Content>
+          </Pagination>
+        </div>
+      )}
 
       <ModalStatus
         isOpen={modalState.isOpen}

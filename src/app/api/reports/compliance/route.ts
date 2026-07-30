@@ -1,6 +1,6 @@
-import { resolveScope } from "@/lib/api/unit-scope";
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { PROGRAM_COLORS } from "@/lib/api/constants";
+import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
@@ -33,15 +33,20 @@ export async function GET(req: Request) {
 
     // 4. Ambil program dan aggregasi laporan
     const [programs, submissions] = await Promise.all([
-      prisma.programBudaya.findMany({
-        where: { isActive: true },
-        orderBy: { createdAt: "asc" },
+      prisma.programCategory.findMany({
+        include: {
+          programs: {
+            where: { isActive: true },
+            select: { id: true, frequency: true, tw: true },
+          },
+        },
+        orderBy: { name: "asc" },
       }),
       prisma.activityReport.groupBy({
         by: ["unitId", "programId"],
         where: {
           status: "APPROVED",
-          ...(programId !== "ALL" && { programId }),
+          ...(programId !== "ALL" && { program: { categoryId: programId } }),
           unitId: { not: null },
           tanggalKegiatan: {
             gte: yearStart,
@@ -52,17 +57,18 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    const programInfoList = programs.map((p, i) => ({
-      id: p.id,
-      name: p.name,
-      frequency: p.frequency,
+    const programInfoList = programs.map((cat, i) => ({
+      id: cat.id,
+      name: cat.name,
+      programIds: cat.programs.map((p) => p.id),
+      frequency: cat.programs.reduce((s, p) => s + p.frequency, 0) || 1,
       color: PROGRAM_COLORS[i % PROGRAM_COLORS.length],
     }));
 
-    const getUnitSubmissions = (unitId: string, progId: string) => {
+    const getUnitSubmissions = (unitId: string, progIds: string[]) => {
       let sum = 0;
       for (const sub of submissions) {
-        if (sub.programId === progId && sub.unitId === unitId) {
+        if (progIds.includes(sub.programId!) && sub.unitId === unitId) {
           sum += sub._count.id;
         }
       }
@@ -72,12 +78,14 @@ export async function GET(req: Request) {
     // 5. Kalkulasi compliance per unit
     const tableData = activeUnits.map((unit) => {
       const programCompliance = programInfoList.map((prog) => {
-        const submitted = getUnitSubmissions(unit.id, prog.id);
-        const target = prog.frequency;
-        const pct = Math.round((submitted / target) * 100);
+        const submitted = getUnitSubmissions(unit.id, prog.programIds);
+        const target = prog.frequency || 1;
+        const rawPct = Math.round((submitted / target) * 100);
+        const pct = Math.min(rawPct, 120);
         return {
           programId: prog.id,
           pct,
+          rawPct,
           submitted,
           target,
         };

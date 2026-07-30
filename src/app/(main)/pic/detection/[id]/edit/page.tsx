@@ -6,7 +6,7 @@ import { useReportStore } from "@/store/useReportStore";
 import { Card, Link, Spinner } from "@heroui/react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import Dropzone from "../../_components/dropzone";
+import Dropzone from "../../_components/DetectionDropzone";
 import FormDetection from "../../_components/form-detection";
 import GridPreview from "../../_components/gridPreview";
 

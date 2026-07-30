@@ -1,7 +1,13 @@
-import { handleApiError, requireAdmin, requireAuth } from "@/lib/api/auth-guard";
+import {
+  handleApiError,
+  requireAdmin,
+  requireAuth,
+} from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import { createCategorySchema } from "@/schemas/program.schema";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 export async function GET(req: Request) {
   try {
@@ -11,52 +17,23 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "asc" },
       include: {
         programs: {
-          orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-          select: {
-            id: true,
-            name: true,
-            isActive: true,
-            startDate: true,
-            endDate: true,
-          },
+          select: { id: true, name: true, isActive: true },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
 
-    const mappedCategories = categories.map((cat) => {
-      const totalProgram = cat.programs.length;
-      const totalActive = cat.programs.filter((p) => p.isActive).length;
-      const totalInActive = totalProgram - totalActive;
+    const mapped = categories.map((cat) => ({
+      ...cat,
+      totalProgram: cat.programs.length,
+      totalActive: cat.programs.filter((p) => p.isActive).length,
+    }));
 
-      return {
-        id: cat.id,
-        name: cat.name,
-        color: cat.color,
-        totalProgram,
-        totalActive,
-        totalInActive,
-        programs: cat.programs,
-      };
-    });
-
-    const [totalCategory, totalPrograms, activePrograms, uncategorized] =
-      await Promise.all([
-        prisma.programCategory.count(),
-        prisma.programBudaya.count(),
-        prisma.programBudaya.count({ where: { isActive: true } }),
-        prisma.programBudaya.count({ where: { categoryId: null } }),
-      ]);
     return NextResponse.json(
       {
         success: true,
         message: "Berhasil mengambil data kategori",
-        data: mappedCategories,
-        summary: {
-          totalCategory,
-          totalPrograms,
-          activePrograms,
-          uncategorized,
-        },
+        data: mapped,
       },
       { status: 200 },
     );
@@ -70,30 +47,27 @@ export async function POST(req: Request) {
     await requireAdmin();
 
     const body = await req.json();
-    const { name, color } = body;
+    const parsed = createCategorySchema.safeParse(body);
 
-    if (!name || !color) {
+    if (!parsed.success) {
       return NextResponse.json(
-        errorResponse("Name and color is required", 400),
+        errorResponse("Validasi gagal", 400, z.treeifyError(parsed.error)),
         { status: 400 },
       );
     }
 
-    const exists = await prisma.programCategory.findUnique({
-      where: { name },
-    });
+    const { name, color, bannerUrl, targetUnit, defaultFrequency } =
+      parsed.data;
 
+    const exists = await prisma.programCategory.findUnique({ where: { name } });
     if (exists) {
-      return NextResponse.json(errorResponse("Category already exists", 400), {
-        status: 400,
+      return NextResponse.json(errorResponse("Kategori sudah ada", 409), {
+        status: 409,
       });
     }
 
     const category = await prisma.programCategory.create({
-      data: {
-        name,
-        color,
-      },
+      data: { name, color, bannerUrl, targetUnit, defaultFrequency },
     });
 
     return NextResponse.json(

@@ -97,18 +97,20 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const { name, frequency, startDate, endDate, categoryId, description } =
-      parsedData.data;
+    const {
+      name,
+      frequency,
+      tw,
+      startDate,
+      endDate,
+      categoryId,
+      description,
+      bannerUrl,
+    } = parsedData.data;
 
-    if (!name || !frequency || !startDate || !endDate) {
-      return NextResponse.json(errorResponse("Missing required fields", 400), {
-        status: 400,
-      });
-    }
-
-    if (new Date(endDate) <= new Date(startDate)) {
+    if (new Date(endDate) < new Date(startDate)) {
       return NextResponse.json(
-        errorResponse("End date must be after start date", 400),
+        errorResponse("Tanggal selesai harus setelah tanggal mulai", 400),
         {
           status: 400,
         },
@@ -119,11 +121,13 @@ export async function POST(req: Request) {
       data: {
         name,
         frequency,
+        tw: tw ?? null,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         isActive: true,
         categoryId: categoryId || null,
         description: description || null,
+        bannerUrl: bannerUrl || null,
       },
     });
 

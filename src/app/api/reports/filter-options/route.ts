@@ -1,13 +1,12 @@
-
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const session = await requireAuth();
+    await requireAuth();
 
     const [kanwilList, divisiList, programs] = await Promise.all([
       prisma.unit.findMany({
@@ -20,10 +19,9 @@ export async function GET() {
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
-      prisma.programBudaya.findMany({
-        where: { isActive: true },
+      prisma.programCategory.findMany({
         select: { id: true, name: true },
-        orderBy: { createdAt: "asc" },
+        orderBy: { name: "asc" },
       }),
     ]);
 

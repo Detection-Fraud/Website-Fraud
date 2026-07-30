@@ -1,5 +1,5 @@
 import { useApproval } from "@/hooks/useApproval";
-import { Button, Form, Label, Modal, TextArea, TextField } from "@heroui/react";
+import { Button, CloseButton, Form, Label, Modal, TextArea, TextField } from "@heroui/react";
 import { useState } from "react";
 import { FiAlertTriangle } from "react-icons/fi";
 import { IoCloseCircleOutline } from "react-icons/io5";

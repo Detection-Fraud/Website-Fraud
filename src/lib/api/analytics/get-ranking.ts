@@ -14,7 +14,18 @@ export async function getRanking(params: RankingParams) {
     rankingPage,
     rankingUnitId,
     user,
+    year,
+    startMonth = 0,
+    endMonth = 11,
   } = params;
+
+  const startDate = new Date(year, startMonth, 1);
+  const endDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
+
+  const fullWhereClause = {
+    ...whereClause,
+    tanggalKegiatan: { gte: startDate, lte: endDate },
+  };
 
   // 6. Ranking wilayah
   let rankingWilayah: {
@@ -35,10 +46,10 @@ export async function getRanking(params: RankingParams) {
     const kancab = await prisma.unit.findUnique({ where: { id: kancabId } });
     if (kancab) {
       const totalKegiatanRaw = await prisma.activityReport.count({
-        where: { ...whereClause, unitId: kancabId },
+        where: { ...fullWhereClause, unitId: kancabId },
       });
       const totalDisetujuiRaw = await prisma.activityReport.count({
-        where: { ...whereClause, unitId: kancabId, status: "APPROVED" },
+        where: { ...fullWhereClause, unitId: kancabId, status: "APPROVED" },
       });
       const approvalRate =
         totalKegiatanRaw > 0 ? (totalDisetujuiRaw / totalKegiatanRaw) * 100 : 0;
@@ -67,14 +78,14 @@ export async function getRanking(params: RankingParams) {
 
     const rankingRaw = await prisma.activityReport.groupBy({
       by: ["unitId"],
-      where: { ...whereClause, unitId: { in: kancabs.map((k) => k.id) } },
+      where: { ...fullWhereClause, unitId: { in: kancabs.map((k) => k.id) } },
       _count: { id: true },
     });
 
     const approvedRaw = await prisma.activityReport.groupBy({
       by: ["unitId"],
       where: {
-        ...whereClause,
+        ...fullWhereClause,
         unitId: { in: kancabs.map((k) => k.id) },
         status: "APPROVED",
       },
@@ -111,10 +122,10 @@ export async function getRanking(params: RankingParams) {
     if (divisi) {
       const [totalKegiatanRaw, totalDisetujuiRaw] = await Promise.all([
         prisma.activityReport.count({
-          where: { ...whereClause, unitId: divisiId },
+          where: { ...fullWhereClause, unitId: divisiId },
         }),
         prisma.activityReport.count({
-          where: { ...whereClause, unitId: divisiId, status: "APPROVED" },
+          where: { ...fullWhereClause, unitId: divisiId, status: "APPROVED" },
         }),
       ]);
 
@@ -164,12 +175,12 @@ export async function getRanking(params: RankingParams) {
     const [kegiatanPerUnit, approvedPerUnit] = await Promise.all([
       prisma.activityReport.groupBy({
         by: ["unitId"],
-        where: { ...whereClause, unitId: { not: null } },
+        where: { ...fullWhereClause, unitId: { not: null } },
         _count: { id: true },
       }),
       prisma.activityReport.groupBy({
         by: ["unitId"],
-        where: { ...whereClause, unitId: { not: null }, status: "APPROVED" },
+        where: { ...fullWhereClause, unitId: { not: null }, status: "APPROVED" },
         _count: { id: true },
       }),
     ]);

@@ -52,6 +52,7 @@ export interface RankingCC {
   unitType: string;
   submitted: number;
   approved: number;
+  target: number;
   approvalRate: number;
   status: string;
 }

@@ -50,6 +50,11 @@ skills-lock.json
 public/uploads
 data/
 
+docs/
+caveman-skill.txt
+taste-skill.txt
+temp-skill-instructions.txt
+
 public/uploads/
 public/uploads
 .code-review-graph/

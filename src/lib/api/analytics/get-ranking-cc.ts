@@ -12,6 +12,7 @@ export interface RankingCCItem {
   unitType: string;
   submitted: number;
   approved: number;
+  target: number;
   approvalRate: number;
   status: string;
 }
@@ -29,6 +30,25 @@ export async function getRankingCC(params: RankingCCParams) {
 
   const startDate = new Date(year, startMonth, 1);
   const endDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
+
+  const startTw = Math.floor(startMonth / 3) + 1;
+  const endTw = Math.floor(endMonth / 3) + 1;
+  // Ambil array TW yang masuk dalam rentang filter
+  const twList: number[] = [];
+  for (let t = startTw; t <= endTw; t++) {
+    twList.push(t);
+  }
+
+  const activePrograms = await prisma.programBudaya.findMany({
+    where: {
+      isActive: true,
+      ...(twList.length < 4 ? { tw: { in: twList } } : {}),
+    },
+    select: { frequency: true },
+  });
+
+  const totalTarget = activePrograms.reduce((sum, p) => sum + p.frequency, 0);
+  const effectiveTarget = totalTarget > 0 ? totalTarget : 1;
 
   let targetUnitTypes: UnitType[] | undefined;
   if (unitType === "WILAYAH") targetUnitTypes = [UnitType.KANTOR_WILAYAH];
@@ -103,14 +123,15 @@ export async function getRankingCC(params: RankingCCParams) {
 
   const userMap = new Map(users.map((u) => [u.id, u]));
 
-  // 4. Susun ranking — sort: approved DESC, submitted DESC, approvalRate DESC
+  // 4. Susun ranking — sort: compliancePercent (kedisiplinan individu) DESC, approved DESC, approvalRate DESC
   const allRankings = submitCounts
     .map((item) => {
       const user = userMap.get(item.createdById!);
       const submitted = item._count.id;
       const approved = approvedMap.get(item.createdById!) ?? 0;
-      const approvalRate =
-        submitted > 0 ? Number(((approved / submitted) * 100).toFixed(1)) : 0;
+      const compliancePercent = Number(
+        ((approved / effectiveTarget) * 100).toFixed(1),
+      );
 
       return {
         userId: item.createdById!,
@@ -119,14 +140,15 @@ export async function getRankingCC(params: RankingCCParams) {
         unitType: user?.unit?.type ?? "-",
         submitted,
         approved,
-        approvalRate,
-        status: getApprovalStatusText(approvalRate),
+        target: Math.round(effectiveTarget),
+        approvalRate: compliancePercent,
+        status: getApprovalStatusText(compliancePercent),
       };
     })
     .sort(
       (a, b) =>
-        b.approved - a.approved ||
         b.approvalRate - a.approvalRate ||
+        b.approved - a.approved ||
         b.submitted - a.submitted,
     );
 

@@ -1,6 +1,6 @@
 
 import { api } from "@/lib/api";
-import { ProgramBudaya } from "@generated/prisma";
+import { ProgramBudaya, ProgramCategory } from "@generated/prisma";
 import { useQuery } from "@tanstack/react-query";
 import { useUrlParams } from "./useUrlParams";
 
@@ -17,8 +17,12 @@ export type PaginationData = {
   totalPages: number;
 };
 
+export type ProgramBudayaWithCategory = ProgramBudaya & {
+  category: ProgramCategory | null;
+};
+
 interface ProgramListPayload {
-  data: ProgramBudaya[];
+  data: ProgramBudayaWithCategory[];
   summary: ProgramSummary;
   pagination: PaginationData;
 }

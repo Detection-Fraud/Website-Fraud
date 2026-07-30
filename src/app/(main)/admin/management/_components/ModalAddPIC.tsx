@@ -6,6 +6,7 @@ import { useSearchPic } from "@/hooks/useSearchPic";
 import {
   Autocomplete,
   Button,
+  CloseButton,
   EmptyState,
   Form,
   Label,

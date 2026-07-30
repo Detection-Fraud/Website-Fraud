@@ -48,9 +48,9 @@ export function useReportList() {
     search,
     status: statusFilter,
     programId: programFilter,
-    kanwilId: wilayah.kanwilId,
-    kancabId: wilayah.kancabId,
-    divisiId: wilayah.divisiId,
+    kanwilId: initialKanwilId,
+    kancabId: initialKancabId,
+    divisiId: initialDivisiId,
   };
 
   const { data, isLoading, error, refetch } = useQuery<ReportListPayload>({
