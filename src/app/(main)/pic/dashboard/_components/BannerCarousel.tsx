@@ -10,14 +10,14 @@ interface Program {
   id: string;
   name: string;
   frequency: number;
-  description: string | null;
-  bannerUrl: string | null;
-  startDate: string;
-  endDate: string;
+  description?: string | null;
+  bannerUrl?: string | null;
+  startDate: string | Date;
+  endDate: string | Date;
   category: {
     name: string;
     color: string | null;
-    bannerUrl: string | null;
+    bannerUrl?: string | null;
     targetUnit: string;
   } | null;
 }

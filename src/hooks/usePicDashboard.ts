@@ -22,6 +22,8 @@ interface ActiveProgram {
   id: string;
   name: string;
   frequency: number;
+  description: string | null;
+  bannerUrl: string | null;
   startDate: string;
   endDate: string;
   category: {
