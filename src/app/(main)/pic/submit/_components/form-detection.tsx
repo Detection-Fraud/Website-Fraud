@@ -3,6 +3,7 @@ import { ProgramBudaya } from "@generated/prisma";
 import {
   Button,
   Card,
+  Chip,
   Form,
   Input,
   Label,
@@ -22,6 +23,8 @@ export interface InitialData {
 }
 
 import { useReportSubmission } from "@/hooks/useReportSubmission";
+import { useMemo } from "react";
+import { FiCheckCircle, FiInfo } from "react-icons/fi";
 
 interface PropTypes {
   programs: ProgramBudaya[];
@@ -47,6 +50,9 @@ export default function FormDetection({
   const {
     selectedProgramId,
     setSelectedProgramId,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    programsInCategory,
     selectedDate,
     setSelectedDate,
     handleFormSubmit,
@@ -59,10 +65,24 @@ export default function FormDetection({
     programs,
   });
 
+  const safePrograms = Array.isArray(programs) ? programs : [];
+  const uniqueCategories = useMemo(() => {
+    const categoryMap = new Map();
+    safePrograms.forEach((p: any) => {
+      if (p.category && p.categoryId) {
+        categoryMap.set(p.categoryId, p.category);
+      }
+    });
+    return Array.from(categoryMap.values());
+  }, [safePrograms]);
+
+  // Ambil data program yang sedang terpilih (jika ada)
+  const activeSelectedProgram = safePrograms.find(
+    (p) => p.id === selectedProgramId,
+  );
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  const safePrograms = Array.isArray(programs) ? programs : [];
   const availablePrograms = safePrograms.filter((program) => {
     // Keep if it's the currently edited program
     if (initialData?.programId === program.id) return true;
@@ -103,28 +123,33 @@ export default function FormDetection({
 
           {/* Select: controlled via value/onChange (HeroUI v3 pattern) */}
           <div className="w-full flex flex-col gap-1">
-            <Label className="text-sm font-medium">Program Budaya</Label>
+            <Label className="text-sm font-semibold text-slate-700">
+              Kategori Program
+            </Label>
             <Select
-              placeholder="Pilih Program Budaya"
+              placeholder="Pilih Kategori Program"
               className="mt-1"
-              name="programId"
-              value={selectedProgramId}
-              onChange={(value) => setSelectedProgramId(value)}
-              aria-label="Program Budaya"
+              value={selectedCategoryId as string}
+              onChange={(value) => setSelectedCategoryId(value as string)}
+              aria-label="Kategori Program"
             >
-              <Select.Trigger>
+              <Select.Trigger className="bg-white border border-slate-200 shadow-xs">
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
               <Select.Popover>
                 <ListBox>
-                  {availablePrograms.map((program) => (
-                    <ListBox.Item
-                      key={program.id}
-                      id={program.id}
-                      textValue={program.name}
-                    >
-                      {program.name}
+                  {uniqueCategories.map((cat: any) => (
+                    <ListBox.Item key={cat.id} id={cat.id} textValue={cat.name}>
+                      <div className="flex items-center gap-2">
+                        {cat.color && (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                        )}
+                        <span>{cat.name}</span>
+                      </div>
                       <ListBox.ItemIndicator />
                     </ListBox.Item>
                   ))}
@@ -133,6 +158,76 @@ export default function FormDetection({
             </Select>
           </div>
 
+          {selectedCategoryId && (
+            <div className="w-full space-y-2">
+              {/* KASUS 1: 1 Program Aktif -> Auto-Assign Display */}
+              {programsInCategory.length === 1 && activeSelectedProgram && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-800">
+                    <FiCheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <div>
+                      <p className="text-xs text-emerald-600 font-medium">
+                        Program Budaya Terhubung:
+                      </p>
+                      <p className="text-sm font-bold">
+                        {activeSelectedProgram.name}
+                      </p>
+                    </div>
+                  </div>
+                  <Chip color="success" variant="soft" className="text-xs">
+                    <Chip.Label>Auto-Assign</Chip.Label>
+                  </Chip>
+                </div>
+              )}
+
+              {/* KASUS 2: > 1 Program Aktif -> Fallback Select Dropdown */}
+              {programsInCategory.length > 1 && (
+                <div className="w-full flex flex-col gap-1">
+                  <Label className="text-sm font-semibold text-slate-700">
+                    Pilih Program Budaya Specific
+                  </Label>
+                  <Select
+                    placeholder="Pilih Program Budaya"
+                    className="mt-1"
+                    name="programId"
+                    value={selectedProgramId as string}
+                    onChange={(value) => setSelectedProgramId(value as string)}
+                    aria-label="Program Budaya"
+                  >
+                    <Select.Trigger className="bg-white border border-slate-200 shadow-xs">
+                      <Select.Value />
+                      <Select.Indicator />
+                    </Select.Trigger>
+                    <Select.Popover>
+                      <ListBox>
+                        {programsInCategory.map((program: any) => (
+                          <ListBox.Item
+                            key={program.id}
+                            id={program.id}
+                            textValue={program.name}
+                          >
+                            {program.name}
+                            <ListBox.ItemIndicator />
+                          </ListBox.Item>
+                        ))}
+                      </ListBox>
+                    </Select.Popover>
+                  </Select>
+                </div>
+              )}
+
+              {/* KASUS 3: 0 Program Aktif -> Warning Alert */}
+              {programsInCategory.length === 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-amber-800 text-xs font-medium">
+                  <FiInfo className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    Tidak ada program budaya aktif pada kategori ini untuk
+                    periode saat ini.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           {/* DatePicker: value disimpan di state */}
           <div className="w-full flex flex-col gap-1">
             <Label className="text-sm font-medium">Tanggal Kegiatan</Label>

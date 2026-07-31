@@ -8,7 +8,7 @@ export async function GET() {
   try {
     await requireAuth();
 
-    const [kanwilList, divisiList, programs] = await Promise.all([
+    const [kanwilList, divisiList, categories] = await Promise.all([
       prisma.unit.findMany({
         where: { type: "KANTOR_WILAYAH" },
         select: { id: true, name: true, kodeDolog: true },
@@ -20,15 +20,15 @@ export async function GET() {
         orderBy: { name: "asc" },
       }),
       prisma.programCategory.findMany({
-        select: { id: true, name: true },
+        select: { id: true, name: true, color: true },
         orderBy: { name: "asc" },
       }),
     ]);
 
-    const programList = programs.map((p, index) => ({
-      id: p.id,
-      name: p.name,
-      color: PROGRAM_COLORS[index % PROGRAM_COLORS.length],
+    const categoryList = categories.map((c, index) => ({
+      id: c.id,
+      name: c.name,
+      color: c.color || PROGRAM_COLORS[index % PROGRAM_COLORS.length],
     }));
 
     const formattedKanwilList = kanwilList.map((k) => ({
@@ -44,7 +44,7 @@ export async function GET() {
         {
           kanwilList: formattedKanwilList,
           divisiList,
-          programList,
+          programList: categoryList,
         },
         "Berhasil mengambil opsi filter",
       ),

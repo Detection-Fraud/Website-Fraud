@@ -8,7 +8,7 @@ import { ListBox, Select } from "@heroui/react";
 import { useSearchParams } from "next/navigation";
 import { FiFilter } from "react-icons/fi";
 
-import FilterProgram from "@/components/ui/FilterProgram";
+import FilterCategory from "@/components/ui/FilterCategory";
 import ReportSearchBar from "@/components/ui/ReportSearchBar";
 import SelectKancab from "@/components/ui/SelectKancab";
 import StatusTagGroup from "@/components/ui/StatusTagGroup";
@@ -31,6 +31,8 @@ export default function PicView() {
     statusFilter,
     summary,
     kanwilList,
+    categoryList,
+    categoryFilter,
   } = useReportList();
 
   const { user } = useCurrentUser();
@@ -123,12 +125,17 @@ export default function PicView() {
               </>
             )}
 
-            <FilterProgram
-              value={currentProgram}
+            <FilterCategory
+              value={categoryFilter}
               labelOff
+              categories={categoryList}
               className="w-full md:w-52"
               onChange={(key) =>
-                updateParams({ programId: String(key), page: "1" })
+                updateParams({
+                  categoryId: String(key),
+                  programId: String(key),
+                  page: "1",
+                })
               }
             />
           </div>

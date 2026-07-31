@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
 import { ActivityReportItem, SummaryStats } from "@/types/report.types";
 import { useQuery } from "@tanstack/react-query";
+import { useCategoryList } from "./useCategoryList";
 import { useUrlParams } from "./useUrlParams";
 import { useWilayahFilter } from "./useWilayahFilter";
 
@@ -31,7 +32,8 @@ export function useReportList() {
   const search = getParam("search") || "";
 
   const statusFilter = getParam("status") || "ALL";
-  const programFilter = getParam("programId") || "ALL";
+  const categoryFilter =
+    getParam("categoryId") || getParam("programId") || "ALL";
   const initialKanwilId = getParam("kanwilId") || "ALL";
   const initialKancabId = getParam("kancabId") || "ALL";
   const initialDivisiId = getParam("divisiId") || "ALL";
@@ -42,12 +44,15 @@ export function useReportList() {
     divisiId: initialDivisiId,
   });
 
+  const { categories: categoryList } = useCategoryList();
+
   const filters = {
     page,
     limit,
     search,
     status: statusFilter,
-    programId: programFilter,
+    categoryId: categoryFilter,
+    programId: categoryFilter,
     kanwilId: initialKanwilId,
     kancabId: initialKancabId,
     divisiId: initialDivisiId,
@@ -55,7 +60,8 @@ export function useReportList() {
 
   const { data, isLoading, error, refetch } = useQuery<ReportListPayload>({
     queryKey: ["reports", filters],
-    queryFn: () => api.get("/reports", { params: filters }).then((res) => res.data),
+    queryFn: () =>
+      api.get("/reports", { params: filters }).then((res) => res.data),
   });
 
   return {
@@ -82,7 +88,9 @@ export function useReportList() {
     statusFilter,
     router,
     ...wilayah,
-    programFilter,
+    categoryFilter,
+    programFilter: categoryFilter,
+    categoryList,
     refetch,
   };
 }

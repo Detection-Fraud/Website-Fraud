@@ -10,7 +10,15 @@ export interface ActivityReportItem {
   createdAt: string;
   notes?: string | null;
   unit?: { name: string; id: string; type: UnitType } | null;
-  program?: { name: string; id: string } | null;
+  program?: {
+    id: string;
+    name: string;
+    category?: {
+      id: string;
+      name: string;
+      color?: string | null;
+    } | null;
+  } | null;
   createdBy?: { id: string; name: string } | null;
   photos?: {
     id: number;

@@ -2,7 +2,7 @@ import { InitialData, ReportFormData } from "@/types/report.types";
 import { ProgramBudaya } from "@generated/prisma";
 import type { Key } from "@heroui/react";
 import { parseDate, type DateValue } from "@internationalized/date";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "./useCurrentUser";
 
 interface UseFormDetectionLogicProps {
@@ -19,6 +19,36 @@ export function useFormDetectionLogic({
   const [selectedProgramId, setSelectedProgramId] = useState<Key | null>(
     initialData?.programId || null,
   );
+
+  const [selectedCategoryId, setSelectedCategoryId] = useState<Key | null>();
+
+  const programsInCategory = useMemo(() => {
+    if (!selectedCategoryId) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const safePrograms = Array.isArray(programs) ? programs : [];
+    return safePrograms.filter((program: any) => {
+      if (program.categoryId !== selectedCategoryId) return false;
+
+      if (initialData?.programId === program.id) return true;
+
+      // Filter jika program sudah lewat endDate
+      const endDate = new Date(program.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      return today <= endDate;
+    });
+  }, [selectedCategoryId, programs, initialData]);
+
+  useEffect(() => {
+    if (!selectedCategoryId) return;
+
+    if (programsInCategory.length === 1) {
+      setSelectedProgramId(programsInCategory[0].id);
+    } else {
+      setSelectedProgramId(null);
+    }
+  }, [selectedCategoryId, programsInCategory]);
 
   const { user } = useCurrentUser();
 
@@ -82,6 +112,9 @@ export function useFormDetectionLogic({
   return {
     selectedProgramId,
     setSelectedProgramId,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    programsInCategory,
     selectedDate,
     setSelectedDate,
     handleFormSubmit,

@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
 
     const statusFilter = searchParams.get("status") || "ALL";
-    const programFilter = searchParams.get("programId") || "ALL";
+    const categoryFilter =
+      searchParams.get("categoryId") || searchParams.get("programId") || "ALL";
 
     // === PERUBAHAN: regionId/branchId/divisiId → kanwilId/kancabId/divisiId ===
     const kanwilFilter = searchParams.get("kanwilId") || "ALL";
@@ -36,8 +37,10 @@ export async function GET(request: NextRequest) {
       ...unitScope,
     };
 
-    if (programFilter !== "ALL") {
-      whereClause.programId = programFilter;
+    if (categoryFilter !== "ALL") {
+      whereClause.program = {
+        categoryId: categoryFilter,
+      };
     }
 
     const baseWhereClause = { ...whereClause };
@@ -91,7 +94,13 @@ export async function GET(request: NextRequest) {
               parent: { select: { id: true, name: true } },
             },
           },
-          program: { select: { name: true } },
+          program: {
+            select: {
+              name: true,
+              id: true,
+              category: { select: { id: true, name: true, color: true } },
+            },
+          },
           createdBy: { select: { id: true, name: true } },
           photos: {
             select: {

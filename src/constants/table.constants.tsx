@@ -10,6 +10,7 @@ export const REPORT_COLUMNS: TableColumn[] = [
   { key: "lokasi", label: "Lokasi" },
   { key: "unit", label: "Unit" },
   { key: "createdBy", label: "PIC" },
+  { key: "programCategory", label: "Kategori Program" },
   { key: "program", label: "Program" },
   { key: "status", label: "Status" },
   { key: "createdAt", label: "Tanggal Dibuat" },
@@ -79,6 +80,33 @@ export const renderReportCell = (
           </span>
         </div>
       );
+    case "programCategory": {
+      const category = item.program?.category;
+      return (
+        <div className="flex flex-col items-start gap-1">
+          {category ? (
+            <Chip
+              size="sm"
+              variant="soft"
+              className="w-fit"
+              style={
+                category.color
+                  ? {
+                      backgroundColor: `${category.color}20`,
+                      color: category.color,
+                    }
+                  : undefined
+              }
+            >
+              <Chip.Label>{category.name}</Chip.Label>
+            </Chip>
+          ) : (
+            <span className="text-xs font-light text-slate-500">-</span>
+          )}
+        </div>
+      );
+    }
+
     case "status": {
       const color =
         item.status === "APPROVED"
@@ -87,14 +115,19 @@ export const renderReportCell = (
             ? "warning"
             : "danger";
       return (
-        <Chip variant="soft" size="sm" color={color} className="rounded-md">
-          {item.status}
+        <Chip
+          variant="soft"
+          size="sm"
+          color={color}
+          className="rounded-md w-fit"
+        >
+          <Chip.Label>{item.status}</Chip.Label>
         </Chip>
       );
     }
     case "activityName": {
       return (
-        <span className="font-semibold text-md text-gray-700 max-w-[200px] truncate">
+        <span className="font-semibold text-md text-gray-700 max-w-50 truncate">
           {item.activityName}
         </span>
       );

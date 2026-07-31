@@ -4,7 +4,7 @@ import AppBar from "@/components/layout/Appbar";
 import { useReportList } from "@/hooks/useReportList";
 import { Button, Card, toast, useOverlayState } from "@heroui/react";
 
-import FilterProgram from "@/components/ui/FilterProgram";
+import FilterCategory from "@/components/ui/FilterCategory";
 import ReportSearchBar from "@/components/ui/ReportSearchBar";
 import SelectDivisi from "@/components/ui/SelectDivisi";
 import SelectKancab from "@/components/ui/SelectKancab";
@@ -49,8 +49,9 @@ export default function ApprovalView() {
     divisiList,
     router,
     statusFilter,
-    programFilter,
     summary,
+    categoryFilter,
+    categoryList,
   } = useReportList();
 
   const { handleApprove, isLoading: isApproving } = useApproval();
@@ -70,6 +71,8 @@ export default function ApprovalView() {
     if (kanwilId && kanwilId !== "ALL") return "WILAYAH";
     return "ALL";
   });
+
+  const selectedCategory = categoryFilter || "ALL";
 
   const [isExporting, setIsExporting] = useState(false);
 
@@ -128,8 +131,8 @@ export default function ApprovalView() {
   const apiScope = SCOPE_MAP[selectedScope];
 
   const isExportDisabled =
-    !programFilter ||
-    programFilter === "ALL" ||
+    !selectedCategory ||
+    selectedCategory === "ALL" ||
     !apiScope || // scope belum dipilih
     ((selectedScope === "WILAYAH" || selectedScope === "WILAYAH_AND_CABANG") &&
       (!kanwilId || kanwilId === "ALL")) ||
@@ -144,7 +147,8 @@ export default function ApprovalView() {
       setIsExporting(true);
 
       const params = new URLSearchParams();
-      params.append("programId", programFilter);
+      params.append("categoryId", selectedCategory);
+      params.append("programId", selectedCategory);
       params.append("scope", apiScope);
 
       if (
@@ -253,11 +257,16 @@ export default function ApprovalView() {
       <Card className="shadow-sm border border-slate-200/80 rounded-xl p-4 space-y-4 bg-white">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
           {/* 1. Program */}
-          <FilterProgram
-            value={programFilter}
+          <FilterCategory
+            value={selectedCategory}
             className="w-full"
+            categories={categoryList}
             onChange={(val) =>
-              updateParams({ programId: val === "ALL" ? "" : val, page: "1" })
+              updateParams({
+                categoryId: val === "ALL" ? "" : val,
+                programId: val === "ALL" ? "" : val,
+                page: "1",
+              })
             }
           />
 
