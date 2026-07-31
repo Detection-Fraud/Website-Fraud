@@ -75,6 +75,26 @@ export async function GET(req: Request) {
       return sum;
     };
 
+    if (submissions.length === 0) {
+      return NextResponse.json(
+        successResponse(
+          {
+            cards: {
+              totalUnit: 0,
+              avgCompliance: 0,
+              unitOnTrack: 0,
+              waspada: 0,
+              perluPerhatian: 0,
+            },
+            programs: programInfoList,
+            tableData: [],
+          },
+          "Berhasil memuat data compliance (tidak ada laporan)",
+        ),
+        { status: 200 },
+      );
+    }
+
     // 5. Kalkulasi compliance per unit
     const tableData = activeUnits.map((unit) => {
       const programCompliance = programInfoList.map((prog) => {
@@ -119,7 +139,10 @@ export async function GET(req: Request) {
     });
 
     // 6. Hitung statistik keseluruhan
-    const totalUnit = tableData.length;
+    const reportedUnitsCount = tableData.filter((u) =>
+      u.programCompliance.some((p) => p.submitted > 0),
+    ).length;
+    const totalUnit = reportedUnitsCount;
     const avgCompliance =
       totalUnit > 0
         ? Math.round(tableData.reduce((sum, u) => sum + u.avg, 0) / totalUnit)
@@ -127,7 +150,9 @@ export async function GET(req: Request) {
 
     const unitOnTrack = tableData.filter((u) => u.avg >= 50).length;
     const waspada = tableData.filter((u) => u.avg >= 25 && u.avg < 50).length;
-    const perluPerhatian = tableData.filter((u) => u.avg < 25).length;
+    const perluPerhatian = tableData.filter(
+      (u) => u.avg < 25 && u.programCompliance.some((p) => p.submitted > 0),
+    ).length;
 
     return NextResponse.json(
       successResponse(

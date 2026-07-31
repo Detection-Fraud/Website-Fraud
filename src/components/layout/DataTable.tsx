@@ -30,6 +30,7 @@ interface DataTableProps<T> {
   haveSearch?: boolean;
   haveFilter?: boolean;
   className?: string;
+  renderEmptyState?: () => React.ReactNode;
 }
 
 export default function DataTable<T>({
@@ -48,6 +49,7 @@ export default function DataTable<T>({
   haveFilter,
   haveSearch,
   filterProgram,
+  renderEmptyState,
 }: DataTableProps<T>) {
   const showPagination = pagination && pagination.totalPages > 0;
 
@@ -123,12 +125,23 @@ export default function DataTable<T>({
             ))}
           </Table.Header>
           <Table.Body
-            renderEmptyState={() => (
-              <div className="w-full text-center text-gray-500 p-4 h-90 flex flex-col items-center justify-center">
-                <BsFillInboxFill size={50} className="text-gray-400" />
-                <p className="text-gray-500 mt-4">Tidak ada data</p>
-              </div>
-            )}
+            renderEmptyState={
+              renderEmptyState ||
+              (() => (
+                <div className="w-full py-14 px-4 text-center flex flex-col items-center justify-center">
+                  <div className="w-14 h-14 bg-slate-100/80 border border-slate-200/60 rounded-2xl flex items-center justify-center text-slate-400 shadow-xs mb-3">
+                    <BsFillInboxFill size={26} />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-700">
+                    Data Tidak Ditemukan
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
+                    Belum ada rekaman data yang sesuai dengan kriteria filter
+                    saat ini.
+                  </p>
+                </div>
+              ))
+            }
           >
             {data.map((item, idx) => (
               <Table.Row key={idx}>

@@ -20,6 +20,7 @@ interface FilterSectionProps {
     divisiList: FilterOption[];
     programList: FilterOption[];
     kancabList?: FilterOption[];
+    yearList?: number[];
   };
   handleKanwilChange: (value: string) => void;
   handleKancabChange: (value: string) => void;
@@ -31,6 +32,7 @@ interface FilterSectionProps {
   handleTabChange: (key: TabUnitType) => void;
   onExport?: () => void;
   isExporting?: boolean;
+  isDataEmpty?: boolean;
 }
 export default function FilterSection({
   filters,
@@ -45,6 +47,7 @@ export default function FilterSection({
   handleTabChange,
   onExport,
   isExporting,
+  isDataEmpty,
 }: FilterSectionProps) {
   const { user } = useCurrentUser();
 
@@ -99,6 +102,7 @@ export default function FilterSection({
           <SelectYear
             value={filters.year}
             onChange={(val) => handleYearChange(val)}
+            years={options?.yearList}
             className="w-full"
           />
           <FilterCategory
@@ -155,7 +159,7 @@ export default function FilterSection({
               variant="secondary"
               className={"rounded-xl shadow-sm border border-gray-200"}
               onPress={onExport}
-              isDisabled={isExporting}
+              isDisabled={isExporting || isDataEmpty}
             >
               <FiDownload />
               {isExporting ? "Exporting..." : "Export"}

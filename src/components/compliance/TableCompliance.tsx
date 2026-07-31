@@ -51,7 +51,7 @@ export default function TableCompliance({
 
   const renderCell = (item: UnitComplianceRow, columnKey: string) => {
     if (columnKey === "rank") {
-      const isTop3 = item.rank <= 3;
+      const isTop3 = item.rank <= 3 && item.avg > 0;
       return (
         <div className="flex items-center gap-2">
           {isTop3 && (

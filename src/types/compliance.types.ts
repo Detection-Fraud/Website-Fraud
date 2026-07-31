@@ -19,6 +19,7 @@ export interface ComplianceFilterOptions {
   divisiList: FilterOption[];
   kancabList: FilterOption[];
   programList: ProgramFilterOption[];
+  yearList?: number[];
 }
 
 export type UnitType = "KANTOR_WILAYAH" | "KANTOR_CABANG" | "DIVISI";

@@ -100,6 +100,7 @@ export function useComplianceReport() {
       divisiList: options?.divisiList ?? [],
       programList: options?.programList ?? [],
       kancabList: kancabList,
+      yearList: options?.yearList ?? [],
     },
 
     data: complianceData ?? null,

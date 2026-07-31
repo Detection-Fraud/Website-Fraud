@@ -117,6 +117,7 @@ export default function ComplianceReportView() {
           handleYearChange={handleYearChange}
           onExport={handleExport}
           isExporting={isExporting}
+          isDataEmpty={!data || data.tableData.length === 0}
         />
       </div>
 

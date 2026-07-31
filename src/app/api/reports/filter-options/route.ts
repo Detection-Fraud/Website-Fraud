@@ -8,22 +8,41 @@ export async function GET() {
   try {
     await requireAuth();
 
-    const [kanwilList, divisiList, categories] = await Promise.all([
-      prisma.unit.findMany({
-        where: { type: "KANTOR_WILAYAH" },
-        select: { id: true, name: true, kodeDolog: true },
-        orderBy: [{ kodeDolog: "asc" }, { name: "asc" }],
-      }),
-      prisma.unit.findMany({
-        where: { type: "DIVISI" },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.programCategory.findMany({
-        select: { id: true, name: true, color: true },
-        orderBy: { name: "asc" },
-      }),
-    ]);
+    const currentYear = new Date().getFullYear();
+
+    const [kanwilList, divisiList, categories, distinctDates] =
+      await Promise.all([
+        prisma.unit.findMany({
+          where: { type: "KANTOR_WILAYAH" },
+          select: { id: true, name: true, kodeDolog: true },
+          orderBy: [{ kodeDolog: "asc" }, { name: "asc" }],
+        }),
+        prisma.unit.findMany({
+          where: { type: "DIVISI" },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.programCategory.findMany({
+          select: { id: true, name: true, color: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.activityReport.findMany({
+          select: { tanggalKegiatan: true },
+          distinct: ["tanggalKegiatan"],
+        }),
+      ]);
+
+    const yearSet = new Set<number>();
+    yearSet.add(currentYear);
+    yearSet.add(currentYear + 1);
+
+    distinctDates.forEach((report) => {
+      if (report.tanggalKegiatan) {
+        yearSet.add(new Date(report.tanggalKegiatan).getFullYear());
+      }
+    });
+
+    const yearList = Array.from(yearSet).sort((a, b) => b - a);
 
     const categoryList = categories.map((c, index) => ({
       id: c.id,
@@ -45,6 +64,7 @@ export async function GET() {
           kanwilList: formattedKanwilList,
           divisiList,
           programList: categoryList,
+          yearList,
         },
         "Berhasil mengambil opsi filter",
       ),
