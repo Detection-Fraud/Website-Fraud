@@ -116,7 +116,7 @@ export default function Sidebar() {
       >
         <div className="w-[260px] min-w-[260px] h-full flex flex-col">
           {/* Logo */}
-          <div className="px-4 py-6 flex items-center justify-center">
+          <div className="px-4 py-6 flex items-center justify-start">
             <Image
               src="/assets/images/logo-bulog-white.png"
               width={100}
