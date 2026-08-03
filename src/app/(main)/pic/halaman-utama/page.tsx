@@ -41,11 +41,11 @@ export default function PagePic() {
     );
   }
   return (
-    <div className="p-6 max-w-350 mx-auto space-y-6">
+    <div className="space-y-6">
       <header className="mb-8 flex items-end justify-between">
         <div>
           <div className="inline-flex items-center gap-2 mb-2">
-            <span className="inline-block w-1 h-6 rounded-full bg-gradient-to-b from-blue-500 to-blue-700" />
+            <span className="inline-block w-1 h-6 rounded-full bg-linear-to-b from-blue-500 to-blue-700" />
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">
               Beranda PIC
             </h1>

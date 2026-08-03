@@ -1,5 +1,5 @@
 import { useFormDetectionLogic } from "@/hooks/useFormDetectionLogic";
-import { ProgramBudaya } from "@generated/prisma";
+import { ProgramBudaya, ProgramCategory } from "@generated/prisma";
 import {
   Button,
   Card,
@@ -68,11 +68,13 @@ export default function FormDetection({
   const safePrograms = Array.isArray(programs) ? programs : [];
   const uniqueCategories = useMemo(() => {
     const categoryMap = new Map();
-    safePrograms.forEach((p: any) => {
-      if (p.category && p.categoryId) {
-        categoryMap.set(p.categoryId, p.category);
-      }
-    });
+    safePrograms.forEach(
+      (p: ProgramBudaya & { category?: ProgramCategory }) => {
+        if (p.category && p.categoryId) {
+          categoryMap.set(p.categoryId, p.category);
+        }
+      },
+    );
     return Array.from(categoryMap.values());
   }, [safePrograms]);
 
@@ -123,7 +125,7 @@ export default function FormDetection({
 
           {/* Select: controlled via value/onChange (HeroUI v3 pattern) */}
           <div className="w-full flex flex-col gap-1">
-            <Label className="text-sm font-semibold text-slate-700">
+            <Label className="text-sm font-semibold text-slate-700" isRequired>
               Kategori Program
             </Label>
             <Select
@@ -132,6 +134,7 @@ export default function FormDetection({
               value={selectedCategoryId as string}
               onChange={(value) => setSelectedCategoryId(value as string)}
               aria-label="Kategori Program"
+              isRequired
             >
               <Select.Trigger className="bg-white border border-slate-200 shadow-xs">
                 <Select.Value />
@@ -139,7 +142,7 @@ export default function FormDetection({
               </Select.Trigger>
               <Select.Popover>
                 <ListBox>
-                  {uniqueCategories.map((cat: any) => (
+                  {uniqueCategories.map((cat: ProgramCategory) => (
                     <ListBox.Item key={cat.id} id={cat.id} textValue={cat.name}>
                       <div className="flex items-center gap-2">
                         {cat.color && (
@@ -183,12 +186,13 @@ export default function FormDetection({
               {/* KASUS 2: > 1 Program Aktif -> Fallback Select Dropdown */}
               {programsInCategory.length > 1 && (
                 <div className="w-full flex flex-col gap-1">
-                  <Label className="text-sm font-semibold text-slate-700">
+                  <Label className="text-sm font-semibold text-slate-700" isRequired>
                     Pilih Program Budaya Specific
                   </Label>
                   <Select
                     placeholder="Pilih Program Budaya"
                     className="mt-1"
+                    isRequired
                     name="programId"
                     value={selectedProgramId as string}
                     onChange={(value) => setSelectedProgramId(value as string)}
@@ -200,7 +204,7 @@ export default function FormDetection({
                     </Select.Trigger>
                     <Select.Popover>
                       <ListBox>
-                        {programsInCategory.map((program: any) => (
+                        {programsInCategory.map((program: ProgramBudaya) => (
                           <ListBox.Item
                             key={program.id}
                             id={program.id}
@@ -230,12 +234,13 @@ export default function FormDetection({
           )}
           {/* DatePicker: value disimpan di state */}
           <div className="w-full flex flex-col gap-1">
-            <Label className="text-sm font-medium">Tanggal Kegiatan</Label>
+            <Label className="text-sm font-medium" isRequired>Tanggal Kegiatan</Label>
             <CalendarPicker
               value={selectedDate}
               onChange={setSelectedDate}
               isDisabled={isDateDisabled}
               minValue={minDate}
+              isRequired
               maxValue={maxDate}
             />
           </div>

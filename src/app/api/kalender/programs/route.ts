@@ -1,8 +1,7 @@
-
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -25,6 +24,13 @@ export async function GET(req: Request) {
         startDate: true,
         endDate: true,
         frequency: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "asc",
@@ -37,7 +43,9 @@ export async function GET(req: Request) {
       startDate: p.startDate?.toISOString(),
       endDate: p.endDate?.toISOString(),
       frequency: p.frequency || 0,
-      color: PROGRAM_COLORS[index % PROGRAM_COLORS.length],
+      color: p.category?.color || PROGRAM_COLORS[index % PROGRAM_COLORS.length],
+      categoryName: p.category?.name || "Umum",
+      categoryId: p.category?.id || null,
     }));
 
     return NextResponse.json(

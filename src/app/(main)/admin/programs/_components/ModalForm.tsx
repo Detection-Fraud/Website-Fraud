@@ -214,15 +214,15 @@ export default function ModalForm({
                         {/* Updated: Controlled Select Kategori dengan selectedKey & onSelectionChange */}
                         <Select
                           name="categoryId"
-                          selectedKey={selectedCategoryId}
-                          onSelectionChange={handleCategoryChange}
+                          value={selectedCategoryId}
+                          onChange={handleCategoryChange}
                           placeholder={
                             isLoadingCategories ? "Memuat..." : "Pilih kategori"
                           }
                           variant="secondary"
                           className="w-full"
                         >
-                        {/* updated end */}
+                          {/* updated end */}
                           <Label className="text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
                             <FiFolder className="w-3.5 h-3.5 text-slate-400" />
                             Kategori

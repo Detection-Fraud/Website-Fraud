@@ -81,7 +81,7 @@ export default function BannerCarousel({ programs }: BannerCarouselProps) {
           return (
             <div
               key={prog.id}
-              className="relative flex-[0_0_100%] min-w-0 w-full aspect-[2.5/1] min-h-60 max-h-96 rounded-xl overflow-hidden cursor-pointer group/slide"
+              className="relative flex-[0_0_100%] min-w-0 w-full aspect-2/1 min-h-60 max-h-96 rounded-xl overflow-hidden cursor-pointer group/slide"
               onClick={() => handleOpenDetail(prog)}
             >
               <div className="absolute inset-0 w-full h-full">
@@ -98,7 +98,7 @@ export default function BannerCarousel({ programs }: BannerCarouselProps) {
                       background: `linear-gradient(135deg, ${fallbackColor}e6, ${fallbackColor}99)`,
                     }}
                   >
-                    <div className="text-white text-4xl font-black tracking-tighter drop-shadow-md">
+                    <div className="text-white text-3xl font-black tracking-tighter drop-shadow-md">
                       {cat?.name ?? prog.name}
                     </div>
                   </div>
@@ -124,11 +124,11 @@ export default function BannerCarousel({ programs }: BannerCarouselProps) {
                     <FiInfo className="w-3.5 h-3.5" /> Detail
                   </span>
                 </div>
-                <h2 className="text-white font-bold text-2xl md:text-3xl leading-tight max-w-[45ch]">
+                <h2 className="text-white font-bold text-lg md:text-xl leading-tight max-w-[45ch]">
                   {prog.name}
                 </h2>
                 {prog.description && (
-                  <p className="text-white/80 text-sm line-clamp-2 max-w-[60ch] mt-1.5 font-normal">
+                  <p className="text-white/80 text-xs line-clamp-2 max-w-[60ch] mt-1.5 font-normal">
                     {prog.description}
                   </p>
                 )}

@@ -6,6 +6,7 @@ import { useEffect } from "react";
 
 import { CiImageOn } from "react-icons/ci";
 
+import AppBar from "@/components/layout/Appbar";
 import { useProgramList } from "@/hooks/useProgramList";
 import Dropzone from "./_components/DetectionDropzone";
 import FormDetection from "./_components/form-detection";
@@ -22,17 +23,11 @@ export default function DetectionPage() {
   return (
     <div className="w-full space-y-6">
       {/* HEADER HALAMAN */}
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="space-y-1">
-          <h3 className="text-2xl font-bold text-gray-900">
-            Upload Foto Kegiatan
-          </h3>
-          <p className="text-gray-600 text-sm">
-            Sistem dilengkapi dengan AI Pendeteksi Duplikat (Fraud). Upload
-            maksimal 10 foto dokumentasi.
-          </p>
-        </div>
-      </div>
+      <AppBar
+        title="Upload Foto Kegiatan"
+        description="Sistem dilengkapi dengan AI Pendeteksi Duplikat (Fraud). Upload maksimal 10 foto dokumentasi."
+        showAddButton={false}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 w-full max-w-5xl mx-auto gap-4 lg:gap-6 px-4 items-start">
         {/* KOLOM KIRI (Besar): DROPZONE & PREVIEW */}

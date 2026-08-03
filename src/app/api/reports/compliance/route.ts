@@ -120,8 +120,10 @@ export async function GET(req: Request) {
 
       const avg =
         relevantPct.length > 0
-          ? Math.round(
-              relevantPct.reduce((a, b) => a + b, 0) / relevantPct.length,
+          ? Number(
+              (
+                relevantPct.reduce((a, b) => a + b, 0) / relevantPct.length
+              ).toFixed(1),
             )
           : 0;
 

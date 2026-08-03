@@ -48,11 +48,6 @@ export default function CardApproval({
 
   const state = useOverlayState();
 
-  console.log(
-    "data photo",
-    photos?.map((photo) => photo),
-  );
-
   const coverImage =
     photos && photos.length > 0
       ? photos[0].imageUrl

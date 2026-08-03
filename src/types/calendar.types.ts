@@ -13,6 +13,8 @@ export interface ProgramBand {
   endDate: string;
   frequency: number;
   color: string;
+  categoryName?: string;
+  categoryId?: string | null;
 }
 
 export interface CalendarSummaryData {

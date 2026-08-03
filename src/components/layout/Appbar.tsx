@@ -16,14 +16,19 @@ export default function AppBar({
   textAddButton = "Buat Laporan",
 }: PropTypes) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2">
       <div>
-        <h1 className="font-semibold text-base sm:text-lg">
-          {title || "Dashboard Kantor Wilayah"}
-        </h1>
-        <p className="text-xs text-muted">
-          {description || "List laporan bulanan yang telah di kirim"}
-        </p>
+        <div className="inline-flex items-center gap-2 mb-1">
+          <span className="inline-block w-1.5 h-6 rounded-full bg-linear-to-b from-blue-500 to-blue-700 shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {title}
+          </h1>
+        </div>
+        {description && (
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 ml-3.5">
+            {description}
+          </p>
+        )}
       </div>
       <div>
         {showAddButton && (

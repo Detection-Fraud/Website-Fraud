@@ -43,8 +43,6 @@ export default function DashboardBarChart({
     );
   }
 
-  console.log(data);
-
   return (
     <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
       <RechartsBarChart accessibilityLayer data={data}>

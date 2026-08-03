@@ -247,7 +247,7 @@ export async function POST(request: Request) {
       successResponse(result, "Laporan berhasil dibuat", 201),
       { status: 201 },
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, "POST /api/reports");
   }
 }

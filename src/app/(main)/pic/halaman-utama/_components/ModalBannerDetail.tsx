@@ -57,7 +57,7 @@ export default function ModalBannerDetail({
           <Modal.Dialog className="overflow-hidden rounded-2xl p-0 bg-white shadow-2xl">
             <Modal.CloseTrigger className="z-30 text-white bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full p-2 top-3 right-3" />
 
-            <div className="relative w-full aspect-2.5/1 bg-slate-900 overflow-hidden">
+            <div className="relative w-full aspect-2/1 bg-slate-900 overflow-hidden">
               {bannerUrl ? (
                 <Image
                   src={bannerUrl}

@@ -1,9 +1,8 @@
 "use client";
 
 import AppBar from "@/components/layout/Appbar";
-import { useDeletePic } from "@/hooks/useDeletePic";
 import { useManagementUsers } from "@/hooks/useManagementUsers";
-import { useTogglePicStatus } from "@/hooks/useTogglePicStatus";
+import { usePicMutation } from "@/hooks/usePicMutation";
 import { useUnitList } from "@/hooks/useUnitList";
 import { UserWithUnit } from "@/types/user.types";
 import { useOverlayState } from "@heroui/react";
@@ -51,9 +50,10 @@ export default function ManagementUserView() {
     page: userPage,
   });
 
-  const { toggleStatus, isUpdating } = useTogglePicStatus();
+  const { deleteUser, isDeleting, toggleStatus, isUpdatingStatus } =
+    usePicMutation();
+
   const handleDeleteUser = (user: UserWithUnit) => {
-    // Buka Modal Konfirmasi
     setConfirmModal({
       isOpen: true,
       action: "DELETE",
@@ -61,7 +61,6 @@ export default function ManagementUserView() {
     });
   };
 
-  const { deleteUser, isDeleting } = useDeletePic();
   const handleToggleStatus = async (user: UserWithUnit, newStatus: boolean) => {
     setConfirmModal({
       isOpen: true,
@@ -170,7 +169,7 @@ export default function ManagementUserView() {
           onSearchChange={handleUserSearchChange}
           onPageChange={setUserPage}
           onToggleStatus={handleToggleStatus}
-          isUpdatingStatus={isUpdating}
+          isUpdatingStatus={isUpdatingStatus}
           onDelete={handleDeleteUser}
         />
       </div>
@@ -188,7 +187,7 @@ export default function ManagementUserView() {
         }
         onConfirm={executeConfirmAction}
         isLoading={
-          isUpdating === confirmModal.user?.id ||
+          isUpdatingStatus === confirmModal.user?.id ||
           isDeleting === confirmModal.user?.id
         }
         title={

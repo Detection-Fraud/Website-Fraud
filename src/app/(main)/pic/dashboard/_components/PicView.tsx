@@ -64,6 +64,9 @@ export default function PicView() {
         onAdd={() => {
           router.push("/pic/submit");
         }}
+        textAddButton="Buat Laporan"
+        title="Dashboard Kantor Wilayah"
+        description="List laporan bulanan yang telah di kirim"
       />
 
       <Card className="shadow-xs rounded-2xl border border-slate-200/80 bg-white p-2 md:p-3">

@@ -49,16 +49,16 @@ export async function GET() {
       },
     });
 
-    const monthlyTarget = Math.max(
+    const twTarget = Math.max(
       1,
-      activePrograms.reduce((sum, p) => sum + p.frequency / 3, 0),
+      activePrograms.reduce((sum, p) => sum + p.frequency, 0),
     );
 
     const statsRaw = await prisma.activityReport.groupBy({
       by: ["status"],
       where: {
         createdById: user.id,
-        tanggalKegiatan: { gte: startOfMonth, lte: endOfMonth },
+        tanggalKegiatan: { gte: twStart, lte: twEnd },
       },
       _count: { id: true },
     });
@@ -66,7 +66,8 @@ export async function GET() {
     const getCount = (status: string) =>
       statsRaw.find((s) => s.status === status)?._count.id || 0;
     const approved = getCount("APPROVED");
-    const compliance = Number(((approved / monthlyTarget) * 100).toFixed(1));
+    const compliance =
+      twTarget > 0 ? Number(((approved / twTarget) * 100).toFixed(1)) : 0;
 
     const recentActivities = await prisma.activityReport.findMany({
       where: { createdById: user.id },
@@ -109,7 +110,7 @@ export async function GET() {
           name: u?.name || "Unknown",
           kancabName: u?.unit?.name || "Unit",
           approved: p._count.id,
-          compliance: Number(((p._count.id / monthlyTarget) * 100).toFixed(1)),
+          compliance: Number(((p._count.id / twTarget) * 100).toFixed(1)),
           isMe: p.createdById === user.id,
         };
       })
@@ -124,7 +125,7 @@ export async function GET() {
         {
           currentTw,
           stats: {
-            target: Math.round(monthlyTarget),
+            target: Math.round(twTarget),
             approved,
             pending: getCount("PENDING"),
             rejected: getCount("REJECTED"),

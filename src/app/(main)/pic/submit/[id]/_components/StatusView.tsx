@@ -1,5 +1,5 @@
 import { StatusType } from "@/types/status.types";
-import { Button, Card, Chip } from "@heroui/react";
+import { Button, Card } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { CiClock2 } from "react-icons/ci";
 import { FiAlertTriangle, FiMessageSquare, FiXCircle } from "react-icons/fi";
@@ -24,7 +24,6 @@ export default function StatusView({
 }: StatusViewProps) {
   const router = useRouter();
 
-  console.log(canResubmit)
   return (
     <div>
       {status === "PENDING" ? (

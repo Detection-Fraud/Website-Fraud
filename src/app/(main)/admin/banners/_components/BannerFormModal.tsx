@@ -1,11 +1,11 @@
 import MonthPicker from "@/app/(main)/pic/_components/month-picker";
 import { Banner } from "@/hooks/useBanners";
-import { useSearchActivePic } from "@/hooks/useSearchActivePic";
+import { useSearchPic } from "@/hooks/useSearchPic";
 import { api } from "@/lib/api";
+import { PicSearchResult } from "@/types/pic.types";
 import {
   Autocomplete,
   Button,
-  CloseButton,
   DateValue,
   EmptyState,
   FieldError,
@@ -18,7 +18,6 @@ import {
   Modal,
   SearchField,
   TextField,
-  useFilter,
 } from "@heroui/react";
 import { parseDate } from "@internationalized/date";
 import { useState } from "react";
@@ -102,7 +101,7 @@ export default function BannerFormModal({
     setQuery: setPicQuery,
     setSelectedPic,
     clearSelected: clearPicSelected,
-  } = useSearchActivePic();
+  } = useSearchPic({ role: "PIC" });
 
   const [periodDate, setPeriodDate] = useState<DateValue | null>(null);
   const [jabatan, setJabatan] = useState("");
@@ -199,7 +198,7 @@ export default function BannerFormModal({
       return;
     }
 
-    const found = picResults.find((r: any) => r.id === String(key));
+    const found = picResults.find((r: PicSearchResult) => r.id === String(key));
     setSelectedPic(found ?? null);
 
     if (found) {
@@ -279,8 +278,15 @@ export default function BannerFormModal({
                         </Label>
                         <Autocomplete.Trigger>
                           <Autocomplete.Value>
-                            {({ defaultChildren, isPlaceholder, state }: any) => {
-                              if (state.selectedItems.length === 0 && picNameState) {
+                            {({
+                              defaultChildren,
+                              isPlaceholder,
+                              state,
+                            }: any) => {
+                              if (
+                                state.selectedItems.length === 0 &&
+                                picNameState
+                              ) {
                                 return picNameState;
                               }
                               return defaultChildren;
@@ -326,7 +332,7 @@ export default function BannerFormModal({
                                 </EmptyState>
                               )}
                             >
-                              {picResults.map((pic: any) => (
+                              {picResults.map((pic: PicSearchResult) => (
                                 <ListBoxItem
                                   key={pic.id}
                                   textValue={pic.name}

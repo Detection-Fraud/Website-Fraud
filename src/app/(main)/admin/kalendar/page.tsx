@@ -5,6 +5,7 @@ import AppBar from "@/components/layout/Appbar";
 import { useCalendarPrograms } from "@/hooks/useCalendarPrograms";
 import { useCalendarSubmissions } from "@/hooks/useCalendarSubmissions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { ProgramBand } from "@/types/calendar.types";
 import { Button, Tag, TagGroup } from "@heroui/react";
 import { addMonths, format, subMonths } from "date-fns";
 import { id } from "date-fns/locale";
@@ -58,7 +59,7 @@ export default function KalendarPage() {
           aria-label="Filter Program"
         >
           <TagGroup.List>
-            {programs.map((prog: any) => (
+            {programs.map((prog: ProgramBand) => (
               <Tag
                 key={prog.id}
                 id={prog.id}
@@ -72,7 +73,9 @@ export default function KalendarPage() {
                     : { borderColor: prog.color, color: prog.color }
                 }
               >
-                {prog.name}
+                {prog.categoryName
+                  ? `[${prog.categoryName}] ${prog.name}`
+                  : prog.name}
               </Tag>
             ))}
           </TagGroup.List>

@@ -70,7 +70,6 @@ export async function POST(request: Request) {
       { status: 200 },
     );
   } catch (e) {
-    console.log("Upload error:", e);
     return NextResponse.json(errorResponse("Internal Server Error"), {
       status: 500,
     });

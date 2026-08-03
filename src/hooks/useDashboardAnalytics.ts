@@ -89,11 +89,13 @@ export function useDashboardAnalytics() {
 
   const dynamicSummary = useMemo(() => {
     const currentTotal = areaChartData.reduce(
-      (acc: number, curr: any) => acc + (curr?.tahunIni || 0),
+      (acc: number, curr: { tahunIni?: number; tahunLalu?: number }) =>
+        acc + (curr?.tahunIni || 0),
       0,
     );
     const prevTotal = areaChartData.reduce(
-      (acc: number, curr: any) => acc + (curr?.tahunLalu || 0),
+      (acc: number, curr: { tahunIni?: number; tahunLalu?: number }) =>
+        acc + (curr?.tahunLalu || 0),
       0,
     );
     return { currentValue: currentTotal, previousValue: prevTotal };

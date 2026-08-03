@@ -72,7 +72,9 @@ export default function KalendarPage() {
                     : { borderColor: prog.color, color: prog.color }
                 }
               >
-                {prog.name}
+                {prog.categoryName
+                  ? `[${prog.categoryName}] ${prog.name}`
+                  : prog.name}
               </Tag>
             ))}
           </TagGroup.List>

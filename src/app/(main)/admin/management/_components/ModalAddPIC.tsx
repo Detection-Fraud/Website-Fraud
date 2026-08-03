@@ -1,12 +1,11 @@
 "use client";
 
 import { UNIT_ICON } from "@/constants/users.constants";
-import { useAddPic } from "@/hooks/useAddPic";
+import { usePicMutation } from "@/hooks/usePicMutation";
 import { useSearchPic } from "@/hooks/useSearchPic";
 import {
   Autocomplete,
   Button,
-  CloseButton,
   EmptyState,
   Form,
   Label,
@@ -14,7 +13,7 @@ import {
   ListBoxItem,
   Modal,
   SearchField,
-  Surface,
+  Surface
 } from "@heroui/react";
 import { FiLock } from "react-icons/fi";
 
@@ -55,7 +54,7 @@ export default function ModalAddPic({
     onClose();
   };
 
-  const { promotePic, isSubmitting, submitError, clearError } = useAddPic({
+  const { promotePic, isSubmitting, submitError, clearError } = usePicMutation({
     onSuccess: handleClose,
   });
 
