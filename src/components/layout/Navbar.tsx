@@ -24,7 +24,7 @@ export default function Navbar() {
             <PiSidebarSimpleBold />
           </Button>
           <div className="flex flex-col justify-center">
-            <h1 className="text-sm sm:text-base md:text-xl font-bold text-gray-900 leading-tight">
+            <h1 className="text-sm sm:text-base md:text-xl font-bold text-gray-900 tracking-wide leading-tight">
               DICE
             </h1>
             <p className="text-xs text-gray-600 hidden sm:block">
