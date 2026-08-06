@@ -13,10 +13,13 @@ interface CategoryListPayload {
   data: CategoryWithStats[];
 }
 
-export function useCategoryList() {
+export function useCategoryList(targetUnit?: "KEGIATAN" | "PARTISIPASI_PERSEN") {
   const { data, isLoading, error, refetch } = useQuery<CategoryListPayload>({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/programs/categories").then((res) => res.data),
+    queryKey: ["categories", targetUnit],
+    queryFn: () => {
+      const params = targetUnit ? `?targetUnit=${targetUnit}` : "";
+      return api.get(`/programs/categories${params}`).then((res) => res.data);
+    },
     staleTime: 5 * 60 * 1000,
   });
 

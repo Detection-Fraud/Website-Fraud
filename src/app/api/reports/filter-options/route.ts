@@ -23,6 +23,7 @@ export async function GET() {
           orderBy: { name: "asc" },
         }),
         prisma.programCategory.findMany({
+          where: { targetUnit: "KEGIATAN" },
           select: { id: true, name: true, color: true },
           orderBy: { name: "asc" },
         }),

@@ -3,68 +3,66 @@
 import {
   ChartConfig,
   ChartContainer,
-  ChartTooltipContent
+  ChartTooltipContent,
 } from "@/components/ui/chart";
-import { DistribusiProgram } from "@/types/analytics.type";
 import { Tooltip as HeroTooltip } from "@heroui/react";
-import {
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip
-} from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface AnalyticPieChartProps {
-  data?: DistribusiProgram[];
+  data?: Array<{ name: string; value: number }>;
 }
-export default function AnalyticPieChart({
-  data,
-}: AnalyticPieChartProps) {
+
+const chartConfig = {
+  value: {
+    label: "Jumlah Laporan",
+  },
+} satisfies ChartConfig;
+
+const COLORS = [
+  "#2563eb",
+  "#10b981",
+  "#f59e0b",
+  "#8b5cf6",
+  "#ec4899",
+  "#94a3b8",
+];
+export default function AnalyticPieChart({ data }: AnalyticPieChartProps) {
   if (!data || data.length === 0) {
     return (
-      <div className="flex h-[300px] items-center justify-center text-gray-500 text-sm">
+      <div className="flex h-65 items-center justify-center text-gray-400 text-xs font-medium">
         Tidak ada data untuk ditampilkan.
       </div>
     );
   }
 
-  const chartConfig = {
-    value: {
-      label: "Jumlah Laporan",
-    },
-  } satisfies ChartConfig;
-
-  const COLORS = [
-    "var(--chart-1)",
-    "var(--chart-2)",
-    "var(--chart-3)",
-    "var(--chart-4)",
-    "var(--chart-5)",
-  ];
   const total = data.reduce((acc, curr) => acc + curr.value, 0);
 
   return (
-    <div className="w-full flex flex-col gap-6">
-      <ChartContainer config={chartConfig} className="h-[220px] w-full">
+    <div className="w-full flex flex-col gap-4">
+      <ChartContainer config={chartConfig} className="h-50 w-full">
         <ResponsiveContainer width={"100%"} height={"100%"}>
           <PieChart>
             <Tooltip content={<ChartTooltipContent hideLabel />} />
 
             <Pie
               data={data}
-              cx={"50%"}
-              cy={"50%"}
-              innerRadius={60}
-              outerRadius={90}
-              paddingAngle={2}
-              dataKey={"value"}
-              nameKey={"name"}
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={85}
+              paddingAngle={3}
+              dataKey="value"
+              nameKey="name"
             >
               {data.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
+                  fill={
+                    // UPDATED: Warna fallback slate-400 khusus kategori "Lainnya"
+                    entry.name === "Lainnya"
+                      ? "#94a3b8"
+                      : COLORS[index % COLORS.length]
+                  }
                 />
               ))}
             </Pie>
@@ -72,38 +70,41 @@ export default function AnalyticPieChart({
         </ResponsiveContainer>
       </ChartContainer>
 
-      <div className="flex flex-col gap-3 px-4">
+      <div className="flex flex-col gap-2.5 px-2 max-h-45 overflow-y-auto custom-scrollbar">
         {data.map((entry, index) => {
           const percentage =
             total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0;
-          const color = COLORS[index % COLORS.length];
+          const color = // UPDATED: Match warna legend "Lainnya"
+            entry.name === "Lainnya"
+              ? "#94a3b8"
+              : COLORS[index % COLORS.length];
+
           return (
             <div
               key={`legend-${index}`}
-              className="flex items-center justify-between"
+              className="flex items-center justify-between py-0.5"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className="w-3.5 h-3.5 rounded-full shrink-0"
+                  className="w-3 h-3 rounded-full shrink-0"
                   style={{ backgroundColor: color }}
                 />
-                {/* Tambahkan w-full & block agar truncate jalan sempurna */}
                 <HeroTooltip delay={0}>
                   <HeroTooltip.Trigger>
-                    <span className="text-sm text-gray-600 truncate max-w-[150px] md:max-w-[180px] block cursor-help">
+                    <span className="text-xs font-medium text-slate-600 truncate max-w-40 sm:max-w-50 block cursor-help">
                       {entry.name}
                     </span>
                   </HeroTooltip.Trigger>
                   <HeroTooltip.Content showArrow>
                     <HeroTooltip.Arrow />
-                    <div className="px-1 py-1 text-xs text-gray-600 truncate">
-                      {entry.name}
+                    <div className="px-1 py-1 text-xs text-slate-700">
+                      {entry.name} ({entry.value} Laporan)
                     </div>
                   </HeroTooltip.Content>
                 </HeroTooltip>
               </div>
 
-              <span className="text-xs text-gray-800 ml-2 font-bold">
+              <span className="text-xs text-slate-800 ml-2 font-bold shrink-0">
                 {percentage}%
               </span>
             </div>

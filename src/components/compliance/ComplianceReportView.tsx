@@ -5,8 +5,10 @@ import FilterSection from "@/components/compliance/FilterSection";
 import TableCompliance from "@/components/compliance/TableCompliance";
 import TableIndicators from "@/components/compliance/TableIndicators";
 import AppBar from "@/components/layout/Appbar";
+import RankingPartisipasiSection from "@/components/compliance/RankingPartisipasiSection";
 import { useComplianceReport } from "@/hooks/useComplianceReport";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { Tabs } from "@heroui/react";
 import { useCallback, useState } from "react";
 
 export default function ComplianceReportView() {
@@ -52,6 +54,11 @@ export default function ComplianceReportView() {
 
   const [isExporting, setIsExporting] = useState(false);
 
+  // [UPDATED] state mode tab: KEGIATAN atau PARTISIPASI
+  const [modeType, setModeType] = useState<"KEGIATAN" | "PARTISIPASI">(
+    "KEGIATAN",
+  );
+
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     try {
@@ -95,14 +102,10 @@ export default function ComplianceReportView() {
     }
   }, [activeTab, filters]);
 
-  return (
-    <div className="space-y-4">
-      <AppBar
-        title="Reports"
-        description="Compliance laporan APPROVED per unit · dibandingkan target frekuensi program"
-        showAddButton={false}
-      />
+  const isAdmin = user?.role === "ADMIN";
 
+  const renderKegiatanContent = () => (
+    <div className="space-y-4 pt-4">
       <div>
         <FilterSection
           filters={filters}
@@ -135,6 +138,49 @@ export default function ComplianceReportView() {
           selectedProgramId={filters.programId}
         />
       </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* AppBar — shared */}
+      <AppBar
+        title="Reports"
+        description="Compliance laporan APPROVED per unit · dibandingkan target frekuensi program"
+        showAddButton={false}
+      />
+
+      {isAdmin ? (
+        <Tabs
+          selectedKey={modeType}
+          onSelectionChange={(key) =>
+            setModeType(key as "KEGIATAN" | "PARTISIPASI")
+          }
+        >
+          <Tabs.ListContainer>
+            <Tabs.List aria-label="Mode laporan">
+              <Tabs.Tab id="KEGIATAN">
+                Kegiatan
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab id="PARTISIPASI">
+                Partisipasi
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+
+          <Tabs.Panel id="KEGIATAN">{renderKegiatanContent()}</Tabs.Panel>
+
+          <Tabs.Panel id="PARTISIPASI">
+            <div className="pt-4">
+              <RankingPartisipasiSection />
+            </div>
+          </Tabs.Panel>
+        </Tabs>
+      ) : (
+        renderKegiatanContent()
+      )}
     </div>
   );
 }

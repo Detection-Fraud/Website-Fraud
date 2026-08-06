@@ -1,4 +1,4 @@
-import { ImportResult, ImportStats } from "@/types/import.types";
+import { ImportResult } from "@/types/import.types";
 import { Button, Card } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import {
@@ -11,14 +11,23 @@ import { MdOutlineCheckCircle, MdOutlineTimerOff } from "react-icons/md";
 
 interface FinishStepProps {
   result: ImportResult | null;
-  stats: ImportStats;
+  stats: {
+    total: number;
+    error: number;
+  };
   onReset: () => void;
+  description?: string;
+  actionText?: string;
+  actionHref?: string;
 }
 
 export default function SelesaiStep({
   result,
   stats,
   onReset,
+  description = "Data karyawan telah berhasil ditambahkan ke database BULOG",
+  actionText = "Lihat User Management",
+  actionHref = "/admin/management",
 }: FinishStepProps) {
   const router = useRouter();
 
@@ -63,9 +72,15 @@ export default function SelesaiStep({
               Import Berhasil!
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              Data karyawan telah{" "}
-              <span className="text-green-600 font-medium">berhasil</span>{" "}
-              ditambahkan ke database BULOG
+              {description.split("berhasil").length > 1 ? (
+                <>
+                  {description.split("berhasil")[0]}
+                  <span className="text-green-600 font-medium">berhasil</span>
+                  {description.split("berhasil")[1]}
+                </>
+              ) : (
+                description
+              )}
             </p>
           </div>
         </Card.Content>
@@ -94,7 +109,7 @@ export default function SelesaiStep({
         ))}
       </div>
 
-      {result && result.deactivated > 0 && (
+      {result && result.deactivated !== undefined && result.deactivated > 0 && (
         <p className="text-xs text-center text-gray-400">
           + {result.deactivated} pengguna SSO lama dinonaktifkan karena tidak
           ditemukan di file ini.
@@ -110,9 +125,9 @@ export default function SelesaiStep({
         <Button
           variant="primary"
           size="md"
-          onPress={() => router.push("/admin/management")}
+          onPress={() => router.push(actionHref)}
         >
-          Lihat User Management
+          {actionText}
           <FiArrowRight size={14} />
         </Button>
       </div>

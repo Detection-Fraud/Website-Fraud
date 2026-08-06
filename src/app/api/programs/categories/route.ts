@@ -13,7 +13,16 @@ export async function GET(req: Request) {
   try {
     await requireAuth();
 
+    const { searchParams } = new URL(req.url);
+    const targetUnit = searchParams.get("targetUnit");
+
+    const whereClause: any = {};
+    if (targetUnit) {
+      whereClause.targetUnit = targetUnit;
+    }
+
     const categories = await prisma.programCategory.findMany({
+      where: whereClause,
       orderBy: { createdAt: "asc" },
       include: {
         programs: {

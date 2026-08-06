@@ -21,8 +21,14 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
-    const whereClause: Prisma.ProgramBudayaWhereInput =
-      user.role === "ADMIN" ? {} : { isActive: true };
+    const targetUnit = searchParams.get("targetUnit") || "KEGIATAN";
+
+    const whereClause: Prisma.ProgramBudayaWhereInput = {
+      ...(user.role === "ADMIN" ? {} : { isActive: true }),
+      ...(targetUnit !== "ALL" && {
+        category: { targetUnit: targetUnit as any },
+      }),
+    };
 
     if (search) {
       whereClause.name = { contains: search, mode: "insensitive" };

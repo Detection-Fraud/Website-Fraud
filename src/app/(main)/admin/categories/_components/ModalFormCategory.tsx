@@ -102,6 +102,7 @@ export default function ModalFormCategory({
     }
   };
 
+  const isPartisipasi = targetUnit === "PARTISIPASI_PERSEN";
   const isLoading = isCreating || isUpdating || isUploading;
   return (
     <Modal>
@@ -268,21 +269,38 @@ export default function ModalFormCategory({
                   </div>
 
                   {/* Default Frequency */}
-                  <TextField
-                    name="defaultFrequency"
-                    isRequired
-                    defaultValue={String(initialData?.defaultFrequency ?? 1)}
-                  >
-                    <Label className="text-xs font-semibold text-slate-700">
-                      Default Frekuensi / TW
-                    </Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      placeholder="1"
-                      className="mt-1"
-                    />
-                  </TextField>
+                  {isPartisipasi ? (
+                    <>
+                      <input type="hidden" name="defaultFrequency" value="1" />
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs font-semibold text-slate-700">
+                          Default Frekuensi / TW
+                        </Label>
+                        <div className="mt-1 h-10 flex items-center px-3 rounded-lg bg-slate-50 border border-slate-200">
+                          <span className="text-xs text-slate-400 italic">
+                            Tidak digunakan — data Partisipasi diimport via
+                            Excel
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <TextField
+                      name="defaultFrequency"
+                      isRequired
+                      defaultValue={String(initialData?.defaultFrequency ?? 1)}
+                    >
+                      <Label className="text-xs font-semibold text-slate-700">
+                        Default Frekuensi / TW
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="1"
+                        className="mt-1"
+                      />
+                    </TextField>
+                  )}
                 </div>
               </Modal.Body>
 

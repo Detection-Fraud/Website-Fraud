@@ -5,12 +5,16 @@ interface ProsessingStepProps {
   progress: number;
   processedCount: number;
   totalCount: number;
+  title?: string;
+  entityName?: string;
 }
 
 export default function ProsessingStep({
   progress,
   processedCount,
   totalCount,
+  title = "Mengimpor Data Karyawan...",
+  entityName = "karyawan",
 }: ProsessingStepProps) {
   return (
     <div className="py-20 flex flex-col items-center justify-center text-center">
@@ -18,20 +22,18 @@ export default function ProsessingStep({
         <FiDatabase size={36} className="text-white" />
       </div>
 
-      <h2 className="text-xl font-bold text-gray-800">
-        Mengimpor Data Karyawan...
-      </h2>
+      <h2 className="text-xl font-bold text-gray-800">{title}</h2>
       <p className="text-sm text-gray-500 mt-1 max-w-xs">
         Sedang menyimpan{" "}
         <span className="font-semibold text-gray-700">
-          {totalCount} karyawan
+          {totalCount} {entityName}
         </span>{" "}
         ke database. Jangan tutup halaman ini.
       </p>
 
       <div className="w-full max-w-md mt-8 space-y-2">
         <ProgressBar
-          aria-label="Progress import Karyawan"
+          aria-label={`Progress import ${entityName}`}
           value={progress}
           minValue={0}
           maxValue={100}

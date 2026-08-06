@@ -28,6 +28,7 @@ export async function GET(req: Request) {
 
     const categories = await prisma.programCategory.findMany({
       where: {
+        targetUnit: "KEGIATAN",
         ...(programId !== "ALL" && { id: programId }),
       },
       include: {

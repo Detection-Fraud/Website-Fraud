@@ -20,6 +20,8 @@ export async function getDistribusi(
     _count: { id: true },
   });
 
+  if (raw.length === 0) return [];
+
   const programIds = raw
     .map((item) => item.programId)
     .filter(Boolean) as string[];
@@ -29,8 +31,26 @@ export async function getDistribusi(
     select: { id: true, name: true },
   });
 
-  return raw.map((item) => ({
-    name: programs.find((p) => p.id === item.programId)?.name || "Lainnya",
-    value: item._count.id,
-  }));
+  const programMaap = new Map(programs.map((p) => [p.id, p.name]));
+
+  const formatted = raw
+    .map((item) => ({
+      name: programMaap.get(item.programId!) || "Lainnya",
+      value: item._count.id,
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  if (formatted.length <= 5) return formatted;
+
+  const top5 = formatted.slice(0, 5);
+  const restSum = formatted.slice(5).reduce((sum, item) => sum + item.value, 0);
+  const lainnya = top5.find((item) => item.name === "Lainnya");
+
+  if (lainnya) {
+    lainnya.value += restSum;
+  } else {
+    top5.push({ name: "Lainnya", value: restSum });
+  }
+
+  return top5;
 }

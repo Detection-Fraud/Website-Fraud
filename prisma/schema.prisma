@@ -63,6 +63,7 @@ model Unit {
 
   users User[]
   activityReport ActivityReport[]
+  participationData ParticipationData[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -91,6 +92,7 @@ model User {
   passwordChangedAt DateTime? @default(now())
 
   createdReports ActivityReport[] @relation("CreatedReports")
+  importedParticipations ParticipationData[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,6 +109,7 @@ model ProgramCategory {
 
   
   programs ProgramBudaya[]
+  participationData ParticipationData[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -133,6 +136,25 @@ model ProgramBudaya {
   updatedAt DateTime @updatedAt
 
   activityReports ActivityReport[]
+}
+
+model ParticipationData {
+  id String @id @default(uuid())
+  unitId String
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  categoryId String
+  category ProgramCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tw Int 
+  year Int
+  percentage Int
+  importedAt DateTime @default(now())
+  importedById String?
+  importedBy User? @relation(fields: [importedById], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, categoryId, tw, year])
+  @@index([categoryId])
+  @@index([year, tw])
+  @@index([unitId])
 }
 
 model ActivityReport {

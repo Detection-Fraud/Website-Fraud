@@ -27,9 +27,10 @@ export interface ImportStats {
 }
 
 export interface ImportResult {
-  created: number
-  updated: number
-  deactivated: number
+  created: number;
+  updated: number;
+  deactivated?: number;
+  skipped?: number;
 }
 
 export type ImportStep = 1 | 2 | 3 | 4

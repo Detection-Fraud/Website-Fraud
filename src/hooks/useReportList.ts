@@ -44,7 +44,7 @@ export function useReportList() {
     divisiId: initialDivisiId,
   });
 
-  const { categories: categoryList } = useCategoryList();
+  const { categories: categoryList } = useCategoryList("KEGIATAN");
 
   const filters = {
     page,

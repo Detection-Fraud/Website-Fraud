@@ -37,7 +37,9 @@ export async function GET(req: Request) {
         gte: startDate,
         lte: endDate,
       },
-      ...unitScope,
+      ...(user.role === "PIC" && user.unitId
+        ? { unitId: user.unitId }
+        : unitScope),
     };
 
     const submissions = await prisma.activityReport.findMany({

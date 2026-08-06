@@ -1,4 +1,5 @@
 import { CgFileDocument } from "react-icons/cg";
+import { LuFileSpreadsheet } from "react-icons/lu";
 import { MdOutlinePendingActions, MdOutlineShowChart } from "react-icons/md";
 import { PiCalendar, PiImage, PiNotebookLight } from "react-icons/pi";
 import { RxDashboard } from "react-icons/rx";
@@ -82,6 +83,12 @@ export const SidebarMenuAdmin: SidebarMenuItem[] = [
     ],
   },
 
+  {
+    key: "partisipasi",
+    label: "Partisipasi",
+    href: "/admin/partisipasi",
+    icon: <LuFileSpreadsheet />,
+  },
   {
     key: "kalendar",
     label: "Kalendar",

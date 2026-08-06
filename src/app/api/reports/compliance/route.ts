@@ -34,6 +34,7 @@ export async function GET(req: Request) {
     // 4. Ambil program dan aggregasi laporan
     const [programs, submissions] = await Promise.all([
       prisma.programCategory.findMany({
+        where: { targetUnit: "KEGIATAN" },
         include: {
           programs: {
             where: { isActive: true },

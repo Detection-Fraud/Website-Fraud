@@ -66,9 +66,25 @@ export default function FormDetection({
   });
 
   const safePrograms = Array.isArray(programs) ? programs : [];
+
+  const availablePrograms = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return safePrograms.filter((program) => {
+      // Filter out if program is disabled/inactive (except when editing existing report)
+      if (!program.isActive && initialData?.programId !== program.id) return false;
+      // Keep if it's the currently edited program
+      if (initialData?.programId === program.id) return true;
+      // Filter out if end date has passed
+      const endDate = new Date(program.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      return today <= endDate;
+    });
+  }, [safePrograms, initialData?.programId]);
+
   const uniqueCategories = useMemo(() => {
     const categoryMap = new Map();
-    safePrograms.forEach(
+    availablePrograms.forEach(
       (p: ProgramBudaya & { category?: ProgramCategory }) => {
         if (p.category && p.categoryId) {
           categoryMap.set(p.categoryId, p.category);
@@ -76,23 +92,12 @@ export default function FormDetection({
       },
     );
     return Array.from(categoryMap.values());
-  }, [safePrograms]);
+  }, [availablePrograms]);
 
   // Ambil data program yang sedang terpilih (jika ada)
   const activeSelectedProgram = safePrograms.find(
     (p) => p.id === selectedProgramId,
   );
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const availablePrograms = safePrograms.filter((program) => {
-    // Keep if it's the currently edited program
-    if (initialData?.programId === program.id) return true;
-    // Filter out if end date has passed
-    const endDate = new Date(program.endDate);
-    endDate.setHours(0, 0, 0, 0);
-    return today <= endDate;
-  });
 
   return (
     <Card variant="default" className="shadow-sm">

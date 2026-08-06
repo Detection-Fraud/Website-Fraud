@@ -1,9 +1,8 @@
 "use client";
 
-import { Banner, useBanners } from "@/hooks/useBanners";
+import { useBanners } from "@/hooks/useBanners";
 import Image from "next/image";
 import { BsEye, BsFileCheck, BsShield, BsUpcScan } from "react-icons/bs";
-import { PiCheckCircle, PiCode, PiScan } from "react-icons/pi";
 import LoginCarousel from "./_components/LoginCarousel";
 import LoginForm from "./_components/LoginForm";
 
@@ -87,22 +86,6 @@ export default function LoginPage() {
                   autentisitas setiap dokumentasi kegiatan di lingkungan Perum
                   BULOG.
                 </p>
-              </div>
-
-              {/* Status Pills */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-xs font-medium text-blue-100">
-                  <PiScan className="text-blue-400 text-sm shrink-0" />
-                  <span>AI Detection</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-xs font-medium text-blue-100">
-                  <PiCode className="text-cyan-400 text-sm shrink-0" />
-                  <span>Real-time</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-xs font-medium text-blue-100">
-                  <PiCheckCircle className="text-emerald-400 text-sm shrink-0" />
-                  <span>Verified</span>
-                </div>
               </div>
             </div>
           )}

@@ -4,11 +4,11 @@ import AppBar from "@/components/layout/Appbar";
 import { useImportKaryawan } from "@/hooks/useImportKaryawan";
 import { Button } from "@heroui/react";
 import { FiDownload } from "react-icons/fi";
-import FinishStep from "./_components/FinishStep";
-import ImportStepper from "./_components/ImportStepper";
-import PreviewDatStep from "./_components/PreviewDataStep";
-import ProsessingStep from "./_components/ProsessingStep";
-import UploadFileStep from "./_components/UploadFileStep";
+import FinishStep from "../../../../components/import/_components/FinishStep";
+import ImportStepper from "../../../../components/import/_components/ImportStepper";
+import PreviewDatStep from "../../../../components/import/_components/PreviewDataStep";
+import ProsessingStep from "../../../../components/import/_components/ProsessingStep";
+import UploadFileStep from "../../../../components/import/_components/UploadFileStep";
 
 export default function ImportKaryawanPage() {
   const {

@@ -35,13 +35,11 @@ export async function GET(request: NextRequest) {
 
     let whereClause: Prisma.ActivityReportWhereInput = {
       ...unitScope,
+      program: {
+        category: { targetUnit: "KEGIATAN" },
+        ...(categoryFilter !== "ALL" && { categoryId: categoryFilter }),
+      },
     };
-
-    if (categoryFilter !== "ALL") {
-      whereClause.program = {
-        categoryId: categoryFilter,
-      };
-    }
 
     const baseWhereClause = { ...whereClause };
 

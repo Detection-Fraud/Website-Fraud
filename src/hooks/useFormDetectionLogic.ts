@@ -3,7 +3,6 @@ import { ProgramBudaya } from "@generated/prisma";
 import type { Key } from "@heroui/react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { useEffect, useMemo, useState } from "react";
-import { useCurrentUser } from "./useCurrentUser";
 
 interface UseFormDetectionLogicProps {
   initialData?: InitialData;
@@ -49,8 +48,6 @@ export function useFormDetectionLogic({
       setSelectedProgramId(null);
     }
   }, [selectedCategoryId, programsInCategory]);
-
-  const { user } = useCurrentUser();
 
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(() => {
     if (initialData?.tanggalKegiatan) {

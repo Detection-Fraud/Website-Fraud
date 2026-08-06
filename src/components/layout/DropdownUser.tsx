@@ -74,7 +74,7 @@ export default function DropdownUser({ user }: { user: UserData }) {
         </div>
 
         <Dropdown.Menu aria-label="User actions">
-          <Dropdown.Item
+          {/* <Dropdown.Item
             id={"change-password"}
             textValue="Ganti Password"
             onPress={() => {
@@ -85,7 +85,7 @@ export default function DropdownUser({ user }: { user: UserData }) {
               <Label>Ganti Password</Label>
               <CiLock className="text-gray-500" />
             </div>
-          </Dropdown.Item>
+          </Dropdown.Item> */}
           <Dropdown.Item
             id={"logout"}
             textValue={"Logout"}

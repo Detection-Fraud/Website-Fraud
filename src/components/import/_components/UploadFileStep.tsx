@@ -6,19 +6,20 @@ import { FiAlertCircle, FiUploadCloud } from "react-icons/fi";
 import { LuSparkle } from "react-icons/lu";
 import { MdOutlineApartment, MdOutlinePerson } from "react-icons/md";
 
+interface RequiredColumn {
+  icon?: React.ReactNode;
+  label: string;
+}
+
 interface UploadFileStepProps {
   onFileSelect: (file: File) => void;
   isLoading: boolean;
+  isDisabled?: boolean;
   errorMsg: string | null;
+  requiredColumns?: RequiredColumn[];
 }
 
-const ACCEPTED_TYPES = [
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-  "application/vnd.ms-excel", // .xls
-  "text/csv", // .csv
-];
-
-const REQUIRED_COLUMNS = [
+const DEFAULT_REQUIRED_COLUMNS: RequiredColumn[] = [
   {
     icon: <MdOutlinePerson size={16} className="text-blue-500" />,
     label: "NIP, Nama, Jabatan",
@@ -32,7 +33,9 @@ const REQUIRED_COLUMNS = [
 export default function UploadFileStep({
   onFileSelect,
   isLoading,
+  isDisabled = false,
   errorMsg,
+  requiredColumns = DEFAULT_REQUIRED_COLUMNS,
 }: UploadFileStepProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +49,7 @@ export default function UploadFileStep({
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (isDisabled || isLoading) return;
     const dropped = e.dataTransfer.files?.[0];
     if (!dropped) return;
     onFileSelect(dropped);
@@ -53,6 +57,11 @@ export default function UploadFileStep({
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+  };
+
+  const handleClick = () => {
+    if (isDisabled || isLoading) return;
+    inputRef.current?.click();
   };
 
   return (
@@ -70,21 +79,37 @@ export default function UploadFileStep({
         <div
           className={
             "border-2 border-dashed rounded-2xl p-16 flex flex-col items-center justify-center " +
-            "text-center bg-white cursor-pointer transition-colors duration-200 hover:border-blue-400 hover:bg-blue-50/30"
+            "text-center transition-colors duration-200 " +
+            (isDisabled
+              ? "bg-gray-50 border-gray-200 cursor-not-allowed opacity-60"
+              : "bg-white cursor-pointer hover:border-blue-400 hover:bg-blue-50/30")
           }
-          onClick={() => inputRef.current?.click()}
+          onClick={handleClick}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           role="button"
-          tabIndex={0}
+          tabIndex={isDisabled ? -1 : 0}
+          aria-disabled={isDisabled}
           aria-label="Area upload file excel"
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
+            if (!isDisabled && (e.key === "Enter" || e.key === " ")) {
               inputRef.current?.click();
             }
           }}
         >
-          {isLoading ? (
+          {isDisabled ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-gray-300 flex items-center justify-center mb-5">
+                <FiUploadCloud size={32} className="text-white" />
+              </div>
+              <p className="font-semibold text-gray-400 text-lg">
+                Upload File Excel
+              </p>
+              <p className="text-sm text-gray-400 mt-1">
+                Pilih Kategori Program Budaya terlebih dahulu
+              </p>
+            </>
+          ) : isLoading ? (
             <>
               <Spinner size="lg" />
               <p className="mt-4 font-semibold text-gray-700">
@@ -159,11 +184,13 @@ export default function UploadFileStep({
             </Card.Title>
           </Card.Header>
           <Card.Content className="p-0 flex flex-col gap-2">
-            {REQUIRED_COLUMNS.map((col) => (
+            {requiredColumns.map((col) => (
               <div key={col.label} className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
-                  {col.icon}
-                </div>
+                {col.icon && (
+                  <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+                    {col.icon}
+                  </div>
+                )}
                 <span className="text-xs text-gray-700 font-medium">
                   {col.label}
                 </span>
