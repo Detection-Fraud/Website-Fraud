@@ -12,6 +12,7 @@ const INITIAL_STATS: ParticipationImportStats = {
   total: 0,
   matched: 0,
   conflict: 0,
+  unchanged: 0,
   error: 0,
   empty: 0,
 };
