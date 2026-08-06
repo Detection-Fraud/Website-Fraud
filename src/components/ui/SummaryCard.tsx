@@ -16,7 +16,7 @@ export default function SummaryCards({ summary }: ApprovalSummaryCardsProps) {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {summary.map((item, index) => (
         <div key={index} className="min-w-0">
-          <Card className="rounded-xl shadow-sm border-gray-200 hover:shadow-md transition-shadow">
+          <Card className="bg-white rounded-2xl border border-slate-200/60 shadow-surface hover:shadow-(--surface-shadow-md) transition-all duration-200">
             <Card.Header className="flex flex-row items-start gap-4">
               <div
                 className={`w-12 h-12 ${item.style} rounded-xl flex items-center justify-center`}
@@ -25,7 +25,7 @@ export default function SummaryCards({ summary }: ApprovalSummaryCardsProps) {
               </div>
               <Card.Title>
                 <p
-                  className={`text-3xl font-bold leading-none ${item.textColor}`}
+                  className={`text-3xl font-bold leading-none tabular-nums ${item.textColor}`}
                 >
                   {item.value}
                 </p>

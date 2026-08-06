@@ -9,6 +9,30 @@
 .default,
 [data-theme="light"],
 [data-theme="default"] {
+  /* ── Corporate Trust Palette ── */
+  --brand-navy-900: #1e2a5e;
+  --brand-navy-800: #1e3a8a;
+  --brand-navy-700: #1d4ed8;
+  --brand-navy-600: #2563eb;
+  --brand-navy-50: #eff6ff;
+
+  /* ── Harmonis Chart Palette ── */
+  --chart-1: #1e40af; /* Deep Navy */
+  --chart-2: #2563eb; /* Royal Blue */
+  --chart-3: #0284c7; /* Sky Blue */
+  --chart-4: #6366f1; /* Indigo */
+  --chart-5: #0d9488; /* Teal */
+  --chart-6: #94a3b8; /* Slate 400 (Lainnya) */
+
+  /* ── Surfaces & Shadows ── */
+  --surface-page: #f8fafc;
+  --surface-card: #ffffff;
+  --surface-border: rgba(148, 163, 184, 0.25);
+  --surface-shadow:
+    0 1px 3px rgba(30, 42, 94, 0.06), 0 1px 2px rgba(30, 42, 94, 0.04);
+  --surface-shadow-md:
+    0 4px 6px rgba(30, 42, 94, 0.07), 0 2px 4px rgba(30, 42, 94, 0.04);
+
   --accent: oklch(52.92% 0.1931 262.13);
   --accent-foreground: oklch(99.11% 0 0);
   --background: oklch(97.02% 0 262.13);
@@ -39,15 +63,10 @@
   --surface-tertiary-foreground: oklch(21.03% 0 262.13);
   --warning: oklch(78.19% 0.1585 73.33);
   --warning-foreground: oklch(21.03% 0.0059 73.33);
-  --chart-1: #0369a1;
-  --chart-2: #0284c7;
-  --chart-3: #0ea5e9;
-  --chart-4: #7dd3fc;
-  --chart-5: #e0f2fe;
 
   --field-radius: 0.75rem;
 
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-geist-sans), sans-serif;
 }
 
 .dark,
@@ -86,5 +105,6 @@
 }
 
 body {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
+  background-color: var(--surface-page);
 }

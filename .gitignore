@@ -58,5 +58,7 @@ temp-skill-instructions.txt
 public/uploads/
 public/uploads
 .code-review-graph/
+.mcp.json
+opencode.jsonc
 brainstorm-skill.txt
 caveman-skill-output.txt

@@ -20,11 +20,11 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 const COLORS = [
-  "#2563eb", // Blue 600
-  "#10b981", // Emerald 500
-  "#f59e0b", // Amber 500
-  "#8b5cf6", // Violet 500
-  "#ec4899", // Pink 500
+  "#1e40af", // Deep Navy
+  "#2563eb", // Royal Blue
+  "#0284c7", // Sky Blue
+  "#6366f1", // Indigo Accent
+  "#0d9488", // Teal Accent
   "#94a3b8", // Slate 400 (Lainnya)
 ];
 

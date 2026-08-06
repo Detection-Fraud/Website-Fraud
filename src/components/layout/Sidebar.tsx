@@ -107,14 +107,14 @@ export default function Sidebar() {
           ${isMobile ? "fixed top-0 left-0" : "static border-r"}
           ${
             isSidebarOpen
-              ? "w-[260px] translate-x-0"
+              ? "w-65 translate-x-0"
               : isMobile
-                ? "w-[260px] -translate-x-full"
+                ? "w-65 -translate-x-full"
                 : "w-0 border-r-0"
           }
         `}
       >
-        <div className="w-[260px] min-w-[260px] h-full flex flex-col">
+        <div className="w-65 min-w-65 h-full flex flex-col">
           {/* Logo */}
           <div className="px-4 py-6 flex items-center justify-start">
             <Image
@@ -138,11 +138,11 @@ export default function Sidebar() {
                   <div key={item.key}>
                     <button
                       onClick={() => toggleMenu(item.key)}
-                      className={`w-full flex flex-row items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors
+                      className={`w-full flex flex-row items-center gap-3 px-3 py-2.5 rounded-lg group transition-all duration-200
                         hover:bg-slate-800 hover:text-white
                         ${
                           isActive
-                            ? "bg-blue-600/20 text-blue-400 border-r-2 border-blue-500"
+                            ? "bg-blue-600/15 text-blue-300 font-bold border-l-[3px] border-blue-400 shadow-[inset_0_0_12px_rgba(59,130,246,0.1)]"
                             : "text-slate-300"
                         }`}
                     >
@@ -169,16 +169,16 @@ export default function Sidebar() {
                             <Link
                               key={child.key}
                               href={child.href}
-                              className={`flex flex-row items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
+                              className={`flex flex-row items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-150
                                 hover:bg-slate-800 hover:text-white
                                 ${
                                   isChildActive
-                                    ? "text-blue-400 bg-blue-600/10"
+                                    ? "text-blue-300 font-medium bg-blue-600/15"
                                     : "text-slate-400"
                                 }`}
                             >
                               <span
-                                className={`w-1 h-1 rounded-full shrink-0 ${
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                   isChildActive ? "bg-blue-400" : "bg-slate-600"
                                 }`}
                               />
@@ -208,11 +208,11 @@ export default function Sidebar() {
                 <Link
                   key={item.key}
                   href={item.href ?? "#"}
-                  className={`flex flex-row items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors
+                  className={`flex flex-row items-center gap-3 px-3 py-2.5 rounded-lg group transition-all duration-200
                     hover:bg-slate-800 hover:text-white
                     ${
                       isActive
-                        ? "bg-blue-600/20 text-blue-400 border-r-2 border-blue-500"
+                        ? "bg-blue-600/15 text-blue-300 font-bold border-l-[3px] border-blue-400 shadow-[inset_0_0_12px_rgba(59,130,246,0.1)]"
                         : "text-slate-300"
                     }`}
                 >

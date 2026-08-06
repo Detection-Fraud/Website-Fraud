@@ -72,7 +72,8 @@ export default function FormDetection({
     today.setHours(0, 0, 0, 0);
     return safePrograms.filter((program) => {
       // Filter out if program is disabled/inactive (except when editing existing report)
-      if (!program.isActive && initialData?.programId !== program.id) return false;
+      if (!program.isActive && initialData?.programId !== program.id)
+        return false;
       // Keep if it's the currently edited program
       if (initialData?.programId === program.id) return true;
       // Filter out if end date has passed
@@ -191,7 +192,10 @@ export default function FormDetection({
               {/* KASUS 2: > 1 Program Aktif -> Fallback Select Dropdown */}
               {programsInCategory.length > 1 && (
                 <div className="w-full flex flex-col gap-1">
-                  <Label className="text-sm font-semibold text-slate-700" isRequired>
+                  <Label
+                    className="text-sm font-semibold text-slate-700"
+                    isRequired
+                  >
                     Pilih Program Budaya Specific
                   </Label>
                   <Select
@@ -239,7 +243,9 @@ export default function FormDetection({
           )}
           {/* DatePicker: value disimpan di state */}
           <div className="w-full flex flex-col gap-1">
-            <Label className="text-sm font-medium" isRequired>Tanggal Kegiatan</Label>
+            <Label className="text-sm font-medium" isRequired>
+              Tanggal Kegiatan
+            </Label>
             <CalendarPicker
               value={selectedDate}
               onChange={setSelectedDate}

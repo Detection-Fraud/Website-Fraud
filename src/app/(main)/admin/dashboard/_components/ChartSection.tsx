@@ -19,12 +19,23 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
     rank === 1 ? (
       <GoTrophy className="w-4 h-4 text-yellow-500" />
     ) : rank === 2 ? (
-      <LuMedal className="w-4 h-4 text-gray-400" />
+      <LuMedal className="w-4 h-4 text-slate-400" />
     ) : rank === 3 ? (
       <BiAward className="w-4 h-4 text-orange-400" />
     ) : (
-      <span className="text-sm font-bold text-gray-500">#{rank}</span>
+      <span className="text-sm font-bold text-slate-500">#{rank}</span>
     );
+
+  const statusColorMap: Record<
+    string,
+    "success" | "accent" | "warning" | "danger" | "default"
+  > = {
+    "Sangat Baik": "success", // Emerald / Green OKLCH
+    Baik: "accent", // Royal / Sky Blue OKLCH
+    Cukup: "warning", // Amber / Orange OKLCH
+    "Perlu Perhatian": "danger", // Crimson / Red OKLCH
+  };
+
   return (
     <div className="space-y-6 mb-12">
       {/* =========================================
@@ -33,16 +44,16 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
         {/* CARD: GRAFIK KEGIATAN PER BULAN */}
 
-        <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-3">
+        <Card className="p-6 bg-white border border-slate-200/60 shadow-[--surface-shadow] hover:shadow-(--surface-shadow-md) transition-all duration-200 rounded-2xl lg:col-span-3">
           {/* Tabs membungkus SELURUH isi Card */}
           <Tabs>
             {/* Baris Header: Title (kiri) + Tab Buttons (kanan) */}
             <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <div>
-                <h2 className="font-bold text-gray-900">
+                <h2 className="font-bold text-slate-900">
                   Grafik Kegiatan per Bulan
                 </h2>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Jumlah laporan yang masuk setiap bulannya
                 </p>
               </div>
@@ -51,16 +62,16 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                 <Tabs.List>
                   <Tabs.Tab
                     id={"bar"}
-                    className="group data-[selected=true]:text-blue-600 text-gray-500"
+                    className="group data-[selected=true]:text-blue-600 text-slate-500"
                   >
-                    <FiBarChart2 className="w-4 h-4 text-gray-400 group-data-[selected=true]:text-blue-600 transition-colors" />
+                    <FiBarChart2 className="w-4 h-4 text-slate-400 group-data-[selected=true]:text-blue-600 transition-colors" />
                     <Tabs.Indicator />
                   </Tabs.Tab>
                   <Tabs.Tab
                     id={"line"}
-                    className="group data-[selected=true]:text-blue-600 text-gray-500"
+                    className="group data-[selected=true]:text-blue-600 text-slate-500"
                   >
-                    <BiLineChart className="w-4 h-4 text-gray-400 group-data-[selected=true]:text-blue-600 transition-colors" />
+                    <BiLineChart className="w-4 h-4 text-slate-400 group-data-[selected=true]:text-blue-600 transition-colors" />
                     <Tabs.Indicator />
                   </Tabs.Tab>
                 </Tabs.List>
@@ -78,13 +89,13 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
         </Card>
 
         {/* CARD: TOP 5 UNIT TERAKTIF */}
-        <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-2">
+        <Card className="p-6 bg-white border border-slate-100 shadow-sm rounded-2xl lg:col-span-2">
           <Card.Header className="flex flex-row justify-between items-center">
             <div>
-              <Card.Title className="font-bold text-gray-900">
+              <Card.Title className="font-bold text-slate-900">
                 Top 5 Unit Teraktif
               </Card.Title>
-              <Card.Description className="text-xs text-gray-400 mt-0.5">
+              <Card.Description className="text-xs text-slate-400 mt-0.5">
                 Berdasarkan jumlah kegiatan
               </Card.Description>
             </div>
@@ -104,11 +115,11 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <div>
-                        <p className="text-sm font-semibold text-gray-800 truncate">
+                        <p className="text-sm font-semibold text-slate-800 truncate">
                           {unit.name}
                         </p>
                       </div>
-                      <span className="text-sm font-bold text-gray-900 ml-2">
+                      <span className="text-sm font-bold text-slate-900 ml-2">
                         {unit.jumlah}
                       </span>
                     </div>
@@ -124,7 +135,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           </Card.Content>
 
           <Card.Footer className="flex flex-row justify-between items-center">
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5">
               Total Unit : {summary?.totalUnitAktif}
             </p>
             <Link
@@ -149,12 +160,12 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
         {/* CARD: DISTRIBUSI PROGRAM */}
 
-        <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-2">
+        <Card className="p-6 bg-white border border-slate-100 shadow-sm rounded-2xl lg:col-span-2">
           <Card.Header>
-            <Card.Title className="font-bold text-gray-900">
+            <Card.Title className="font-bold text-slate-900">
               Distribusi Program
             </Card.Title>
-            <Card.Description className="text-xs text-gray-400 mt-0.5">
+            <Card.Description className="text-xs text-slate-400 mt-0.5">
               Presentase program budaya kegiatan
             </Card.Description>
           </Card.Header>
@@ -164,13 +175,13 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
         </Card>
 
         {/* CARD: RANKING UNIT KERJA PER WILAYAH */}
-        <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-3">
+        <Card className="p-6 bg-white border border-slate-100 shadow-sm rounded-2xl lg:col-span-3">
           <Card.Header className="flex flex-row justify-between items-center">
             <div>
-              <Card.Title className="font-bold text-gray-900">
+              <Card.Title className="font-bold text-slate-900">
                 Ranking Unit Kerja per Wilayah
               </Card.Title>
-              <Card.Description className="text-xs text-gray-400 mt-0.5">
+              <Card.Description className="text-xs text-slate-400 mt-0.5">
                 Diurutkan berdasarkan tingkat persetujuan tertinggi
               </Card.Description>
             </div>
@@ -179,35 +190,11 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
 
           <Card.Content className="space-y-6 pt-4">
             {charts?.rankingWilayah?.slice(0, 5).map((wilayah, index) => {
-              // Progress bar menggunakan approvalRate langsung agar sinkron dengan angka yang ditampilkan
-
-              // 2. Mapping warna sesuai data 'status' dari Backend
-              let statusColor: "success" | "default" | "warning" | "danger" =
-                "default";
-              if (wilayah.status === "Sangat Baik") statusColor = "success";
-              else if (wilayah.status === "Baik") statusColor = "default";
-              else if (wilayah.status === "Cukup") statusColor = "warning";
-              else if (wilayah.status === "Perlu Perhatian")
-                statusColor = "danger";
-
-              // Note: Untuk 'Trend', kita skip dulu karena perlu perhitungan historis
-              // yang lebih rumit di backend. Untuk sekarang kita tampilkan persentase murni.
-
               return (
                 <div key={wilayah.name} className="flex gap-4 items-start">
-                  {/* Bagian Kiri: Ikon Ranking */}
+                  {/* Bagian Kiri: Ikon Ranking (UPDATED: reused rankIcon helper) */}
                   <div className="w-8 pt-0.5 flex justify-center shrink-0">
-                    {index === 0 ? (
-                      <GoTrophy className="w-5 h-5 text-yellow-500" />
-                    ) : index === 1 ? (
-                      <LuMedal className="w-5 h-5 text-gray-400" />
-                    ) : index === 2 ? (
-                      <BiAward className="w-5 h-5 text-orange-400" />
-                    ) : (
-                      <span className="text-sm font-bold text-gray-500">
-                        #{wilayah.rank}
-                      </span>
-                    )}
+                    {rankIcon(index + 1)}
                   </div>
 
                   {/* Bagian Kanan: Konten Baris */}
@@ -215,19 +202,21 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                     {/* Baris Atas: Nama, Chip/Badge, dan Angka Persentase Asli */}
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-gray-900">
+                        {/* UPDATED: text-gray-900 -> text-slate-900 */}
+                        <span className="font-semibold text-sm text-slate-900">
                           {wilayah.name}
                         </span>
+                        {/* UPDATED: Reused statusColorMap */}
                         <Chip
                           size="sm"
-                          color={statusColor as any}
+                          color={statusColorMap[wilayah.status] || "default"}
                           variant="soft"
                           className="text-[10px] h-5 px-1 font-medium"
                         >
                           {wilayah.status}
                         </Chip>
                       </div>
-                      <div className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
+                      <div className="text-sm font-bold text-slate-900 ml-2 tabular-nums">
                         {wilayah.approvalRate}%
                       </div>
                     </div>
@@ -235,15 +224,16 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                     {/* Baris Bawah: Progress Bar & Teks Detail Asli */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                       <div className="flex-1">
-                        {/* Progress Bar diubah biar pake color bawaan Tailwind/Hex kalau HeroUI ngaco valuenya */}
-                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        {/* UPDATED: bg-gray-100 -> bg-slate-100 */}
+                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full bg-blue-500`}
+                            className={`h-full rounded-full bg-blue-600 transition-all duration-500 ease-out`}
                             style={{ width: `${wilayah.approvalRate}%` }}
                           />
                         </div>
                       </div>
-                      <div className="text-[11px] text-gray-400 font-medium">
+                      {/* UPDATED: text-gray-400 -> text-slate-400 */}
+                      <div className="text-[11px] text-slate-400 font-medium tabular-nums">
                         {wilayah.kegiatan} kegiatan
                       </div>
                     </div>
@@ -253,7 +243,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
             })}
           </Card.Content>
 
-          <Card.Footer className="flex justify-center border-t border-gray-100 mt-4 pt-4 pb-0">
+          <Card.Footer className="flex justify-center border-t border-slate-100 mt-4 pt-4 pb-0">
             <Link
               href="/admin/analytics"
               className={
@@ -268,13 +258,13 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
 
       {/* ROW 3 TOP 10 CC */}
       <div>
-        <Card className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl lg:col-span-3 lg:col-start-2">
+        <Card className="p-6 bg-white border border-slate-100 shadow-sm rounded-2xl lg:col-span-3 lg:col-start-2">
           <Card.Header className="flex flex-row justify-between items-center">
             <div>
-              <Card.Title className="font-bold text-gray-900">
+              <Card.Title className="font-bold text-slate-900">
                 Top 10 Culture Catalyst
               </Card.Title>
-              <Card.Description className="text-xs text-gray-400 mt-0.5">
+              <Card.Description className="text-xs text-slate-400 mt-0.5">
                 Culture Catalyst dengan performa approval terbaik
               </Card.Description>
             </div>
@@ -287,15 +277,6 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           >
             {charts?.rankingCC && charts.rankingCC.length > 0 ? (
               charts.rankingCC.slice(0, 10).map((cc, index) => {
-                // Color mapping sesuai status
-                let statusColor: "success" | "default" | "warning" | "danger" =
-                  "default";
-                if (cc.status === "Sangat Baik") statusColor = "success";
-                else if (cc.status === "Baik") statusColor = "default";
-                else if (cc.status === "Cukup") statusColor = "warning";
-                else if (cc.status === "Perlu Perhatian")
-                  statusColor = "danger";
-
                 return (
                   <div key={cc.userId} className="flex gap-4 items-start py-1">
                     {/* Ranking Icon */}
@@ -310,21 +291,21 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                           <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-[10px] font-bold">
                             {cc.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-semibold text-sm text-gray-900">
+                          <span className="font-semibold text-sm text-slate-900">
                             {cc.name}
                           </span>
                           <Chip
                             size="sm"
-                            color={statusColor}
+                            color={statusColorMap[cc.status] || "default"}
                             variant="soft"
                             className="text-[10px] h-5 px-1.5 font-medium border-none"
                           >
                             {cc.status}
                           </Chip>
                         </div>
-                        <div className="flex items-center text-sm font-bold text-gray-900">
+                        <div className="flex items-center text-sm font-bold text-slate-900 tabular-nums">
                           {cc.approved}{" "}
-                          <span className="text-gray-400 font-normal ml-1 text-xs">
+                          <span className="text-slate-400 font-normal ml-1 text-xs">
                             / {cc.target} Target
                           </span>
                         </div>
@@ -332,7 +313,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
 
                       {/* Progress Bar & Unit Info */}
                       <div className="flex items-center gap-3">
-                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full bg-blue-500 transition-all duration-500"
                             style={{
@@ -340,7 +321,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                             }}
                           />
                         </div>
-                        <div className="text-[11px] text-gray-400 font-medium whitespace-nowrap w-24 text-right truncate">
+                        <div className="text-[11px] text-slate-400 font-medium whitespace-nowrap w-24 text-right truncate">
                           <Tooltip>
                             <Tooltip.Trigger>{cc.unitName}</Tooltip.Trigger>
                             <Tooltip.Content>{cc.unitName}</Tooltip.Content>
@@ -352,12 +333,12 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
                 );
               })
             ) : (
-              <div className="flex items-center justify-center py-8 text-sm text-gray-400">
+              <div className="flex items-center justify-center py-8 text-sm text-slate-400">
                 Tidak ada data Culture Catalyst
               </div>
             )}
           </Card.Content>
-          <Card.Footer className="flex justify-center border-t border-gray-100 mt-4 pt-4 pb-0">
+          <Card.Footer className="flex justify-center border-t border-slate-100 mt-4 pt-4 pb-0">
             <Link
               href="/admin/analytics"
               className={

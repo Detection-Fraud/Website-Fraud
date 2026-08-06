@@ -53,14 +53,14 @@ export default function TableCompliance({
     if (columnKey === "rank") {
       const isTop3 = item.rank <= 3 && item.avg > 0;
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 tabular-nums font-semibold">
           {isTop3 && (
             <FaCrown
               className={
                 item.rank === 1
                   ? "text-yellow-400"
                   : item.rank === 2
-                    ? "text-gray-400"
+                    ? "text-slate-400"
                     : "text-amber-600"
               }
             />
@@ -92,7 +92,7 @@ export default function TableCompliance({
       const avg = item.avg;
       const color = avg >= 50 ? "success" : avg >= 25 ? "warning" : "danger";
       return (
-        <Chip variant="soft" color={color} size="sm">
+        <Chip variant="soft" color={color} size="sm" className="tabular-nums font-bold">
           {avg}%
         </Chip>
       );
@@ -103,7 +103,7 @@ export default function TableCompliance({
         (p) => p.programId === actualProgramId,
       );
       if (!progData) return <span className="text-slate-300">-</span>;
-      // Logika Warna
+      
       const pctColor =
         progData.pct >= 100
           ? "success"
@@ -116,10 +116,10 @@ export default function TableCompliance({
           : progData.pct >= 50
             ? "text-amber-600"
             : "text-rose-600";
-      // 👇 TAMBAHKAN LOGIKA INI: Jika fokus ke 1 program, tampilkan Progress Bar
+
       if (selectedProgramId !== "ALL") {
         return (
-          <div className="min-w-30">
+          <div className="min-w-30 tabular-nums">
             <ProgressBar value={progData.pct} color={pctColor} size="md">
               <ProgressBar.Output />
               <ProgressBar.Track>
@@ -129,13 +129,13 @@ export default function TableCompliance({
           </div>
         );
       }
-      // Jika "ALL" (Mode Tampilan Semua Program), tetap tampilkan teks minimalis
+      
       return (
-        <div className="flex flex-col w-40">
-          <span className={`font-semibold text-sm ${textColor}`}>
+        <div className="flex flex-col w-40 tabular-nums">
+          <span className={`font-bold text-sm ${textColor}`}>
             {progData.pct}%
           </span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-slate-400 font-medium">
             {progData.submitted} / {progData.target}
           </span>
         </div>
@@ -152,21 +152,21 @@ export default function TableCompliance({
 
   return (
     <div>
-      <Card className="rounded-lg p-0">
-        <Card.Header className="px-4 py-6 flex flex-row items-start gap-4">
-          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-800 shrink-0">
-            <TbReportAnalytics className="w-6 h-6" />
+      <Card className="rounded-2xl p-0 bg-white border border-slate-200/60 shadow-surface">
+        <Card.Header className="px-6 py-5 flex flex-row items-start gap-4 border-b border-slate-100">
+          <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center text-sky-700 shrink-0 ring-1 ring-sky-200/50">
+            <TbReportAnalytics className="w-5 h-5" />
           </div>
           <div>
-            <Card.Title className="font-bold text-md">
+            <Card.Title className="font-bold text-slate-900 text-base">
               Compliance Program
             </Card.Title>
-            <Card.Description className="text-xs">
+            <Card.Description className="text-xs text-slate-400 mt-0.5">
               {data?.cards.totalUnit} unit diurutkan berdasarkan avg compliance
             </Card.Description>
           </div>
         </Card.Header>
-        <Card.Content>
+        <Card.Content className="p-0">
           <DataTable
             column={columns}
             data={paginatedData}
@@ -184,3 +184,4 @@ export default function TableCompliance({
     </div>
   );
 }
+

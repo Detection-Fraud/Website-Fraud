@@ -19,12 +19,12 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 const COLORS = [
-  "#2563eb",
-  "#10b981",
-  "#f59e0b",
-  "#8b5cf6",
-  "#ec4899",
-  "#94a3b8",
+  "#1e40af", // Deep Navy
+  "#2563eb", // Royal Blue
+  "#0284c7", // Sky Blue
+  "#6366f1", // Indigo Accent
+  "#0d9488", // Teal Accent
+  "#94a3b8", // Slate 400 (Lainnya)
 ];
 export default function AnalyticPieChart({ data }: AnalyticPieChartProps) {
   if (!data || data.length === 0) {

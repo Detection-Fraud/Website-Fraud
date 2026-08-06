@@ -13,7 +13,7 @@ interface AnalyticChartProps {
   report: number;
 }
 
-export default function AnlyticChart({
+export default function AnalyticChart({
   periode,
   year,
   areaChartData,
@@ -40,7 +40,7 @@ export default function AnlyticChart({
   };
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 ">
-      <Card className="p-4 bg-white border-gray-200 shadow-sm lg:col-span-2 rounded-2xl ">
+      <Card className="p-4 bg-white border border-slate-200/60 shadow-surface hover:shadow-(--surface-shadow-md) transition-all duration-200 lg:col-span-2 rounded-2xl">
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <Card.Header>
             <Card.Title className="font-bold text-md">
@@ -61,7 +61,7 @@ export default function AnlyticChart({
         </Card.Content>
       </Card>
 
-      <Card className="rounded-2xl p-6">
+      <Card className="p-6 bg-white border border-slate-200/60 shadow-surface hover:shadow-(--surface-shadow-md) transition-all duration-200 rounded-2xl">
         <Card.Header>
           <Card.Title className="font-bold text-md">
             Distribusi Program

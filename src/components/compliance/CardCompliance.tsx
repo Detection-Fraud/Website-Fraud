@@ -45,7 +45,7 @@ export default function CardCompliance({ data }: CardComplianceProps) {
       description: "unit dilaporkan",
       haveProgressBar: false,
       icon: <LuUsers />,
-      style: "bg-sky-50 text-blue-800",
+      style: "bg-sky-50/80 text-sky-700 ring-1 ring-sky-200/50",
       textColor: "#0284c7",
     },
     {
@@ -55,7 +55,7 @@ export default function CardCompliance({ data }: CardComplianceProps) {
       haveProgressBar: true,
       valueProgressBar: avgCompliance,
       icon: <LuTarget />,
-      style: "bg-red-50 text-red-800",
+      style: "bg-red-50/80 text-red-700 ring-1 ring-red-200/50",
       textColor: "#dc2626",
       colorProgressBar: "accent",
     },
@@ -66,7 +66,7 @@ export default function CardCompliance({ data }: CardComplianceProps) {
       haveProgressBar: true,
       valueProgressBar: unitOnTrackPct,
       icon: <MdOutlineShowChart />,
-      style: "bg-green-50 text-green-800",
+      style: "bg-emerald-50/80 text-emerald-700 ring-1 ring-emerald-200/50",
       textColor: "#16a34a",
       colorProgressBar: "success",
     },
@@ -77,7 +77,7 @@ export default function CardCompliance({ data }: CardComplianceProps) {
       haveProgressBar: true,
       valueProgressBar: waspadaPct,
       icon: <TiWarningOutline />,
-      style: "bg-orange-50 text-orange-800",
+      style: "bg-amber-50/80 text-amber-700 ring-1 ring-amber-200/50",
       textColor: "text-orange-900",
       colorProgressBar: "warning",
     },
@@ -88,7 +88,7 @@ export default function CardCompliance({ data }: CardComplianceProps) {
       haveProgressBar: true,
       valueProgressBar: perluPerhatianPct,
       icon: <IoTrendingDownOutline />,
-      style: "bg-red-50 text-red-800",
+      style: "bg-red-50/80 text-red-700 ring-1 ring-red-200/50",
       textColor: "#dc2626",
       colorProgressBar: "danger",
     },
@@ -97,25 +97,28 @@ export default function CardCompliance({ data }: CardComplianceProps) {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
       {complianceCard.map((item, index) => (
         <Card
-          className="shadow-sm border border-gray-200 rounded-2xl"
+          className="bg-white shadow-surface hover:shadow-(--surface-shadow-md) border border-slate-200/60 rounded-2xl transition-all duration-200"
           key={`${item.title}-${index}`}
         >
           <Card.Header className="flex flex-row justify-between items-center">
-            <Card.Title className="text-xs font-bold text-gray-400">
+            <Card.Title className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               {item.title}
             </Card.Title>
             <div
-              className={`w-8 h-8 rounded-lg ${item.style} flex items-center justify-center `}
+              className={`w-8 h-8 rounded-xl ${item.style} flex items-center justify-center `}
             >
               {item.icon}
             </div>
           </Card.Header>
 
           <Card.Content>
-            <p className={`text-3xl font-semibold text-[${item.textColor}]`}>
+            <p
+              className="text-3xl font-bold tabular-nums tracking-tight"
+              style={{ color: item.textColor }}
+            >
               {item.value}
             </p>
-            <p className="text-xs text-muted">{item.description}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{item.description}</p>
 
             {item.haveProgressBar && (
               <ProgressBar

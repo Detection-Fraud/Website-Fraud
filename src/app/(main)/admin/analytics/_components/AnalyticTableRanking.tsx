@@ -54,14 +54,18 @@ export default function AnalyticTableRanking({
         if (item.rank === 1)
           return <FaTrophy className="text-yellow-500 w-5 h-5" />;
         if (item.rank === 2)
-          return <FaMedal className="text-gray-400 w-5 h-5" />;
+          return <FaMedal className="text-slate-400 w-5 h-5" />;
         if (item.rank === 3)
           return <FaMedal className="text-amber-700 w-5 h-5" />;
-        return <span className="text-gray-500 font-medium">#{item.rank}</span>;
+        return <span className="text-slate-500 font-medium">#{item.rank}</span>;
       case "name":
-        return <span className="font-semibold text-gray-900">{item.name}</span>;
+        return (
+          <span className="font-semibold text-slate-900">{item.name}</span>
+        );
       case "kegiatan":
-        return <span className="font-bold text-gray-900">{item.kegiatan}</span>;
+        return (
+          <span className="font-bold text-slate-900">{item.kegiatan}</span>
+        );
       case "disetujui":
         return (
           <div className="flex items-center gap-2 text-green-600">
@@ -73,7 +77,7 @@ export default function AnalyticTableRanking({
         return (
           <div className="flex items-center gap-3">
             {/* Progress Bar Mini */}
-            <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${
                   item.approvalRate >= 90
@@ -87,7 +91,7 @@ export default function AnalyticTableRanking({
                 style={{ width: `${item.approvalRate}%` }}
               />
             </div>
-            <span className="font-bold text-gray-900">
+            <span className="font-bold text-slate-900">
               {item.approvalRate}%
             </span>
           </div>
@@ -119,10 +123,10 @@ export default function AnalyticTableRanking({
         if (item.rank === 1)
           return <FaTrophy className="text-yellow-500 w-5 h-5" />;
         if (item.rank === 2)
-          return <FaMedal className="text-gray-400 w-5 h-5" />;
+          return <FaMedal className="text-slate-400 w-5 h-5" />;
         if (item.rank === 3)
           return <FaMedal className="text-amber-700 w-5 h-5" />;
-        return <span className="text-gray-500 font-medium">#{item.rank}</span>;
+        return <span className="text-slate-500 font-medium">#{item.rank}</span>;
 
       case "name":
         return (
@@ -130,16 +134,16 @@ export default function AnalyticTableRanking({
             <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold shrink-0">
               {item.name.charAt(0).toUpperCase()}
             </div>
-            <span className="font-semibold text-gray-900">{item.name}</span>
+            <span className="font-semibold text-slate-900">{item.name}</span>
           </div>
         );
 
       case "unitName":
-        return <span className="text-gray-600 text-sm">{item.unitName}</span>;
+        return <span className="text-slate-600 text-sm">{item.unitName}</span>;
 
       case "submitted":
         return (
-          <span className="font-bold text-gray-900">{item.submitted}</span>
+          <span className="font-bold text-slate-900">{item.submitted}</span>
         );
 
       case "approved":
@@ -151,12 +155,12 @@ export default function AnalyticTableRanking({
         );
 
       case "target":
-        return <span className="text-gray-500 text-sm">{item.target}</span>;
+        return <span className="text-slate-500 text-sm">{item.target}</span>;
 
       case "approvalRate":
         return (
           <div className="flex items-center gap-3">
-            <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${
                   item.approvalRate >= 50
@@ -168,7 +172,7 @@ export default function AnalyticTableRanking({
                 style={{ width: `${Math.min(item.approvalRate, 100)}%` }}
               />
             </div>
-            <span className="font-bold text-gray-900">
+            <span className="font-bold text-slate-900">
               {item.approvalRate}%
             </span>
           </div>
@@ -197,7 +201,7 @@ export default function AnalyticTableRanking({
   };
 
   return (
-    <Card className="p-0">
+    <Card className="p-0 bg-white border border-slate-200/60 shadow-surface hover:shadow-(--surface-shadow-md) transition-all duration-200 rounded-2xl overflow-hidden">
       <Tabs
         selectedKey={activeTab}
         onSelectionChange={(key) => setActiveTab(key as RankingTab)}
@@ -222,14 +226,14 @@ export default function AnalyticTableRanking({
               <Tabs.List>
                 <Tabs.Tab
                   id="unit"
-                  className="group data-[selected=true]:text-blue-600 text-gray-500 text-xs font-medium transition-colors"
+                  className="group data-[selected=true]:text-blue-600 text-slate-500 text-xs font-medium transition-colors"
                 >
                   Unit
                   <Tabs.Indicator />
                 </Tabs.Tab>
                 <Tabs.Tab
                   id="cc"
-                  className="group data-[selected=true]:text-blue-600 text-gray-500 text-xs font-medium transition-colors"
+                  className="group data-[selected=true]:text-blue-600 text-slate-500 text-xs font-medium transition-colors"
                 >
                   CC
                   <Tabs.Indicator />
