@@ -17,7 +17,7 @@ import { ActivityReportItem } from "@/types/report.types";
 import { useState } from "react";
 import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
 import { CiSaveDown1 } from "react-icons/ci";
-import { FiAlertTriangle, FiImage } from "react-icons/fi";
+import { FiAlertTriangle, FiFileText, FiImage } from "react-icons/fi";
 import CardApproval from "./CardApproval";
 import ModalLogs from "./ModalLogs";
 import ModalNotes from "./ModalNotes";
@@ -207,38 +207,39 @@ export default function ApprovalView() {
     }
   };
 
+  // UPDATED: Summary Cards with Slate tokens & calibrated status colors
   const summaryCards = [
     {
       title: "Total Upload",
       value: summary.total,
       description: "Semua Unggahan",
       icon: FiImage,
-      style: "text-blue-600 bg-blue-100",
-      textColor: "text-[#0284c7]",
+      style: "text-blue-600 bg-blue-50 border border-blue-100",
+      textColor: "text-blue-700",
     },
     {
       title: "Menunggu",
       value: summary.pending,
       description: "Total Menunggu",
       icon: FiAlertTriangle,
-      style: "bg-orange-100 text-orange-600",
-      textColor: "text-[#d97706]",
+      style: "bg-amber-50 text-amber-600 border border-amber-100",
+      textColor: "text-amber-700",
     },
     {
       title: "Disetujui",
       value: summary.approved,
       icon: BsCheck2Circle,
       description: "Total Disetujui",
-      style: "bg-green-100 text-green-600",
-      textColor: "text-[#059669]",
+      style: "bg-emerald-50 text-emerald-600 border border-emerald-100",
+      textColor: "text-emerald-700",
     },
     {
       title: "Ditolak",
       value: summary.rejected,
       icon: BsXCircle,
       description: "Total Ditolak",
-      style: "bg-red-100 text-red-600",
-      textColor: "text-[#dc2626]",
+      style: "bg-rose-50 text-rose-600 border border-rose-100",
+      textColor: "text-rose-700",
     },
   ];
 
@@ -253,8 +254,8 @@ export default function ApprovalView() {
       {/* SUMMARY CARDS SECTION */}
       <SummaryCards summary={summaryCards} />
 
-      {/* UNIFIED TOOLBAR CONTROL CARD */}
-      <Card className="shadow-sm border border-slate-200/80 rounded-xl p-4 space-y-4 bg-white">
+      {/* UPDATED: Unified Toolbar Control Card Surface (rounded-2xl border-slate-200/60 shadow-surface) */}
+      <Card className="shadow-surface hover:shadow-surface-md transition-all duration-200 border border-slate-200/60 rounded-2xl p-4 sm:p-5 space-y-4 bg-white">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
           {/* 1. Program */}
           <FilterCategory
@@ -362,20 +363,22 @@ export default function ApprovalView() {
                 onClear={handleClearSearch}
               />
             </div>
+            {/* UPDATED: Export Button styling */}
             <Button
               variant="outline"
-              className="rounded-xl font-medium border-slate-300 hover:bg-slate-50 transition-colors shrink-0 w-full sm:w-auto h-11"
+              className="rounded-xl font-semibold border-slate-200 bg-white text-slate-700 hover:bg-slate-50 shadow-xs transition-all active:scale-[0.98] shrink-0 w-full sm:w-auto h-11"
               isDisabled={isExportDisabled || isExporting}
               onPress={handleExportKolase}
             >
-              <CiSaveDown1 className="text-lg" />
+              <CiSaveDown1 className="text-lg text-slate-500" />
               {isExporting ? "Mengunduh..." : "Export Kolase"}
             </Button>
           </div>
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* APPROVAL ITEMS GRID */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {reports.length > 0 ? (
           reports.map((report: ActivityReportItem) => (
             <CardApproval
@@ -387,9 +390,16 @@ export default function ApprovalView() {
             />
           ))
         ) : (
-          <div className="col-span-full text-center py-10 text-slate-400 text-sm">
-            Tidak ada laporan
-          </div>
+          /* UPDATED: Rich Empty State Card */
+          <Card className="col-span-full rounded-2xl border border-slate-200/60 shadow-surface bg-white py-16 px-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
+              <FiFileText className="w-6 h-6" />
+            </div>
+            <p className="text-slate-900 font-bold text-base">Tidak ada laporan ditemukan</p>
+            <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
+              Coba sesuaikan filter status, kategori program, atau kriteria pencarian unit Anda.
+            </p>
+          </Card>
         )}
       </div>
 

@@ -82,34 +82,30 @@ export default function ModalAddPic({
     <Modal isOpen={isOpen} onOpenChange={handleClose}>
       <Modal.Backdrop variant="blur">
         <Modal.Container placement="center">
-          <Modal.Dialog className="max-w-lg w-full">
+          <Modal.Dialog className="max-w-lg w-full rounded-2xl border border-slate-200/60 shadow-xl bg-white p-6 space-y-4">
             <Modal.CloseTrigger />
 
-            <Modal.Header className="pb-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-700
-                "
-                >
+            <Modal.Header className="pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-sky-50 text-sky-700 border border-sky-100 uppercase tracking-wider">
                   {unitTypeLabel}
                 </span>
 
-                <span className="text-xs text-slate-400 font-medium">
+                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
                   PIC Baru
                 </span>
               </div>
 
-              <h2 className="text-xl font-bold text-slate-800 leading-tight">
+              <h2 className="text-xl font-bold text-slate-900 leading-tight">
                 Tambah PIC Baru {selectedUnit ? `- ${selectedUnit.name}` : ""}
               </h2>
 
-              <p className="text-sm text-slate-500 mt-1">
-                Unit kerja terkunci otomatis sesuai dengan
-                {unitTypeLabel}
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Unit kerja terkunci otomatis sesuai dengan {unitTypeLabel} yang dipilih.
               </p>
             </Modal.Header>
 
-            <Modal.Body className="pt-4">
+            <Modal.Body className="pt-2">
               <Surface className="m-2" variant="default">
                 <Form onSubmit={handleSubmit} className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1.5">

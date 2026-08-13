@@ -8,7 +8,7 @@ import {
   SearchField,
   SearchFieldGroup,
 } from "@heroui/react";
-import { FiMapPin } from "react-icons/fi";
+import { FiMapPin, FiPlus } from "react-icons/fi";
 
 interface UnitListPanelProps {
   units: UnitItem[];
@@ -51,44 +51,44 @@ export default function UnitListPanel({
         : "Divisi";
 
   return (
-    <Card className="flex flex-col h-screen border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+    <Card className="flex flex-col h-[calc(100vh-160px)] min-h-[580px] border border-slate-200/60 shadow-surface hover:shadow-surface-md transition-all duration-200 rounded-2xl overflow-hidden bg-white">
       {/* Header */}
       <Card.Header className="flex flex-row items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
-        <Card.Title className="text-sm font-semibold text-slate-700">
+        <Card.Title className="text-sm font-bold text-slate-800">
           Daftar {unitTypeLabel}
         </Card.Title>
-        <span className="text-xs font-bold text-sky-600 bg-sky-50 px-2.5 py-0.5 rounded-field">
+        <span className="text-xs font-bold tabular-nums text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-md border border-sky-100">
           {filtered.length}
         </span>
       </Card.Header>
 
-      {/* Search */}
-      <div className="px-4 py-3 border-b border-slate-100 shrink-0">
+      {/* Search Field */}
+      <div className="px-4 py-3 border-b border-slate-100 shrink-0 bg-slate-50/50">
         <SearchField
-          className={"w-full"}
+          className="w-full"
           value={searchQuery}
           onChange={(val) => onSearchChange(val)}
         >
-          <SearchFieldGroup>
+          <SearchFieldGroup className="bg-white border-slate-200 rounded-xl shadow-xs">
             <SearchField.SearchIcon className="text-slate-400" />
             <SearchField.Input
               placeholder={`Cari Nama ${unitTypeLabel}...`}
-              className={"text-sm"}
+              className="text-sm text-slate-800"
             />
             <SearchField.ClearButton onClick={() => onSearchChange("")} />
           </SearchFieldGroup>
         </SearchField>
       </div>
 
-      {/* Scrollable list area */}
+      {/* Scrollable List Area */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center h-full py-8">
-            <p className="text-sm text-slate-400">Memuat data...</p>
+            <p className="text-sm text-slate-400 font-medium">Memuat data...</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center h-full py-8">
-            <p className="text-sm text-slate-400">Tidak ada data unit</p>
+            <p className="text-sm text-slate-400 font-medium">Tidak ada data unit</p>
           </div>
         ) : (
           <ListBox
@@ -117,7 +117,7 @@ export default function UnitListPanel({
                     "transition-all duration-150 cursor-pointer outline-none",
                     "border-l-[3px]",
                     isActive
-                      ? "border-l-sky-500 bg-sky-50/70"
+                      ? "border-l-sky-600 bg-sky-50/80"
                       : "border-l-transparent hover:bg-slate-50",
                   ].join(" ")}
                 >
@@ -125,20 +125,20 @@ export default function UnitListPanel({
                     <Icon
                       className={
                         isActive
-                          ? "w-4 h-4 text-sky-500 shrink-0"
+                          ? "w-4 h-4 text-sky-600 shrink-0"
                           : "w-4 h-4 text-slate-400 shrink-0"
                       }
                     />
                     <div className="flex flex-col min-w-0">
                       <span
                         className={[
-                          "text-sm font-semibold leading-tight truncate",
-                          isActive ? "text-sky-700" : "text-slate-700",
+                          "text-sm leading-tight truncate",
+                          isActive ? "font-bold text-sky-900" : "font-semibold text-slate-700",
                         ].join(" ")}
                       >
                         {unit.name}
                       </span>
-                      <span className="text-xs text-slate-400 mt-0.5 leading-none">
+                      <span className="text-xs text-slate-400 mt-0.5 leading-none tabular-nums font-medium">
                         {picCount} PIC aktif
                       </span>
                     </div>
@@ -146,7 +146,7 @@ export default function UnitListPanel({
 
                   {isActive && (
                     <svg
-                      className="w-4 h-4 text-sky-400 shrink-0 ml-2"
+                      className="w-4 h-4 text-sky-600 shrink-0 ml-2"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -154,7 +154,7 @@ export default function UnitListPanel({
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={2}
+                        strokeWidth={2.5}
                         d="M9 5l7 7-7 7"
                       />
                     </svg>
@@ -166,22 +166,20 @@ export default function UnitListPanel({
         )}
       </div>
 
-      {/* Add user footer */}
-
-      <Card.Footer className="pt-3 pb-6">
+      {/* Add User Footer Button */}
+      <Card.Footer className="p-4 border-t border-slate-100 shrink-0 bg-white">
         <Button
           onClick={onAddUser}
           isDisabled={isButtonDisabled}
           className={cn(
-            "py-6 w-[300px] rounded-xl font-semibold transition-all duration-150",
+            "w-full py-3.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] shadow-xs flex items-center justify-center gap-2",
             isButtonDisabled
-              ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-80"
-              : "bg-linear-to-br from-sky-600 to-sky-500 text-white hover:opacity-90 shadow-sm",
+              ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-70"
+              : "bg-sky-600 hover:bg-sky-700 text-white shadow-xs",
           )}
         >
-          <p className="text-wrap">
-            Tambah User{selectedUnit ? ` ${selectedUnit.name}` : ""}
-          </p>
+          <FiPlus className="w-4 h-4" />
+          <span>Tambah PIC {selectedUnit ? `(${selectedUnit.name})` : ""}</span>
         </Button>
       </Card.Footer>
     </Card>

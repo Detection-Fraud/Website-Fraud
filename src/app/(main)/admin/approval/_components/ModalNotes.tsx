@@ -45,45 +45,50 @@ export default function ModalNotes({
     <Modal isOpen={isOpen} onOpenChange={onClose}>
       <Modal.Backdrop>
         <Modal.Container>
-          <Modal.Dialog className="sm:max-w-md space-y-3">
+          <Modal.Dialog className="sm:max-w-md space-y-4 rounded-2xl border border-slate-200/60 p-6 bg-white shadow-xl">
             <Modal.CloseTrigger />
-            <Modal.Header className="flex flex-row items-center">
-              <Modal.Icon className="bg-red-100 w-10 h-10 rounded-lg">
-                <IoCloseCircleOutline className="text-red-500 w-6 h-6" />
+            <Modal.Header className="flex flex-row items-center gap-3">
+              <Modal.Icon className="bg-rose-50 w-11 h-11 rounded-xl flex items-center justify-center border border-rose-100 shrink-0">
+                <IoCloseCircleOutline className="text-rose-600 w-6 h-6" />
               </Modal.Icon>
               <Modal.Heading>
                 <div>
-                  <p className="font-bold text-gray-900 text-lg">
+                  <p className="font-bold text-slate-900 text-lg leading-snug">
                     Tolak Pengajuan
                   </p>
-                  <p className="text-sm text-muted">dari {namaPic}</p>
+                  <p className="text-xs text-slate-500">
+                    Pengajuan dari: <span className="font-semibold text-slate-700">{namaPic || "Pelapor"}</span>
+                  </p>
                 </div>
               </Modal.Heading>
             </Modal.Header>
-            <Modal.Body className="px-2 space-y-3">
+
+            <Modal.Body className="px-0 space-y-4">
               <Form onSubmit={onSubmit}>
                 <TextField isRequired>
-                  <Label htmlFor="notes">Alasan Penolakan</Label>
+                  <Label htmlFor="notes" className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Alasan Penolakan
+                  </Label>
                   <TextArea
                     name="notes"
                     id="notes"
                     placeholder="Tuliskan alasan penolakan secara jelas agar pengirim dapat memahami dan memperbaiki pengajuannya..."
                     rows={4}
-                    className={`border ${isTooShort ? "border-red-500" : "border-gray-200"} shadow-sm`}
+                    className={`border ${isTooShort ? "border-rose-400 focus:ring-rose-500" : "border-slate-200 focus:border-slate-400"} rounded-xl text-sm p-3 focus:outline-none shadow-xs text-slate-800`}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                   />
-                  <div className="flex justify-between items-center mt-1">
+                  <div className="flex justify-between items-center mt-1.5">
                     <div>
                       {isTooShort && (
-                        <p className="text-xs text-red-500">
+                        <p className="text-xs text-rose-500 font-medium">
                           Minimal 10 karakter ({notes.trim().length}/10)
                         </p>
                       )}
                     </div>
                     <p
-                      className={`text-xs ${
-                        canSubmit ? "text-green-600" : "text-gray-400"
+                      className={`text-xs tabular-nums font-medium ${
+                        canSubmit ? "text-emerald-600" : "text-slate-400"
                       }`}
                     >
                       {notes.trim().length} karakter
@@ -91,30 +96,30 @@ export default function ModalNotes({
                   </div>
                 </TextField>
 
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-5 flex gap-2.5 mt-3">
-                  <FiAlertTriangle className="text-orange-600 w-5 h-5" />
-                  <p className="text-xs text-orange-700 leading-relaxed">
+                <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-3.5 my-4 flex gap-3 items-start">
+                  <FiAlertTriangle className="text-amber-600 w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800 leading-relaxed font-medium">
                     Setelah ditolak, pengirim akan menerima notifikasi beserta
                     alasan yang Anda tulis dan diminta untuk upload ulang.
                   </p>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex gap-2.5 pt-2">
                   <Button
-                    variant={"outline"}
-                    className="flex-1"
+                    variant="outline"
+                    className="flex-1 rounded-xl font-semibold border-slate-200 text-slate-700 hover:bg-slate-50"
                     onClick={onClose}
                     isDisabled={isLoading}
                   >
                     Batal
                   </Button>
                   <Button
-                    variant={"danger"}
-                    className="flex-1"
+                    className="flex-1 rounded-xl font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
                     type="submit"
                     isPending={isLoading}
                     isDisabled={!canSubmit}
                   >
-                    {!isLoading && <IoCloseCircleOutline />}
+                    {!isLoading && <IoCloseCircleOutline className="w-4 h-4" />}
                     Konfirmasi Tolak
                   </Button>
                 </div>

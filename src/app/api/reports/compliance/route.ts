@@ -136,24 +136,32 @@ export async function GET(req: Request) {
       };
     });
 
-    tableData.sort((a, b) => b.avg - a.avg);
-    tableData.forEach((row, index) => {
+    const filteredTableData = tableData.filter((u) =>
+      u.programCompliance.some((p) => p.submitted > 0),
+    );
+
+    filteredTableData.sort((a, b) => b.avg - a.avg);
+    filteredTableData.forEach((row, index) => {
       row.rank = index + 1;
     });
 
     // 6. Hitung statistik keseluruhan
-    const reportedUnitsCount = tableData.filter((u) =>
+    const reportedUnitsCount = filteredTableData.filter((u) =>
       u.programCompliance.some((p) => p.submitted > 0),
     ).length;
     const totalUnit = reportedUnitsCount;
     const avgCompliance =
       totalUnit > 0
-        ? Math.round(tableData.reduce((sum, u) => sum + u.avg, 0) / totalUnit)
+        ? Math.round(
+            filteredTableData.reduce((sum, u) => sum + u.avg, 0) / totalUnit,
+          )
         : 0;
 
-    const unitOnTrack = tableData.filter((u) => u.avg >= 50).length;
-    const waspada = tableData.filter((u) => u.avg >= 25 && u.avg < 50).length;
-    const perluPerhatian = tableData.filter(
+    const unitOnTrack = filteredTableData.filter((u) => u.avg >= 50).length;
+    const waspada = filteredTableData.filter(
+      (u) => u.avg >= 25 && u.avg < 50,
+    ).length;
+    const perluPerhatian = filteredTableData.filter(
       (u) => u.avg < 25 && u.programCompliance.some((p) => p.submitted > 0),
     ).length;
 
@@ -168,7 +176,7 @@ export async function GET(req: Request) {
             perluPerhatian,
           },
           programs: programInfoList,
-          tableData,
+          tableData: filteredTableData,
         },
         "Berhasil memuat data compliance",
       ),

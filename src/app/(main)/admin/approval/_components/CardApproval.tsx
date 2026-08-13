@@ -63,28 +63,30 @@ export default function CardApproval({
     .reverse()
     .join("-");
 
+  // UPDATED: Calibrated Status Chips (Amber for PENDING, Emerald for APPROVED, Rose for REJECTED)
   const getStatusConfig = (statusState: string) => {
     switch (statusState) {
       case "APPROVED":
         return {
           label: "Disetujui",
-          bgColor: "bg-green-50/90 backdrop-blur-sm border-green-200/50",
-          textColor: "text-green-600",
-          dotColor: "bg-green-500",
+          bgColor: "bg-emerald-50/90 backdrop-blur-md border border-emerald-200/60",
+          textColor: "text-emerald-700 font-semibold",
+          dotColor: "bg-emerald-500",
         };
       case "REJECTED":
         return {
           label: "Ditolak",
-          bgColor: "bg-red-50/90 backdrop-blur-sm border-red-200/50",
-          textColor: "text-red-600",
-          dotColor: "bg-red-500",
+          bgColor: "bg-rose-50/90 backdrop-blur-md border border-rose-200/60",
+          textColor: "text-rose-700 font-semibold",
+          dotColor: "bg-rose-500",
         };
       case "PENDING":
+      default:
         return {
           label: "Pending",
-          bgColor: "bg-yellow-50/90 backdrop-blur-sm border-yellow-200/50",
-          textColor: "text-orange-600",
-          dotColor: "bg-orange-500",
+          bgColor: "bg-amber-50/90 backdrop-blur-md border border-amber-200/60",
+          textColor: "text-amber-700 font-semibold",
+          dotColor: "bg-amber-500",
         };
     }
   };
@@ -95,119 +97,125 @@ export default function CardApproval({
     if (!unit) return "";
     return unit.name.replace(/Kanwil | Kancab /gi, "");
   };
+
   return (
-    <Card className="p-0 rounded-2xl border border-slate-100 shadow-sm overflow-hidden ">
-      <Card.Header>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative w-full aspect-4/3 overflow-hidden bg-slate-100">
-            <CardCaraousel photos={photos} activityName={activityName} />
+    <Card className="p-0 rounded-2xl border border-slate-200/60 shadow-surface hover:shadow-surface-md transition-all duration-200 bg-white overflow-hidden flex flex-col justify-between h-full">
+      <div>
+        <Card.Header className="p-0">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative w-full aspect-4/3 overflow-hidden bg-slate-100">
+              <CardCaraousel photos={photos} activityName={activityName} />
 
-            <div className="absolute top-3.5 right-3.5 z-10">
-              <Chip
-                className={`shadow-sm ${statusConfig?.bgColor} ${statusConfig?.textColor}`}
-                size="md"
-              >
-                <GoDotFill
-                  className={`${statusConfig?.dotColor} rounded-full w-2 h-2`}
-                />
-                <Chip.Label className={`${statusConfig?.textColor}`}>
-                  {statusConfig?.label}
-                </Chip.Label>
-              </Chip>
-            </div>
-          </div>
-        </div>
-      </Card.Header>
-
-      <Card.Content className="p-4 flex flex-col flex-1 gap-4">
-        <div>
-          <h3 className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2">
-            {activityName}
-          </h3>
-        </div>
-        <div className="flex flex-col gap-3.5 text-sm text-slate-600">
-          <div className="flex items-center gap-2">
-            <FiCalendar className="text-sky-500 w-3.5 h-3.5 shrink-0" />
-            <span className="truncate text-xs">{formattedDate}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FiMapPin className="text-sky-500 w-3.5 h-3.5 shrink-0" />
-            <span className="truncate text-xs">{lokasi}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <LuBuilding2 className="text-sky-500 w-3.5 h-3.5 shrink-0" />
-            <Tooltip>
-              <Tooltip.Trigger className="truncate text-xs">
-                {unit?.name}
-              </Tooltip.Trigger>
-              <Tooltip.Content>
-                <Tooltip.Arrow />
-                {unit?.name}
-              </Tooltip.Content>
-            </Tooltip>
-            <span className="bg-sky-50 text-sky-600 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 uppercase">
-              {getParentRegion()}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <FiUser className="text-sky-500 w-3.5 h-3.5 shrink-0" />
-            <span className="truncate text-xs">{createdBy?.name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FiFolder className="text-sky-500 w-3.5 h-3.5 shrink-0" />
-            <span className="truncate text-xs">{program?.name}</span>
-          </div>
-
-          {status === "REJECTED" && (
-            <div>
-              <div className="bg-red-50/90 border-l-4 p-1.5 rounded-xl border-red-400">
-                <p className="text-red-500 text-xs font-semibold">
-                  Catatan Admin:
-                </p>
-                <p className="text-xs text-slate-700">{notes}</p>
+              <div className="absolute top-3.5 right-3.5 z-10">
+                <Chip
+                  className={`shadow-xs ${statusConfig?.bgColor} ${statusConfig?.textColor}`}
+                  size="md"
+                >
+                  <GoDotFill
+                    className={`${statusConfig?.dotColor} rounded-full w-2 h-2`}
+                  />
+                  <Chip.Label className={`${statusConfig?.textColor} text-xs`}>
+                    {statusConfig?.label}
+                  </Chip.Label>
+                </Chip>
               </div>
             </div>
-          )}
-        </div>
-      </Card.Content>
+          </div>
+        </Card.Header>
 
-      <Card.Footer className="pb-5">
-        <div className="w-full px-4 space-y-3">
-          <Separator className="w-full my-2" />
+        <Card.Content className="p-5 flex flex-col gap-4">
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2">
+              {activityName}
+            </h3>
+          </div>
+          
+          {/* UPDATED: Slate Metadata List */}
+          <div className="flex flex-col gap-3 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <FiCalendar className="text-slate-400 w-3.5 h-3.5 shrink-0" />
+              <span className="truncate tabular-nums font-medium text-slate-700">{formattedDate}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <FiMapPin className="text-slate-400 w-3.5 h-3.5 shrink-0" />
+              <span className="truncate font-medium text-slate-700">{lokasi}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <LuBuilding2 className="text-slate-400 w-3.5 h-3.5 shrink-0" />
+              <Tooltip>
+                <Tooltip.Trigger className="truncate font-semibold text-slate-800">
+                  {unit?.name}
+                </Tooltip.Trigger>
+                <Tooltip.Content>
+                  <Tooltip.Arrow />
+                  {unit?.name}
+                </Tooltip.Content>
+              </Tooltip>
+              <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 uppercase border border-slate-200/60">
+                {getParentRegion()}
+              </span>
+            </div>
 
-          <div className="w-full flex gap-3">
+            <div className="flex items-center gap-2">
+              <FiUser className="text-slate-400 w-3.5 h-3.5 shrink-0" />
+              <span className="truncate font-medium text-slate-700">{createdBy?.name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <FiFolder className="text-slate-400 w-3.5 h-3.5 shrink-0" />
+              <span className="truncate font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100">{program?.name}</span>
+            </div>
+
+            {status === "REJECTED" && notes && (
+              <div className="mt-1">
+                <div className="bg-rose-50/90 border-l-3 border-rose-500 p-2.5 rounded-r-xl">
+                  <p className="text-rose-700 text-xs font-bold mb-0.5">
+                    Catatan Admin:
+                  </p>
+                  <p className="text-xs text-slate-700 leading-relaxed">{notes}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card.Content>
+      </div>
+
+      {/* UPDATED: High-Contrast Footer Buttons */}
+      <Card.Footer className="pb-5 pt-0 px-5">
+        <div className="w-full space-y-3">
+          <Separator className="w-full bg-slate-100 my-1" />
+
+          <div className="w-full flex gap-2.5">
+            {/* UPDATED: Soft Rose Reject Button */}
             <Button
-              className={"rounded-xl flex-1 shadow-sm"}
-              variant="danger-soft"
+              className="rounded-xl flex-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/60 font-semibold text-xs shadow-xs active:scale-[0.98] transition-all"
               fullWidth
               onClick={onOpenModal}
               isDisabled={status !== "PENDING"}
             >
-              <FiX />
+              <FiX className="w-3.5 h-3.5" />
               Reject
             </Button>
+            
+            {/* UPDATED: High-Contrast Emerald Approve Button */}
             <Button
-              className={"rounded-xl flex-1 bg-green-400 shadow-sm"}
+              className="rounded-xl flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs active:scale-[0.98] transition-all"
               fullWidth
-              variant="primary"
               onClick={() => onApprove?.(id)}
               isDisabled={status !== "PENDING"}
             >
-              <FiCheck />
+              <FiCheck className="w-3.5 h-3.5" />
               Approve
             </Button>
           </div>
 
+          {/* UPDATED: Sky Soft View Logs Button */}
           <Button
             fullWidth
             variant="outline"
-            className={
-              "bg-sky-100 text-sky-600 rounded-lg font-semibold text-xs"
-            }
+            className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 rounded-xl font-semibold text-xs transition-all active:scale-[0.98]"
             onClick={onOpenLogs}
           >
-            <FiEye />
+            <FiEye className="w-3.5 h-3.5 text-slate-500" />
             Lihat Log
           </Button>
         </div>
