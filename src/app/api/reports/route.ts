@@ -53,7 +53,14 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    const ALLOWED_STATUSES = ["PENDING", "APPROVED", "REJECTED"];
     if (statusFilter !== "ALL") {
+      if (!ALLOWED_STATUSES.includes(statusFilter)) {
+        return NextResponse.json(
+          errorResponse("Status laporan tidak valid", 400),
+          { status: 400 },
+        );
+      }
       whereClause.status = statusFilter as ReportStatus;
     }
 

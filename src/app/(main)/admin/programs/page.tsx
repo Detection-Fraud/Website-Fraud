@@ -3,9 +3,10 @@
 import AppBar from "@/components/layout/Appbar";
 import { useProgramMutation } from "@/hooks/useProgramMutation";
 import { useProgramQuery } from "@/hooks/useProgramQuery";
-import { Pagination, SearchField } from "@heroui/react";
+import { Pagination } from "@heroui/react";
 import CardPrograms from "./_components/CardPrograms";
 import CardSummaryPrograms from "./_components/CardSummaryPrograms";
+import FilterPrograms from "./_components/FilterPropgrams";
 import ModalForm from "./_components/ModalForm";
 import ModalStatus from "./_components/ModalStatus";
 
@@ -31,6 +32,14 @@ export default function ProgramsPage() {
     setSearchInput,
     handleSearch,
     handleClearSearch,
+    categoryId,
+    tw,
+    status,
+    hasActiveFilters,
+    handleFilterCategory,
+    handleFilterTw,
+    handleFilterStatus,
+    handleResetAllFilters,
     updateParams,
   } = useProgramQuery();
 
@@ -45,29 +54,21 @@ export default function ProgramsPage() {
 
       <CardSummaryPrograms data={summary} />
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Menampilkan{" "}
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">
-            {pagination.total}
-          </span>{" "}
-          program
-        </p>
-
-        <SearchField
-          className="w-full sm:max-w-xs"
-          value={searchInput}
-          onChange={setSearchInput}
-          onSubmit={handleSearch}
-          onClear={handleClearSearch}
-        >
-          <SearchField.Group>
-            <SearchField.SearchIcon />
-            <SearchField.Input placeholder="Cari program..." />
-            <SearchField.ClearButton />
-          </SearchField.Group>
-        </SearchField>
-      </div>
+      <FilterPrograms
+        totalItems={pagination.total}
+        searchInput={searchInput}
+        onSearchChange={setSearchInput}
+        onSearchSubmit={handleSearch}
+        onSearchClear={handleClearSearch}
+        categoryId={categoryId}
+        onCategoryChange={handleFilterCategory}
+        tw={tw}
+        onTwChange={handleFilterTw}
+        status={status}
+        onStatusChange={handleFilterStatus}
+        onResetFilters={handleResetAllFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
       <CardPrograms
         programs={programs}

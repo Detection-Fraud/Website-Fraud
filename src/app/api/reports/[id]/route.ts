@@ -1,7 +1,8 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { checkReportAccess } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { errorResponse, formatZodError, successResponse } from "@/lib/response";
+import { updateReportSchema } from "@/schemas/report.schema";
 import { unlink } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
@@ -80,6 +81,15 @@ export async function PUT(
     const { id } = await params;
 
     const body = await req.json();
+    const parsedData = updateReportSchema.safeParse(body);
+
+    if (!parsedData.success) {
+      const errorMessage = formatZodError(parsedData.error);
+      return NextResponse.json(
+        errorResponse(`Validasi gagal: ${errorMessage}`, 400),
+        { status: 400 },
+      );
+    }
     const {
       activityName,
       programId,
@@ -87,7 +97,7 @@ export async function PUT(
       lokasi,
       description,
       photos,
-    } = body;
+    } = parsedData.data;
 
     const existingReport = await prisma.activityReport.findUnique({
       where: { id },
@@ -136,7 +146,9 @@ export async function PUT(
         data: {
           activityName,
           programId: programId || null,
-          tanggalKegiatan: new Date(tanggalKegiatan),
+          ...(tanggalKegiatan && {
+            tanggalKegiatan: new Date(tanggalKegiatan),
+          }),
           lokasi,
           description,
           status: "PENDING",

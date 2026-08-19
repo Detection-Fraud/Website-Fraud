@@ -4,6 +4,19 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfkit"],
   reactCompiler: true,
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-DNS-Prefetch-Control", value: "on" },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
@@ -13,9 +26,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // ✅ FIX: Cegah Turbopack scan folder public/uploads (symlink ke luar project)
-  // Tanpa ini, build akan CRASH karena Turbopack menemukan symlink yang
-  // "menunjuk keluar dari filesystem root project".
   outputFileTracingExcludes: {
     "*": ["./public/uploads/**/*", "./public/uploads"],
   },

@@ -22,12 +22,27 @@ export async function GET(req: Request) {
     const skip = (page - 1) * limit;
 
     const targetUnit = searchParams.get("targetUnit") || "KEGIATAN";
+    const categoryId = searchParams.get("categoryId");
+    const tw = searchParams.get("tw");
+    const status = searchParams.get("status") || "ALL";
 
-    const baseWhere: Prisma.ProgramBudayaWhereInput = {
-      ...(user.role === "ADMIN" ? {} : { isActive: true }),
+    const baseCategoryFilter: Prisma.ProgramBudayaWhereInput = {
       ...(targetUnit !== "ALL" && {
         category: { targetUnit: targetUnit as any },
       }),
+      ...(categoryId && categoryId !== "ALL" && { categoryId }),
+      ...(tw && tw !== "ALL" && { tw: parseInt(tw) }),
+    };
+
+    const baseWhere: Prisma.ProgramBudayaWhereInput = {
+      ...(user.role === "ADMIN"
+        ? status === "ACTIVE"
+          ? { isActive: true }
+          : status === "INACTIVE"
+            ? { isActive: false }
+            : {}
+        : { isActive: true }),
+      ...baseCategoryFilter,
     };
     const whereClause: Prisma.ProgramBudayaWhereInput = {
       ...baseWhere,

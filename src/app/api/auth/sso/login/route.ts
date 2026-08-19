@@ -1,10 +1,17 @@
-import crypto from "crypto";
 import { saml } from "@/lib/saml";
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const state = crypto.randomBytes(32).toString("hex");
+    const nonce = crypto.randomBytes(16).toString("hex");
+    const timestamp = Date.now().toString();
+    const payload = `${timestamp}:${nonce}`;
+    const signature = crypto
+      .createHmac("sha256", process.env.SSO_JWT_SECRET!)
+      .update(payload)
+      .digest("hex");
+    const state = `${payload}:${signature}`;
 
     const authUrl = await saml.getAuthorizeUrlAsync(
       state, // RelayState — CSRF nonce
@@ -12,17 +19,7 @@ export async function GET() {
       {},
     );
 
-    const response = NextResponse.redirect(authUrl);
-
-    response.cookies.set("sso_csrf_state", state, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 300,
-      path: "/",
-    });
-
-    return response;
+    return NextResponse.redirect(authUrl);
   } catch (error) {
     const err = error as Error;
     console.error(

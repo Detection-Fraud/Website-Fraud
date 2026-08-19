@@ -1,4 +1,3 @@
-
 import { api } from "@/lib/api";
 import { ProgramBudaya, ProgramCategory } from "@generated/prisma";
 import { useQuery } from "@tanstack/react-query";
@@ -31,7 +30,6 @@ export function useProgramQuery() {
   const {
     updateParams,
     getParam,
-    router,
     searchInput,
     handleSearch,
     handleClearSearch,
@@ -41,15 +39,53 @@ export function useProgramQuery() {
   const page = Number(getParam("page") || "1");
   const limit = Number(getParam("limit") || "10");
   const search = getParam("search") || "";
+  const categoryId = getParam("categoryId") || "ALL";
+  const tw = getParam("tw") || "ALL";
+  const status = getParam("status") || "ALL";
 
   const { data, isLoading, error } = useQuery<ProgramListPayload>({
-    queryKey: ["programs", { page, limit, search }],
+    queryKey: ["programs", { page, limit, search, categoryId, tw, status }],
     queryFn: () =>
       api
-        .get("/programs", { params: { page, limit, search } })
+        .get("/programs", {
+          params: {
+            page,
+            limit,
+            search,
+            ...(categoryId !== "ALL" && { categoryId }),
+            ...(tw !== "ALL" && { tw }),
+            ...(status !== "ALL" && { status }),
+          },
+        })
         .then((res) => res.data),
   });
 
+  const handleFilterCategory = (val: string) => {
+    updateParams({ categoryId: val === "ALL" ? "" : val, page: "1" });
+  };
+
+  const handleFilterTw = (val: string) => {
+    updateParams({ tw: val === "ALL" ? "" : val, page: "1" });
+  };
+
+  const handleFilterStatus = (val: string) => {
+    updateParams({ status: val === "ALL" ? "" : val, page: "1" });
+  };
+
+  const handleResetAllFilters = () => {
+    setSearchInput("");
+    updateParams({
+      search: "",
+      categoryId: "",
+      tw: "",
+      status: "",
+      page: "1",
+    });
+  };
+
+  const hasActiveFilters = Boolean(
+    search || categoryId !== "ALL" || tw !== "ALL" || status !== "ALL",
+  );
   return {
     // Data
     programs: data?.data ?? [],
@@ -62,6 +98,18 @@ export function useProgramQuery() {
     },
     isLoading,
     error: error ? (error as Error).message : null,
+
+    // Filter States
+    categoryId,
+    tw,
+    status,
+    hasActiveFilters,
+
+    // Filter Handlers
+    handleFilterCategory,
+    handleFilterTw,
+    handleFilterStatus,
+    handleResetAllFilters,
 
     // Search (dari useUrlParams)
     searchInput,
