@@ -91,6 +91,25 @@ export async function PUT(
       );
     }
 
+    if (categoryId) {
+      const category = await prisma.programCategory.findUnique({
+        where: { id: categoryId },
+      });
+      if (!category) {
+        return NextResponse.json(
+          errorResponse("Kategori tidak ditemukan", 404),
+          { status: 404 },
+        );
+      }
+
+      if (category.targetUnit !== "KEGIATAN") {
+        return NextResponse.json(
+          errorResponse("Kategori program budaya harus bertipe KEGIATAN", 400),
+          { status: 400 },
+        );
+      }
+    }
+
     const program = await prisma.programBudaya.update({
       where: { id },
       data: {

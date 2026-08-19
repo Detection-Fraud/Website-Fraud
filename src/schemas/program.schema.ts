@@ -22,7 +22,7 @@ export const createProgramSchema = z.object({
   description: z.string().optional().nullable(),
   bannerUrl: z.string().optional().nullable().or(z.literal("")),
   frequency: z.coerce.number().int().min(1, "Target TW minimal 1"),
-  tw: z.coerce.number().int().min(1).max(4).optional().nullable(),
+  tw: z.coerce.number().int().min(1).max(4, "TW harus 1-4"),
   startDate: z.coerce.date({ message: "Format tanggal mulai tidak valid" }),
   endDate: z.coerce.date({ message: "Format tanggal selesai tidak valid" }),
   categoryId: z.string().uuid("Category ID tidak valid").optional().nullable(),

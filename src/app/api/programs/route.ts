@@ -23,16 +23,18 @@ export async function GET(req: Request) {
 
     const targetUnit = searchParams.get("targetUnit") || "KEGIATAN";
 
-    const whereClause: Prisma.ProgramBudayaWhereInput = {
+    const baseWhere: Prisma.ProgramBudayaWhereInput = {
       ...(user.role === "ADMIN" ? {} : { isActive: true }),
       ...(targetUnit !== "ALL" && {
         category: { targetUnit: targetUnit as any },
       }),
     };
-
-    if (search) {
-      whereClause.name = { contains: search, mode: "insensitive" };
-    }
+    const whereClause: Prisma.ProgramBudayaWhereInput = {
+      ...baseWhere,
+      ...(search && {
+        name: { contains: search, mode: "insensitive" },
+      }),
+    };
 
     const [
       programs,
@@ -49,8 +51,8 @@ export async function GET(req: Request) {
         take: limit,
         include: { category: true },
       }),
-      prisma.programBudaya.count({ where: { isActive: true } }),
-      prisma.programBudaya.count({ where: { isActive: false } }),
+      prisma.programBudaya.count({ where: { ...baseWhere, isActive: true } }),
+      prisma.programBudaya.count({ where: { ...baseWhere, isActive: false } }),
       prisma.programBudaya.count({ where: whereClause }),
       prisma.programCategory.count(),
       prisma.programBudaya.count({ where: { categoryId: null } }),
@@ -121,6 +123,25 @@ export async function POST(req: Request) {
           status: 400,
         },
       );
+    }
+
+    if (categoryId) {
+      const category = await prisma.programCategory.findUnique({
+        where: { id: categoryId },
+      });
+      if (!category) {
+        return NextResponse.json(
+          errorResponse("Kategori tidak ditemukan", 404),
+          { status: 404 },
+        );
+      }
+
+      if (category.targetUnit !== "KEGIATAN") {
+        return NextResponse.json(
+          errorResponse("Kategori program budaya harus bertipe KEGIATAN", 400),
+          { status: 400 },
+        );
+      }
     }
 
     const program = await prisma.programBudaya.create({

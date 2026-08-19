@@ -66,8 +66,15 @@ export async function GET() {
     const getCount = (status: string) =>
       statsRaw.find((s) => s.status === status)?._count.id || 0;
     const approved = getCount("APPROVED");
+    // LEBIH DARI > 100 %
+    // const compliance =
+    //   twTarget > 0 ? Number(((approved / twTarget) * 100).toFixed(1)) : 0;
+
+    // fix compliance hanya = 100%
     const compliance =
-      twTarget > 0 ? Number(((approved / twTarget) * 100).toFixed(1)) : 0;
+      twTarget > 0
+        ? Number((Math.min(approved / twTarget, 1) * 100).toFixed(1))
+        : 0;
 
     const recentActivities = await prisma.activityReport.findMany({
       where: { createdById: user.id },
@@ -102,7 +109,7 @@ export async function GET() {
         })
       : [];
 
-    const leaderboard = picApprovedCounts
+    const allPicRanked = picApprovedCounts
       .map((p) => {
         const u = picUsers.find((user) => user.id === p.createdById);
         return {
@@ -110,15 +117,18 @@ export async function GET() {
           name: u?.name || "Unknown",
           kancabName: u?.unit?.name || "Unit",
           approved: p._count.id,
-          compliance: Number(((p._count.id / twTarget) * 100).toFixed(1)),
+          compliance: Number(
+            (Math.min(p._count.id / twTarget, 1) * 100).toFixed(1),
+          ),
           isMe: p.createdById === user.id,
         };
       })
-      .sort((a, b) => b.approved - a.approved)
-      .slice(0, 5);
+      .sort((a, b) => b.compliance - a.compliance || b.approved - a.approved);
 
-    const myRankIndex = leaderboard.findIndex((l) => l.id === user.id);
+    const myRankIndex = allPicRanked.findIndex((l) => l.id === user.id);
     const myRank = myRankIndex >= 0 ? myRankIndex + 1 : null;
+
+    const leaderboard = allPicRanked.slice(0, 5);
 
     return NextResponse.json(
       successResponse(
