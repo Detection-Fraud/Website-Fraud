@@ -1,14 +1,33 @@
 import { DashboardCharts, DashboardSummary } from "@/types/analytics.type";
 import { Card, Chip, Link, ProgressBar, Tabs, Tooltip } from "@heroui/react";
+import dynamic from "next/dynamic";
 import { BiAward, BiLineChart } from "react-icons/bi";
 import { FaUser } from "react-icons/fa";
 import { FiBarChart2 } from "react-icons/fi";
 import { GoArrowUpRight, GoTrophy } from "react-icons/go";
 import { LuMedal } from "react-icons/lu";
 import { MdOutlineShield } from "react-icons/md";
-import DashboardBarChart from "./BarChart";
-import DashboardLineChart from "./LineChart";
-import DashboardPieChart from "./PieChart";
+
+const ChartSkeleton = () => (
+  <div className="h-64 w-full animate-pulse bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+
+const DashboardBarChart = dynamic(() => import("./BarChart"), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});
+
+const DashboardLineChart = dynamic(() => import("./LineChart"), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});
+
+const DashboardPieChart = dynamic(() => import("./PieChart"), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});
 
 interface ChartSectionProps {
   charts: DashboardCharts | null | undefined;

@@ -8,8 +8,8 @@ import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { getMonthRange } from "@/lib/api/constants";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
-import { UnitType } from "@generated/prisma";
 import { successResponse } from "@/lib/response";
+import { UnitType } from "@generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -73,9 +73,7 @@ export async function GET(request: NextRequest) {
             unitIdsOfType.includes(id),
           );
           whereClause.unitId =
-            intersected.length === 1
-              ? intersected[0]
-              : { in: intersected };
+            intersected.length === 1 ? intersected[0] : { in: intersected };
         } else {
           // whereClause kosong (admin tanpa filter wilayah spesifik)
           whereClause.unitId = { in: unitIdsOfType };
@@ -103,7 +101,12 @@ export async function GET(request: NextRequest) {
           rankingUnitId,
           user,
         }),
-        getTopUnits(whereClause),
+        getTopUnits({
+          whereClause,
+          year,
+          startMonth,
+          endMonth,
+        }),
         getRankingCC({
           whereClause,
           year,

@@ -1,12 +1,15 @@
 "use client";
 
-import DataTable, { TableColumn } from "@/components/layout/DataTable";
+import DataTable from "@/components/layout/DataTable";
 import { RankingCC, RankingWilayah } from "@/types/analytics.type";
 import { PaginationInfo } from "@/types/report.types";
-import { Card, Chip, Tabs } from "@heroui/react";
+import { Card, Tabs } from "@heroui/react";
 import { useState } from "react";
-import { BsCheckCircle } from "react-icons/bs";
-import { FaMedal, FaTrophy } from "react-icons/fa";
+import { ccRankingColumns, renderCCRankingCell } from "./ranking/columns-cc";
+import {
+  renderUnitRankingCell,
+  unitRankingColumns,
+} from "./ranking/columns-unit";
 
 interface AnalyticRankingTableProps {
   data?: RankingWilayah[];
@@ -28,177 +31,6 @@ export default function AnalyticTableRanking({
   onCCPageChange,
 }: AnalyticRankingTableProps) {
   const [activeTab, setActiveTab] = useState<RankingTab>("unit");
-  const unitColumns: TableColumn[] = [
-    { key: "rank", label: "RANK" },
-    { key: "name", label: "WILAYAH" },
-    { key: "kegiatan", label: "KEGIATAN" },
-    { key: "disetujui", label: "DISETUJUI" },
-    { key: "approvalRate", label: "APPROVAL RATE" },
-    { key: "status", label: "STATUS" },
-  ];
-
-  const ccColumns: TableColumn[] = [
-    { key: "rank", label: "RANK" },
-    { key: "name", label: "NAMA CC" },
-    { key: "unitName", label: "UNIT KERJA" },
-    { key: "submitted", label: "TOTAL SUBMIT" },
-    { key: "approved", label: "DISETUJUI" },
-    { key: "target", label: "TARGET" },
-    { key: "approvalRate", label: "COMPLIANCE" },
-    { key: "status", label: "STATUS" },
-  ];
-
-  const renderUnitCell = (item: RankingWilayah, columnKey: string) => {
-    switch (columnKey) {
-      case "rank":
-        if (item.rank === 1)
-          return <FaTrophy className="text-yellow-500 w-5 h-5" />;
-        if (item.rank === 2)
-          return <FaMedal className="text-slate-400 w-5 h-5" />;
-        if (item.rank === 3)
-          return <FaMedal className="text-amber-700 w-5 h-5" />;
-        return <span className="text-slate-500 font-medium">#{item.rank}</span>;
-      case "name":
-        return (
-          <span className="font-semibold text-slate-900">{item.name}</span>
-        );
-      case "kegiatan":
-        return (
-          <span className="font-bold text-slate-900">{item.kegiatan}</span>
-        );
-      case "disetujui":
-        return (
-          <div className="flex items-center gap-2 text-green-600">
-            <BsCheckCircle className="w-4 h-4" />
-            <span>{item.disetujui}</span>
-          </div>
-        );
-      case "approvalRate":
-        return (
-          <div className="flex items-center gap-3">
-            {/* Progress Bar Mini */}
-            <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${
-                  item.approvalRate >= 90
-                    ? "bg-green-500"
-                    : item.approvalRate >= 80
-                      ? "bg-blue-500"
-                      : item.approvalRate >= 70
-                        ? "bg-orange-500"
-                        : "bg-red-500"
-                }`}
-                style={{ width: `${item.approvalRate}%` }}
-              />
-            </div>
-            <span className="font-bold text-slate-900">
-              {item.approvalRate}%
-            </span>
-          </div>
-        );
-      case "status":
-        let colorTheme: "success" | "default" | "warning" | "danger" = "danger";
-        if (item.status === "Sangat Baik") colorTheme = "success";
-        else if (item.status === "Baik") colorTheme = "default";
-        else if (item.status === "Cukup") colorTheme = "warning";
-
-        return (
-          <Chip
-            color={colorTheme}
-            variant="soft"
-            size="sm"
-            className="font-medium"
-          >
-            {item.status}
-          </Chip>
-        );
-      default:
-        return (item as any)[columnKey];
-    }
-  };
-
-  const renderCCCell = (item: RankingCC, columnKey: string) => {
-    switch (columnKey) {
-      case "rank":
-        if (item.rank === 1)
-          return <FaTrophy className="text-yellow-500 w-5 h-5" />;
-        if (item.rank === 2)
-          return <FaMedal className="text-slate-400 w-5 h-5" />;
-        if (item.rank === 3)
-          return <FaMedal className="text-amber-700 w-5 h-5" />;
-        return <span className="text-slate-500 font-medium">#{item.rank}</span>;
-
-      case "name":
-        return (
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold shrink-0">
-              {item.name.charAt(0).toUpperCase()}
-            </div>
-            <span className="font-semibold text-slate-900">{item.name}</span>
-          </div>
-        );
-
-      case "unitName":
-        return <span className="text-slate-600 text-sm">{item.unitName}</span>;
-
-      case "submitted":
-        return (
-          <span className="font-bold text-slate-900">{item.submitted}</span>
-        );
-
-      case "approved":
-        return (
-          <div className="flex items-center gap-2 text-green-600">
-            <BsCheckCircle className="w-4 h-4" />
-            <span>{item.approved}</span>
-          </div>
-        );
-
-      case "target":
-        return <span className="text-slate-500 text-sm">{item.target}</span>;
-
-      case "approvalRate":
-        return (
-          <div className="flex items-center gap-3">
-            <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${
-                  item.approvalRate >= 50
-                    ? "bg-green-500"
-                    : item.approvalRate >= 25
-                      ? "bg-orange-500"
-                      : "bg-red-500"
-                }`}
-                style={{ width: `${Math.min(item.approvalRate, 100)}%` }}
-              />
-            </div>
-            <span className="font-bold text-slate-900">
-              {item.approvalRate}%
-            </span>
-          </div>
-        );
-
-      case "status": {
-        // On Track >= 50% | Behind 25-49% | At Risk < 25%
-        let colorTheme: "success" | "warning" | "danger" = "danger";
-        if (item.status === "On Track") colorTheme = "success";
-        else if (item.status === "Behind") colorTheme = "warning";
-        return (
-          <Chip
-            color={colorTheme}
-            variant="soft"
-            size="sm"
-            className="font-medium"
-          >
-            {item.status}
-          </Chip>
-        );
-      }
-
-      default:
-        return (item as any)[columnKey];
-    }
-  };
 
   return (
     <Card className="p-0 bg-white border border-slate-200/60 shadow-surface hover:shadow-(--surface-shadow-md) transition-all duration-200 rounded-2xl overflow-hidden">
@@ -246,18 +78,18 @@ export default function AnalyticTableRanking({
         <Card.Content className="min-h-100">
           <Tabs.Panel id="unit">
             <DataTable
-              column={unitColumns}
+              column={unitRankingColumns}
               data={data}
-              renderCell={renderUnitCell}
+              renderCell={renderUnitRankingCell}
               pagination={pagination}
               onPageChange={onPageChange}
             />
           </Tabs.Panel>
           <Tabs.Panel id="cc">
             <DataTable
-              column={ccColumns}
+              column={ccRankingColumns}
               data={ccData}
-              renderCell={renderCCCell}
+              renderCell={renderCCRankingCell}
               pagination={ccPagination}
               onPageChange={onCCPageChange}
             />

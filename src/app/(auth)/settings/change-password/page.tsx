@@ -1,5 +1,11 @@
+import { Metadata } from "next";
 import FormChangePassword from "./_components/FormChangePassword";
 import LeftPanel from "./_components/LeftPanel";
+
+export const metadata: Metadata = {
+  title: "Ubah Password",
+  description: "Pengaturan keamanan dan pembaruan kata sandi akun",
+};
 
 export default function ChangePasswordPage() {
   return (

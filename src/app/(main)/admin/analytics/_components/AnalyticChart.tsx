@@ -1,9 +1,23 @@
 import { PeriodeFilter } from "@/hooks/useDashboardAnalytics";
 import { DistribusiProgram, KegiatanPerPeriode } from "@/types/analytics.type";
 import { Card, Chip } from "@heroui/react";
+import dynamic from "next/dynamic";
 import { BiTrendingUp } from "react-icons/bi";
-import AnalyticAreaChart from "./AnalyticAreaChart";
-import AnalyticPieChart from "./AnalyticPieChart";
+
+const ChartSkeleton = () => (
+  <div className="h-72 w-full animate-pulse bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+const AnalyticAreaChart = dynamic(() => import("./AnalyticAreaChart"), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});
+
+const AnalyticPieChart = dynamic(() => import("./AnalyticPieChart"), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});
 
 interface AnalyticChartProps {
   periode: PeriodeFilter;

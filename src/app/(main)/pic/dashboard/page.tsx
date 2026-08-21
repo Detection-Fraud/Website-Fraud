@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import PicView from "./_components/PicView";
 
 export const metadata: Metadata = {
-  title: "Dashboard PIC | Fraud Detection BULOG",
+  title: "Dashboard PIC ",
   description:
     "Status pengajuan laporan kegiatan budaya dan target triwulanan unit kerja Anda.",
 };

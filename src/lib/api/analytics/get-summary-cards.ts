@@ -66,7 +66,7 @@ export async function getSummaryCards(scope: AnalyticsScope) {
 
   const totalUnitAktifRaw = await prisma.activityReport.groupBy({
     by: ["unitId"],
-    where: { ...whereClause, unitId: { not: null } },
+    where: { ...summaryWhereClause, unitId: { not: null } },
   });
 
   return {

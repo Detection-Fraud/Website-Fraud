@@ -1,4 +1,4 @@
-import MonthPicker from "@/app/(main)/pic/_components/month-picker";
+import MonthPicker from "@/components/ui/month-picker";
 import { Banner } from "@/hooks/useBanners";
 import { useSearchPic } from "@/hooks/useSearchPic";
 import { api } from "@/lib/api";

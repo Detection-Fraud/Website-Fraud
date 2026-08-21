@@ -13,7 +13,7 @@ import {
   ListBoxItem,
   Modal,
   SearchField,
-  Surface
+  Surface,
 } from "@heroui/react";
 import { FiLock } from "react-icons/fi";
 
@@ -46,7 +46,9 @@ export default function ModalAddPic({
     setQuery,
     setSelectedUser,
     clearSelected,
-  } = useSearchPic({});
+  } = useSearchPic({
+    unitId: selectedUnit?.id,
+  });
 
   const handleClose = () => {
     clearSelected();
@@ -101,7 +103,8 @@ export default function ModalAddPic({
               </h2>
 
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Unit kerja terkunci otomatis sesuai dengan {unitTypeLabel} yang dipilih.
+                Unit kerja terkunci otomatis sesuai dengan {unitTypeLabel} yang
+                dipilih.
               </p>
             </Modal.Header>
 

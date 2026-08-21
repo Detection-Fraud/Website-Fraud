@@ -12,7 +12,7 @@ import {
   TextArea,
   TextField,
 } from "@heroui/react";
-import CalendarPicker from "../../_components/calendar-picker";
+import CalendarPicker from "../../../../../components/ui/calendar-picker";
 
 export interface InitialData {
   activityName?: string;
