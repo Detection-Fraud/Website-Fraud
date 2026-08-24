@@ -1,136 +1,120 @@
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
-import { errorResponse } from "@/lib/response";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
     await requireAdmin();
 
-  const wb = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "DICE BULOG";
+    workbook.created = new Date();
 
-  const templateHeaders = [
-    "NIP",
-    "NAMA",
-    "JAB_LKP",
-    "KODE_DOLOG",
-    "KODE_SUBDOLOG",
-    "KODE_ORG",
-    "NAMA_ORG",
-    "NAMA_SATKER",
-    "NAMA_INDUK",
-  ];
+    const ws = workbook.addWorksheet("Template");
+    ws.columns = [
+      { header: "NIP", key: "NIP", width: 14 },
+      { header: "NAMA", key: "NAMA", width: 30 },
+      { header: "JAB_LKP", key: "JAB_LKP", width: 40 },
+      { header: "KODE_DOLOG", key: "KODE_DOLOG", width: 14 },
+      { header: "KODE_SUBDOLOG", key: "KODE_SUBDOLOG", width: 16 },
+      { header: "KODE_ORG", key: "KODE_ORG", width: 12 },
+      { header: "NAMA_ORG", key: "NAMA_ORG", width: 35 },
+      { header: "NAMA_SATKER", key: "NAMA_SATKER", width: 35 },
+      { header: "NAMA_INDUK", key: "NAMA_INDUK", width: 35 },
+    ];
+    ws.getRow(1).font = { bold: true };
 
-  const exampleRow = {
-    NIP: "267426006",
-    NAMA: "SYAMSU HIDAYAT",
-    JAB_LKP: "ANALIS KEBIJAKAN",
-    KODE_DOLOG: "00",
-    KODE_SUBDOLOG: "00",
-    KODE_ORG: "E00000",
-    NAMA_ORG: "PERUM BULOG",
-    NAMA_SATKER: "KANTOR PUSAT PERUM BULOG",
-    NAMA_INDUK: "",
-  };
+    ws.addRow({
+      NIP: "267426006",
+      NAMA: "RONI PARULIAN",
+      JAB_LKP: "ANALIS KEBIJAKAN",
+      KODE_DOLOG: "00",
+      KODE_SUBDOLOG: "00",
+      KODE_ORG: "E00000",
+      NAMA_ORG: "PERUM BULOG",
+      NAMA_SATKER: "KANTOR PUSAT PERUM BULOG",
+      NAMA_INDUK: "",
+    });
+    ws.addRow({
+      NIP: "110015001",
+      NAMA: "BUDI SANTOSO",
+      JAB_LKP: "KEPALA CABANG",
+      KODE_DOLOG: "01",
+      KODE_SUBDOLOG: "01",
+      KODE_ORG: "",
+      NAMA_ORG: "KANTOR CABANG BANDA ACEH",
+      NAMA_SATKER: "KANTOR CABANG BANDA ACEH",
+      NAMA_INDUK: "KANTOR WILAYAH ACEH",
+    });
 
-  const exampleRowKancab = {
-    NIP: "110015001",
-    NAMA: "BUDI SANTOSO",
-    JAB_LKP: "KEPALA CABANG",
-    KODE_DOLOG: "01",
-    KODE_SUBDOLOG: "01",
-    KODE_ORG: "",
-    NAMA_ORG: "KANTOR CABANG BANDA ACEH",
-    NAMA_SATKER: "KANTOR CABANG BANDA ACEH",
-    NAMA_INDUK: "KANTOR WILAYAH ACEH",
-  };
-
-  const ws = XLSX.utils.json_to_sheet([exampleRow, exampleRowKancab], {
-    header: templateHeaders,
-  });
-
-  ws["!cols"] = [
-    { wch: 14 }, // NIP
-    { wch: 30 }, // NAMA
-    { wch: 40 }, // JAB_LKP
-    { wch: 14 }, // KODE_DOLOG
-    { wch: 16 }, // KODE_SUBDOLOG
-    { wch: 12 }, // KODE_ORG
-    { wch: 35 }, // NAMA_ORG
-    { wch: 35 }, // NAMA_SATKER
-    { wch: 35 }, // NAMA_INDUK
-  ];
-
-  XLSX.utils.book_append_sheet(wb, ws, "Template");
-
-  const panduanData = [
-    ["PANDUAN PENGISIAN TEMPLATE IMPORT KARYAWAN"],
-    [],
-    ["Kolom", "Keterangan", "Wajib?", "Contoh"],
-    ["NIP", "Nomor Induk Pegawai unik karyawan", "Ya", "267426006"],
-    ["NAMA", "Nama lengkap karyawan", "Ya", "SYAMSU HIDAYAT"],
-    ["JAB_LKP", "Jabatan lengkap karyawan", "Ya", "ANALIS KEBIJAKAN"],
+    const wsPanduan = workbook.addWorksheet("Panduan");
+    wsPanduan.columns = [
+      { header: "Kolom", key: "kolom", width: 16 },
+      { header: "Keterangan", key: "keterangan", width: 60 },
+      { header: "Wajib?", key: "wajib", width: 10 },
+      { header: "Contoh", key: "contoh", width: 25 },
+    ];
+    wsPanduan.getRow(1).font = { bold: true };
     [
-      "KODE_DOLOG",
-      "Kode Dolog (2 digit). Isi '00' untuk Kantor Pusat/Divisi",
-      "Ya",
-      "01 / 00",
-    ],
-    [
-      "KODE_SUBDOLOG",
-      "Kode Sub-Dolog (2 digit). Isi '00' untuk Kantor Pusat/Divisi",
-      "Ya",
-      "01 / 00",
-    ],
-    [
-      "KODE_ORG",
-      "Kode Organisasi. Wajib untuk karyawan Kantor Pusat (KODE_DOLOG=00)",
-      "KP: Ya",
-      "E33000 / E00000",
-    ],
-    [
-      "NAMA_ORG",
-      "Nama unit/organisasi. Dipakai sebagai fallback jika KODE_ORG tidak dikenal",
-      "Disarankan",
-      "PERUM BULOG",
-    ],
-    [
-      "NAMA_SATKER",
-      "Nama satuan kerja. Fallback ke-2 untuk resolusi unit",
-      "Disarankan",
-      "KANTOR PUSAT PERUM BULOG",
-    ],
-    [
-      "NAMA_INDUK",
-      "Nama unit induk. Fallback ke-3 untuk resolusi unit",
-      "Opsional",
-      "",
-    ],
-    [],
-    ["CATATAN PENTING"],
-    [
-      "1. Pastikan file berisi SEMUA karyawan aktif. Karyawan yang tidak ada di file akan dinonaktifkan.",
-    ],
-    ["2. NIP harus unik. Duplikat NIP dalam satu file akan dianggap error."],
-    [
-      "3. Untuk karyawan Kanwil/Kancab: isi KODE_DOLOG dan KODE_SUBDOLOG dengan benar.",
-    ],
-    [
-      "4. Untuk karyawan Kantor Pusat: isi KODE_DOLOG=00, KODE_SUBDOLOG=00, dan KODE_ORG.",
-    ],
-    [
-      "5. Jika KODE_ORG tidak dikenal, sistem akan mencoba cocokkan via NAMA_ORG → NAMA_SATKER → NAMA_INDUK.",
-    ],
-  ];
+      {
+        kolom: "NIP",
+        keterangan: "Nomor Induk Pegawai unik karyawan",
+        wajib: "Ya",
+        contoh: "267426006",
+      },
+      {
+        kolom: "NAMA",
+        keterangan: "Nama lengkap karyawan",
+        wajib: "Ya",
+        contoh: "SYAMSU HIDAYAT",
+      },
+      {
+        kolom: "JAB_LKP",
+        keterangan: "Jabatan lengkap karyawan",
+        wajib: "Ya",
+        contoh: "ANALIS KEBIJAKAN",
+      },
+      {
+        kolom: "KODE_DOLOG",
+        keterangan: "Kode Dolog 2 digit. Isi 00 untuk Kantor Pusat",
+        wajib: "Ya",
+        contoh: "01 / 00",
+      },
+      {
+        kolom: "KODE_SUBDOLOG",
+        keterangan: "Kode Sub-Dolog 2 digit",
+        wajib: "Ya",
+        contoh: "01 / 00",
+      },
+      {
+        kolom: "KODE_ORG",
+        keterangan: "Kode Organisasi. Wajib untuk KP (KODE_DOLOG=00)",
+        wajib: "KP: Ya",
+        contoh: "E33000",
+      },
+      {
+        kolom: "NAMA_ORG",
+        keterangan:
+          "Nama unit/organisasi. Fallback jika KODE_ORG tidak dikenal",
+        wajib: "Disarankan",
+        contoh: "PERUM BULOG",
+      },
+      {
+        kolom: "NAMA_SATKER",
+        keterangan: "Nama satuan kerja. Fallback ke-2",
+        wajib: "Disarankan",
+        contoh: "KANTOR PUSAT PERUM BULOG",
+      },
+      {
+        kolom: "NAMA_INDUK",
+        keterangan: "Nama unit induk. Fallback ke-3",
+        wajib: "Opsional",
+        contoh: "",
+      },
+    ].forEach((row) => wsPanduan.addRow(row));
 
-  const wsPanduan = XLSX.utils.aoa_to_sheet(panduanData);
-  wsPanduan["!cols"] = [{ wch: 16 }, { wch: 60 }, { wch: 10 }, { wch: 25 }];
-
-  XLSX.utils.book_append_sheet(wb, wsPanduan, "Panduan");
-
-  const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-
-    return new NextResponse(buffer, {
+    const buffer = await workbook.xlsx.writeBuffer();
+    return new NextResponse(buffer as ArrayBuffer, {
       status: 200,
       headers: {
         "Content-Type":

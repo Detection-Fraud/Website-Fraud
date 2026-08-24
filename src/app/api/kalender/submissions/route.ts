@@ -1,4 +1,3 @@
-
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
@@ -17,6 +16,19 @@ export async function GET(req: Request) {
     const year = parseInt(
       searchParams.get("year") || new Date().getFullYear().toString(),
     );
+
+    if (isNaN(month) || month < 0 || month > 11) {
+      return NextResponse.json(
+        errorResponse("Parameter month tidak valid (0-11)", 400),
+        { status: 400 },
+      );
+    }
+    if (isNaN(year) || year < 2020 || year > 2100) {
+      return NextResponse.json(
+        errorResponse("Parameter year tidak valid", 400),
+        { status: 400 },
+      );
+    }
 
     // === PERUBAHAN: kanwilId/kancabId/divisiId (bukan regionId/branchId/divisionId) ===
     const kanwilId = searchParams.get("kanwilId");
@@ -51,6 +63,8 @@ export async function GET(req: Request) {
         programId: true,
         unitId: true,
       },
+      take: 500,
+      orderBy: { tanggalKegiatan: "asc" },
     });
 
     return NextResponse.json(

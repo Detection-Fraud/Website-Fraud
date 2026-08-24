@@ -1,4 +1,5 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
@@ -8,6 +9,9 @@ import { pathToFileURL } from "url";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { keyPrefix: "fraud-check", max: 5 });
+  if (!rl.success) return rateLimitResponse(rl.resetAt);
+
   try {
     const session = await requireAuth();
     const user = session.user;
@@ -16,15 +20,9 @@ export async function POST(request: Request) {
     const fotoBaruFiles = formData.getAll("foto_baru");
 
     if (!fotoBaruFiles || fotoBaruFiles.length === 0) {
-      return NextResponse.json(
-        {
-          status: 400,
-          error: true,
-          message: "Foto baru wajib diisi",
-          data: null,
-        },
-        { status: 400 },
-      );
+      return NextResponse.json(errorResponse("Foto baru wajib diisi", 400), {
+        status: 400,
+      });
     }
 
     const { whereClause: reportWhereClause } = await resolveScope(user, {});
@@ -37,6 +35,8 @@ export async function POST(request: Request) {
         originalName: true,
         imageUrl: true,
       },
+      take: 500,
+      orderBy: { id: "desc" },
     });
 
     const urlMapping: Record<string, string> = {};

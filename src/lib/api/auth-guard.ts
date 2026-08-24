@@ -38,8 +38,9 @@ export function handleApiError(
     });
   }
 
-  console.error(`Error ${logPrefix}: `, error);
-  const message =
-    error instanceof Error ? error.message : "Internal Server Error";
-  return NextResponse.json(errorResponse(message, 500), { status: 500 });
+  console.error(`[${logPrefix}] Internal Error:`, error);
+  return NextResponse.json(
+    errorResponse("Terjadi kesalahan internal pada server", 500),
+    { status: 500 },
+  );
 }

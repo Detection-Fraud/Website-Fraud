@@ -345,7 +345,12 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
   ws.getColumn(afterMonthsCol + 3).width = 15;
   ws.getColumn(afterMonthsCol + 4).width = 18;
 
-  const pctCols = [afterMonthsCol + 1, afterMonthsCol + 2, afterMonthsCol + 4];
+  const pctCols = [
+    afterMonthsCol + 1,
+    afterMonthsCol + 2,
+    afterMonthsCol + 3,
+    afterMonthsCol + 4,
+  ];
   pctCols.forEach((colIdx) => {
     ws.getColumn(colIdx).numFmt = "0.00%";
   });

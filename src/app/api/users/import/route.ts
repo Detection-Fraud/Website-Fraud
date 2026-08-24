@@ -1,8 +1,10 @@
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
-import * as XLSX from "xlsx";
+import { z } from "zod";
 
 // ──────────────────────────────────────────────────────────────────
 // Helper: Map semua unit dari DB
@@ -43,6 +45,8 @@ async function getUnitMaps() {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(req, { keyPrefix: "users-import", max: 3 });
+  if (!rl.success) return rateLimitResponse(rl.resetAt);
   try {
     await requireAdmin();
 
@@ -63,15 +67,28 @@ export async function POST(req: NextRequest) {
 
       // Parse Excel
       const buffer = Buffer.from(await file.arrayBuffer());
-      const workbook = XLSX.read(buffer);
+      const excelbook = new ExcelJS.Workbook();
+      await excelbook.xlsx.load(buffer as any);
+      const ws = excelbook.worksheets[0];
 
+      if (!ws || ws.rowCount === 0) {
+        return NextResponse.json(
+          errorResponse("File Excel kosong atau tidak memiliki header", 400),
+          { status: 400 },
+        );
+      }
       // HEADER VALIDATION
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-      const rawHeaders = XLSX.utils.sheet_to_json<string[]>(sheet, {
-        header: 1,
-        range: 0,
+      const headerRow = ws.getRow(1);
+      const headers: string[] = [];
+      headerRow.eachCell({ includeEmpty: true }, (cell) => {
+        headers.push(
+          String(cell.value ?? "")
+            .trim()
+            .toUpperCase(),
+        );
       });
+      const rawHeaders = headers.length > 0 ? [headers] : [];
 
       if (!rawHeaders.length || !rawHeaders[0]) {
         return NextResponse.json(
@@ -79,12 +96,6 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
-
-      const headers = rawHeaders[0].map((h: any) =>
-        String(h ?? "")
-          .trim()
-          .toUpperCase(),
-      );
 
       const REQUIRED_HEADERS = [
         "NIP",
@@ -112,8 +123,16 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
-
+      const rows: Record<string, unknown>[] = [];
+      ws.eachRow({ includeEmpty: false }, (row, rowIndex) => {
+        if (rowIndex === 1) return; // skip header row
+        const rowObj: Record<string, unknown> = {};
+        row.eachCell({ includeEmpty: true }, (cell, colIndex) => {
+          const headerName = headers[colIndex - 1];
+          if (headerName) rowObj[headerName] = cell.value;
+        });
+        if (Object.keys(rowObj).length > 0) rows.push(rowObj);
+      });
       // ── Load data master PARALEL ──────────────────────────────
       const [
         { unitByDologMap, unitByExactOrg, unitByName, unitById },
@@ -349,18 +368,29 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════
     if (action === "commit") {
       const body = await req.json();
-      const rowsToImport = body.rows as Array<{
-        status: "baru" | "mutasi" | "tidak_berubah" | "error";
-        nip: string;
-        nama: string;
-        unitId: string | null;
-      }>;
 
-      if (!rowsToImport || !Array.isArray(rowsToImport)) {
-        return NextResponse.json(errorResponse("Data tidak valid", 400), {
-          status: 400,
-        });
+      const commitRowSchema = z.object({
+        status: z.enum(["baru", "mutasi", "tidak_berubah", "error"]),
+        nip: z.string().min(1, "NIP tidak boleh kosong"),
+        nama: z.string().min(1, "Nama tidak boleh kosong"),
+        unitId: z.string().uuid("unitId harus berupa UUID").nullable(),
+      });
+      const commitBodySchema = z.object({
+        rows: z.array(commitRowSchema).min(1, "Minimal 1 row"),
+      });
+
+      const parsedBody = commitBodySchema.safeParse(body);
+      if (!parsedBody.success) {
+        return NextResponse.json(
+          errorResponse(
+            `Validasi gagal: ${parsedBody.error.issues[0].message}`,
+            400,
+          ),
+          { status: 400 },
+        );
       }
+
+      const rowsToImport = parsedBody.data.rows;
 
       const existingUsers = await prisma.user.findMany({
         where: { authProvider: "SSO" },
@@ -384,6 +414,7 @@ export async function POST(req: NextRequest) {
 
       let createdCount = 0;
       let updatedCount = 0;
+      let deactivatedCount = 0;
 
       await prisma.$transaction(async (tx) => {
         const toCreate = validRows.filter((r) => !existingByNip.has(r.nip));
@@ -417,24 +448,23 @@ export async function POST(req: NextRequest) {
 
           updatedCount = toUpdate.length;
         }
-      });
 
-      // ── Soft-delete user lama yang tidak ada di file ─────────
-      let deactivatedCount = 0;
-      const toDeactivate = [];
-      for (const [nip, user] of existingByNip.entries()) {
-        if (nip && !processedNips.has(nip) && user.isActive) {
-          toDeactivate.push(user.id);
+        // ✅ Soft-delete di dalam transaction (Atomic)
+        const toDeactivate: string[] = [];
+        for (const [nip, user] of existingByNip.entries()) {
+          if (nip && !processedNips.has(nip) && user.isActive) {
+            toDeactivate.push(user.id);
+          }
         }
-      }
 
-      if (toDeactivate.length > 0) {
-        const deactivated = await prisma.user.updateMany({
-          where: { id: { in: toDeactivate } },
-          data: { isActive: false },
-        });
-        deactivatedCount = deactivated.count;
-      }
+        if (toDeactivate.length > 0) {
+          const deactivated = await tx.user.updateMany({
+            where: { id: { in: toDeactivate } },
+            data: { isActive: false },
+          });
+          deactivatedCount = deactivated.count;
+        }
+      });
 
       return NextResponse.json(
         successResponse(
