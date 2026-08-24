@@ -1,4 +1,5 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
@@ -19,13 +20,13 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
 
     const statusFilter = searchParams.get("status") || "ALL";
-    const categoryFilter =
-      searchParams.get("categoryId") || searchParams.get("programId") || "ALL";
 
     // === PERUBAHAN: regionId/branchId/divisiId → kanwilId/kancabId/divisiId ===
     const kanwilFilter = searchParams.get("kanwilId") || "ALL";
     const kancabFilter = searchParams.get("kancabId") || "ALL";
     const divisiFilter = searchParams.get("divisiId") || "ALL";
+    const categoryId = searchParams.get("categoryId") || "ALL";
+    const programId = searchParams.get("programId") || "ALL";
 
     const { whereClause: unitScope } = await resolveScope(user, {
       kanwilId: kanwilFilter,
@@ -37,7 +38,8 @@ export async function GET(request: NextRequest) {
       ...unitScope,
       program: {
         category: { targetUnit: "KEGIATAN" },
-        ...(categoryFilter !== "ALL" && { categoryId: categoryFilter }),
+        ...(categoryId !== "ALL" && { categoryId }),
+        ...(programId !== "ALL" && { id: programId }),
       },
     };
 
@@ -84,11 +86,15 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit;
 
+    const sortOrder =
+      searchParams.get("sortOrder") ||
+      (statusFilter === "PENDING" ? "asc" : "desc");
+
     const [total, reports] = await Promise.all([
       prisma.activityReport.count({ where: whereClause }),
       prisma.activityReport.findMany({
         where: whereClause,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: sortOrder as "asc" | "desc" },
         // === PERUBAHAN: include unit + parent ===
         include: {
           unit: {
@@ -147,6 +153,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { keyPrefix: "reports-submit", max: 20 });
+  if (!rl.success) return rateLimitResponse(rl.resetAt);
   try {
     const session = await requireAuth();
     const user = session.user;

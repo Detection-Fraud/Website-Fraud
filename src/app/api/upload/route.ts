@@ -1,11 +1,15 @@
-import { requireAuth } from "@/lib/api/auth-guard";
+import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { errorResponse } from "@/lib/response";
 import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
+import sharp from "sharp";
 
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { keyPrefix: "upload", max: 20 });
+  if (!rl.success) return rateLimitResponse(rl.resetAt);
   try {
     await requireAuth();
 
@@ -46,32 +50,48 @@ export async function POST(request: Request) {
       );
     }
 
-    // Lokasi folder upload: baca dari env UPLOAD_DIR (server production)
-    // atau fallback ke public/uploads (local development)
+    let compressedBuffer: Buffer;
+    try {
+      compressedBuffer = await sharp(buffer)
+        .resize(1920, 1920, {
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: 90, progressive: true })
+        .withMetadata()
+        .toBuffer();
+    } catch (sharpErr) {
+      console.error("[upload] sharp compression failed:", sharpErr);
+      compressedBuffer = buffer;
+    }
+
     const uploadDir =
       process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
     await mkdir(uploadDir, { recursive: true });
 
-    const ext = path.extname(file.name) || ".jpg";
-    const uniqueName = `${randomUUID()}${ext}`;
+    const uniqueName = `${randomUUID()}.jpg`;
     const filePath = path.join(uploadDir, uniqueName);
 
-    await writeFile(filePath, buffer);
+    const resolvedUploadDir = path.resolve(uploadDir);
+    const resolvedFilePath = path.resolve(filePath);
+    if (!resolvedFilePath.startsWith(resolvedUploadDir)) {
+      return NextResponse.json(errorResponse("Path tidak valid", 400), {
+        status: 400,
+      });
+    }
 
-    const fileUrl = `/uploads/${uniqueName}`;
+    await writeFile(filePath, compressedBuffer);
 
     return NextResponse.json(
       {
         message: "Upload Berhasil",
-        url: fileUrl,
+        url: `/uploads/${uniqueName}`,
         publicId: uniqueName,
-        originalName: file.name,
+        size: compressedBuffer.length,
       },
       { status: 200 },
     );
   } catch (e) {
-    return NextResponse.json(errorResponse("Internal Server Error"), {
-      status: 500,
-    });
+    return handleApiError(e, "POST /api/upload");
   }
 }

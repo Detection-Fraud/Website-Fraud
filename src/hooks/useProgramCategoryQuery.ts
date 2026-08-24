@@ -12,6 +12,6 @@ export function useProgramCategoryQuery(
       const res = await api.get(`/programs/categories${params}`);
       return res.data?.data || [];
     },
-    staleTime: 1000 * 60 * 5, // Cache 5 menit
+    staleTime: 30 * 1000,
   });
 }

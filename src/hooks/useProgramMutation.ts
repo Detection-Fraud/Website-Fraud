@@ -41,6 +41,9 @@ export function useProgramMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["programs"] });
+      queryClient.invalidateQueries({ queryKey: ["program-list"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["program-categories"] });
       modalAddState.close();
     },
     onError: (error: any) => {
@@ -64,6 +67,9 @@ export function useProgramMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["programs"] });
+      queryClient.invalidateQueries({ queryKey: ["program-list"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["program-categories"] });
       modalState.close();
     },
   });

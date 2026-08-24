@@ -9,8 +9,8 @@ import {
   ParticipationPreviewRow,
   ParticipationStatus,
 } from "@/types/participation.types";
+import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
-import * as XLSX from "xlsx";
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,11 +49,9 @@ export async function POST(req: NextRequest) {
       const { categoryId, tw, year } = parsed.data;
 
       const buffer = Buffer.from(await file.arrayBuffer());
-      const workbook = XLSX.read(buffer);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-      const rawRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
-      const dataRows = rawRows.slice(3);
+      const excelBook = new ExcelJS.Workbook();
+      await excelBook.xlsx.load(buffer as any);
+      const ws = excelBook.worksheets[0];
 
       const allUnits = await prisma.unit.findMany({
         select: { id: true, name: true },
@@ -70,74 +68,76 @@ export async function POST(req: NextRequest) {
         existingData.map((e) => [e.unitId, e.percentage]),
       );
 
-      const previewRows: ParticipationPreviewRow[] = dataRows
-        .map((row, index) => {
-          const unitNameRaw = String(row[1] ?? "").trim();
-          const percentageRaw = row[2];
+      const previewRows: ParticipationPreviewRow[] = [];
+      let rowIndex = 0;
 
-          if (!unitNameRaw) return null;
+      ws.eachRow((row, rowNumber) => {
+        if (rowNumber <= 3) return; // Lewati Judul, Baris Kosong, & Header
 
-          const matchedUnit = unitMap.get(unitNameRaw.toUpperCase());
+        const unitNameRaw = String(row.getCell(2).text || row.getCell(2).value || "").trim();
+        if (!unitNameRaw || unitNameRaw.toUpperCase() === "UNIT KERJA") return;
 
-          if (!matchedUnit) {
-            return {
-              id: index,
-              unitName: unitNameRaw,
-              unitId: null,
-              percentage: null,
-              status: "error" as ParticipationStatus,
-              errorMsg: "Unit tidak ditemukan di database",
-            };
-          }
+        const percentageRaw = row.getCell(3).value;
 
-          if (
-            percentageRaw === undefined ||
-            percentageRaw === null ||
-            String(percentageRaw).trim() === ""
-          ) {
-            return {
-              id: index,
-              unitName: matchedUnit.name,
-              unitId: matchedUnit.id,
-              percentage: null,
-              status: "empty" as ParticipationStatus,
-            };
-          }
+        const matchedUnit = unitMap.get(unitNameRaw.toUpperCase());
 
-          const percentage = parseInt(String(percentageRaw), 10);
-          if (isNaN(percentage) || percentage < 0) {
-            return {
-              id: index,
-              unitName: matchedUnit.name,
-              unitId: matchedUnit.id,
-              percentage: null,
-              status: "error" as ParticipationStatus,
-              errorMsg: "Nilai persentase tidak valid (harus angka >= 0)",
-            };
-          }
+        if (!matchedUnit) {
+          previewRows.push({
+            id: rowIndex++,
+            unitName: unitNameRaw,
+            unitId: null,
+            percentage: null,
+            status: "error" as ParticipationStatus,
+            errorMsg: "Unit tidak ditemukan di database",
+          });
+          return;
+        }
 
-          const existingPercentage = existingMap.get(matchedUnit.id);
-          const hasExisting = existingPercentage !== undefined;
-
-          let status: ParticipationStatus = "matched";
-          if (hasExisting) {
-            if (existingPercentage === percentage) {
-              status = "unchanged";
-            } else {
-              status = "conflict";
-            }
-          }
-
-          return {
-            id: index,
+        if (
+          percentageRaw === undefined ||
+          percentageRaw === null ||
+          String(percentageRaw).trim() === ""
+        ) {
+          previewRows.push({
+            id: rowIndex++,
             unitName: matchedUnit.name,
             unitId: matchedUnit.id,
-            percentage,
-            status,
-            existingPercentage: existingPercentage ?? null,
-          };
-        })
-        .filter(Boolean) as ParticipationPreviewRow[];
+            percentage: null,
+            status: "empty" as ParticipationStatus,
+          });
+          return;
+        }
+
+        const percentage = parseInt(String(percentageRaw), 10);
+        if (isNaN(percentage) || percentage < 0) {
+          previewRows.push({
+            id: rowIndex++,
+            unitName: matchedUnit.name,
+            unitId: matchedUnit.id,
+            percentage: null,
+            status: "error" as ParticipationStatus,
+            errorMsg: "Nilai persentase tidak valid (harus angka >= 0)",
+          });
+          return;
+        }
+
+        const existingPercentage = existingMap.get(matchedUnit.id);
+        const hasExisting = existingPercentage !== undefined;
+
+        let status: ParticipationStatus = "matched";
+        if (hasExisting) {
+          status = existingPercentage === percentage ? "unchanged" : "conflict";
+        }
+
+        previewRows.push({
+          id: rowIndex++,
+          unitName: matchedUnit.name,
+          unitId: matchedUnit.id,
+          percentage,
+          status,
+          existingPercentage: existingPercentage ?? null,
+        });
+      });
 
       const stats = {
         total: previewRows.length,

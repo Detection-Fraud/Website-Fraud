@@ -138,9 +138,8 @@ export default function FilterSection({
         <div className="flex flex-wrap gap-3 pt-2">
           {isFilterActive && (
             <Button
-              className={"rounded-xl"}
+              className={"rounded-xl shadow-sm border border-red-200"}
               variant="danger-soft"
-              size="sm"
               onPress={() => {
                 handleKancabChange("ALL");
                 handleDivisiChange("ALL");

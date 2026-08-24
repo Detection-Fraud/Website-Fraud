@@ -6,12 +6,15 @@ interface ProgramListPayload {
   data: ProgramBudaya[];
 }
 
-export function useProgramList() {
+export function useProgramList(categoryId?: string) {
   const { data, isLoading, error } = useQuery<ProgramListPayload>({
-    queryKey: ["program-list"],
-    queryFn: () =>
-      api.get("/programs", { params: { limit: 100 } }).then((res) => res.data),
-    staleTime: 2 * 60 * 1000,
+    queryKey: ["program-list", categoryId || "ALL"],
+    queryFn: () => {
+      const params: Record<string, any> = { limit: 100 };
+      if (categoryId && categoryId !== "ALL") params.categoryId = categoryId;
+      return api.get("/programs", { params }).then((res) => res.data);
+    },
+    staleTime: 30 * 1000,
   });
 
   return {

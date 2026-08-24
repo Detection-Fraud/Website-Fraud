@@ -8,6 +8,8 @@ import { Label, ListBox, Select } from "@heroui/react";
 interface FilterProgramProps {
   value: string;
   onChange: (value: string) => void;
+  categoryId?: string;
+  isDisabled?: boolean;
   labelOff?: boolean;
   className?: string;
 }
@@ -15,21 +17,30 @@ interface FilterProgramProps {
 export default function FilterProgram({
   value,
   onChange,
+  categoryId,
+  isDisabled = false,
   labelOff = false,
   className,
 }: FilterProgramProps) {
-  const { programs } = useProgramList();
+  const { programs, isLoading } = useProgramList(categoryId);
   const programList = Array.isArray(programs) ? programs : [];
+
+  const placeholderText = isDisabled
+    ? "Pilih Kategori Dahulu"
+    : isLoading
+      ? "Memuat Program..."
+      : "Semua Program";
 
   return (
     <div className={cn("w-48", className)}>
       <Select
         aria-label="Filter Program"
-        placeholder="Semua Program"
-        value={value}
-        onChange={(key) => onChange(key as string)}
+        placeholder={placeholderText}
+        value={value || "ALL"}
+        onChange={(key) => onChange((key as string) || "ALL")}
+        isDisabled={isDisabled}
       >
-        <Label className={labelOff ? "sr-only" : ""}>Program</Label>
+        <Label className={labelOff ? "sr-only" : ""}>Program Budaya</Label>
         <Select.Trigger>
           <Select.Value />
           <Select.Indicator />

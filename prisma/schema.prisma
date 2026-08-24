@@ -96,6 +96,11 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([isActive])
+  @@index([authProvider])
+  @@index([unitId])
 }
 
 model ProgramCategory {
@@ -136,6 +141,11 @@ model ProgramBudaya {
   updatedAt DateTime @updatedAt
 
   activityReports ActivityReport[]
+
+  @@index([isActive])
+  @@index([categoryId])
+  @@index([tw])
+  @@index([startDate, endDate])
 }
 
 model ParticipationData {
@@ -191,6 +201,12 @@ model ActivityReport {
 
   @@index([unitId])
   @@index([createdById])
+  @@index([status])
+  @@index([programId])
+  @@index([tanggalKegiatan])
+  @@index([status, unitId])
+  @@index([unitId, programId, tanggalKegiatan])
+  
 }
 
 model ActivityLog {
@@ -219,6 +235,8 @@ model ActivityPhoto {
 
   imageUrl  String
   publicId  String? // Cloudinary public_id untuk keperluan delete
+
+  @@index([reportId])
 }
 
 model LoginBanner {

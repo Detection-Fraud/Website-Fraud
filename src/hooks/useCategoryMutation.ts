@@ -13,6 +13,15 @@ export function useCategoryMutation() {
     queryClient.invalidateQueries({
       queryKey: ["categories"],
     });
+    queryClient.invalidateQueries({
+      queryKey: ["programs"],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["program-categories"],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["program-list"],
+    });
   };
 
   const createCategoryMutation = useMutation({

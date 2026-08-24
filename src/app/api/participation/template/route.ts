@@ -2,8 +2,8 @@ import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
 import { participationFilterSchema } from "@/schemas/participation.schema";
+import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
-import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,29 +45,25 @@ export async function GET(req: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    const wb = XLSX.utils.book_new();
-
-    const titleRow = [
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Template Partisipasi");
+    ws.addRow([
       `REKAP PARTISIPASI: ${category.name.toUpperCase()} - TW ${tw} ${year}`,
-    ];
-    const emptyRow: string[] = [];
-    const headerRow = ["NO", "UNIT KERJA", "PERSENTASE (%)"];
-    const dataRows = units.map((u, idx) => [idx + 1, u.name, ""]);
-
-    const ws = XLSX.utils.aoa_to_sheet([
-      titleRow,
-      emptyRow,
-      headerRow,
-      ...dataRows,
     ]);
-    ws["!cols"] = [{ wch: 6 }, { wch: 40 }, { wch: 18 }];
+    ws.getRow(1).font = { bold: true };
+    ws.addRow([]);
+    ws.addRow(["NO", "UNIT KERJA", "PERSENTASE (%)"]);
+    ws.getRow(3).font = { bold: true };
+    units.forEach((u, idx) => ws.addRow([idx + 1, u.name, ""]));
 
-    XLSX.utils.book_append_sheet(wb, ws, "Template Partisipasi");
+    ws.getColumn(1).width = 6;
+    ws.getColumn(2).width = 40;
+    ws.getColumn(3).width = 18;
 
-    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const buffer = await workbook.xlsx.writeBuffer();
     const filename = `Template_Partisipasi_${category.name.replace(/\s+/g, "_")}_TW${tw}_${year}.xlsx`;
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as ArrayBuffer, {
       status: 200,
       headers: {
         "Content-Type":
