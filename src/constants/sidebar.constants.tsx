@@ -130,6 +130,12 @@ export const SidebarMenuPIC: SidebarMenuItem[] = [
     icon: <PiNotebookLight />,
   },
   {
+    key: "kolase",
+    label: "Kolase Foto",
+    href: "/pic/kolase",
+    icon: <PiImage />,
+  },
+  {
     key: "kalendar",
     label: "Kalendar",
     href: "/pic/kalendar",

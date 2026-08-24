@@ -53,15 +53,11 @@ export default function CardApproval({
       ? photos[0].imageUrl
       : "/placeholder-ativity.jpg";
 
-  const formattedDate = new Date(tanggalKegiatan)
-    .toLocaleDateString("id-ID", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-    .split("/")
-    .reverse()
-    .join("-");
+  const formattedDate = new Date(tanggalKegiatan).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   // UPDATED: Calibrated Status Chips (Amber for PENDING, Emerald for APPROVED, Rose for REJECTED)
   const getStatusConfig = (statusState: string) => {
@@ -69,7 +65,8 @@ export default function CardApproval({
       case "APPROVED":
         return {
           label: "Disetujui",
-          bgColor: "bg-emerald-50/90 backdrop-blur-md border border-emerald-200/60",
+          bgColor:
+            "bg-emerald-50/90 backdrop-blur-md border border-emerald-200/60",
           textColor: "text-emerald-700 font-semibold",
           dotColor: "bg-emerald-500",
         };
@@ -129,16 +126,20 @@ export default function CardApproval({
               {activityName}
             </h3>
           </div>
-          
+
           {/* UPDATED: Slate Metadata List */}
           <div className="flex flex-col gap-3 text-xs text-slate-600">
             <div className="flex items-center gap-2">
               <FiCalendar className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <span className="truncate tabular-nums font-medium text-slate-700">{formattedDate}</span>
+              <span className="truncate tabular-nums font-medium text-slate-700">
+                {formattedDate}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <FiMapPin className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <span className="truncate font-medium text-slate-700">{lokasi}</span>
+              <span className="truncate font-medium text-slate-700">
+                {lokasi}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <LuBuilding2 className="text-slate-400 w-3.5 h-3.5 shrink-0" />
@@ -158,11 +159,15 @@ export default function CardApproval({
 
             <div className="flex items-center gap-2">
               <FiUser className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <span className="truncate font-medium text-slate-700">{createdBy?.name}</span>
+              <span className="truncate font-medium text-slate-700">
+                {createdBy?.name}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <FiFolder className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <span className="truncate font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100">{program?.name}</span>
+              <span className="truncate font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100">
+                {program?.name}
+              </span>
             </div>
 
             {status === "REJECTED" && notes && (
@@ -171,7 +176,9 @@ export default function CardApproval({
                   <p className="text-rose-700 text-xs font-bold mb-0.5">
                     Catatan Admin:
                   </p>
-                  <p className="text-xs text-slate-700 leading-relaxed">{notes}</p>
+                  <p className="text-xs text-slate-700 leading-relaxed">
+                    {notes}
+                  </p>
                 </div>
               </div>
             )}
@@ -195,7 +202,7 @@ export default function CardApproval({
               <FiX className="w-3.5 h-3.5" />
               Reject
             </Button>
-            
+
             {/* UPDATED: High-Contrast Emerald Approve Button */}
             <Button
               className="rounded-xl flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs active:scale-[0.98] transition-all"

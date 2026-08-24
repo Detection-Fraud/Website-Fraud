@@ -1,9 +1,6 @@
 "use client";
 
 import AppBar from "@/components/layout/Appbar";
-import { useReportList } from "@/hooks/useReportList";
-import { Button, Card, toast, useOverlayState } from "@heroui/react";
-
 import FilterCategory from "@/components/ui/FilterCategory";
 import ReportSearchBar from "@/components/ui/ReportSearchBar";
 import SelectDivisi from "@/components/ui/SelectDivisi";
@@ -13,7 +10,14 @@ import SelectWilayah from "@/components/ui/SelectWilayah";
 import StatusTagGroup from "@/components/ui/StatusTagGroup";
 import SummaryCards from "@/components/ui/SummaryCard";
 import { useApproval } from "@/hooks/useApproval";
+import { useReportList } from "@/hooks/useReportList";
+import { api } from "@/lib/api";
+import { Button, Card, toast, useOverlayState } from "@heroui/react";
+
+import FilterProgram from "@/components/ui/FilterProgram";
 import { ActivityReportItem } from "@/types/report.types";
+import { useMutation } from "@tanstack/react-query";
+import axios from "axios";
 import { useState } from "react";
 import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
 import { CiSaveDown1 } from "react-icons/ci";
@@ -21,7 +25,7 @@ import { FiAlertTriangle, FiFileText, FiImage } from "react-icons/fi";
 import CardApproval from "./CardApproval";
 import ModalLogs from "./ModalLogs";
 import ModalNotes from "./ModalNotes";
-import PaginationFooter from "./PaginationFooter";
+import PaginationFooter from "../../../../../components/ui/PaginationFooter";
 
 const SCOPE_MAP: Partial<Record<UnitTypeFilter, string>> = {
   WILAYAH: "KANWIL_ONLY",
@@ -37,24 +41,29 @@ export default function ApprovalView() {
     setSearchInput,
     handleSearch,
     handleClearSearch,
-    updateParams,
     kanwilId,
     kancabId,
-    setKanwilId,
-    setKancabId,
     kanwilList,
     kancabList,
     divisiId,
-    setDivisiId,
     divisiList,
-    router,
     statusFilter,
     summary,
     categoryFilter,
+    programFilter,
     categoryList,
-  } = useReportList();
+    scopeFilter,
+    handleStatusChange,
+    handleCategoryChange,
+    handleProgramChange,
+    handleScopeChange,
+    handleKanwilChange,
+    handleKancabChange,
+    handleDivisiChange,
+    handlePageChange,
+  } = useReportList({ defaultStatus: "PENDING" });
 
-  const { handleApprove, isLoading: isApproving } = useApproval();
+  const { handleApprove } = useApproval();
 
   const state = useOverlayState();
   const logsModalState = useOverlayState();
@@ -65,16 +74,9 @@ export default function ApprovalView() {
   const [selectedLogsReport, setSelectedLogsReport] =
     useState<ActivityReportItem | null>(null);
 
-  const [selectedScope, setSelectedScope] = useState<UnitTypeFilter>(() => {
-    if (divisiId && divisiId !== "ALL") return "DIVISI";
-    if (kancabId && kancabId !== "ALL") return "CABANG";
-    if (kanwilId && kanwilId !== "ALL") return "WILAYAH";
-    return "ALL";
-  });
+  const selectedScope: UnitTypeFilter = scopeFilter;
 
   const selectedCategory = categoryFilter || "ALL";
-
-  const [isExporting, setIsExporting] = useState(false);
 
   const handleOpenRejectModal = (report: ActivityReportItem) => {
     setSelectedReport(report);
@@ -100,112 +102,89 @@ export default function ApprovalView() {
     handleApprove(id);
   };
 
-  const handleScopeChange = (newScope: UnitTypeFilter) => {
-    setSelectedScope(newScope);
-
-    if (newScope === "DIVISI") {
-      setKanwilId("ALL");
-      setKancabId("ALL");
-      updateParams({ kanwilId: "", kancabId: "", page: "1" });
-    } else if (newScope === "WILAYAH" || newScope === "WILAYAH_AND_CABANG") {
-      setDivisiId("ALL");
-      setKancabId("ALL");
-      updateParams({ divisiId: "", kancabId: "", page: "1" });
-    } else if (newScope === "CABANG") {
-      setDivisiId("ALL");
-      updateParams({ divisiId: "", page: "1" });
-    } else if (newScope === "ALL") {
-      setDivisiId("ALL");
-      setKanwilId("ALL");
-      setKancabId("ALL");
-      updateParams({
-        divisiId: "",
-        kanwilId: "",
-        kancabId: "",
-        page: "1",
-      });
-    }
-  };
-
   // Logic Disabled Export Button
   const apiScope = SCOPE_MAP[selectedScope];
 
   const isExportDisabled =
-    !selectedCategory ||
-    selectedCategory === "ALL" ||
-    !apiScope || // scope belum dipilih
+    programFilter === "ALL" ||
+    !apiScope ||
     ((selectedScope === "WILAYAH" || selectedScope === "WILAYAH_AND_CABANG") &&
       (!kanwilId || kanwilId === "ALL")) ||
     (selectedScope === "CABANG" && (!kancabId || kancabId === "ALL")) ||
     (selectedScope === "DIVISI" && (!divisiId || divisiId === "ALL"));
 
-  // Handler Button Export (Fetch + Blob dengan Error Handling & Toast)
-  const handleExportKolase = async () => {
-    if (!apiScope) return;
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      if (!apiScope || programFilter === "ALL") {
+        throw new Error("Pilih program dan scope sebelum export");
+      }
 
-    try {
-      setIsExporting(true);
-
-      const params = new URLSearchParams();
-      params.append("categoryId", selectedCategory);
-      params.append("programId", selectedCategory);
-      params.append("scope", apiScope);
+      const params: Record<string, string> = {
+        programId: programFilter,
+        scope: apiScope,
+      };
 
       if (
         selectedScope === "WILAYAH" ||
         selectedScope === "WILAYAH_AND_CABANG"
       ) {
-        params.append("kanwilId", kanwilId);
-      }
-      if (selectedScope === "CABANG") {
-        params.append("kancabId", kancabId);
-      }
-      if (selectedScope === "DIVISI") {
-        params.append("divisiId", divisiId);
+        params.kanwilId = kanwilId;
+      } else if (selectedScope === "CABANG") {
+        params.kancabId = kancabId;
+      } else if (selectedScope === "DIVISI") {
+        params.divisiId = divisiId;
       }
 
-      const res = await fetch(
-        `/api/reports/export-collage?${params.toString()}`,
-      );
+      return api.get("/reports/export-collage", {
+        params,
+        responseType: "blob",
+      });
+    },
+    onSuccess: (response) => {
+      const url = window.URL.createObjectURL(response.data);
+      const anchor = document.createElement("a");
+      const contentDisposition = response.headers["content-disposition"];
+      const fileName =
+        contentDisposition?.match(/filename="?([^"]+)"?/)?.[1] ??
+        "Kolase_Foto_Kegiatan.pdf";
 
-      if (!res.ok) {
-        let errorMessage =
-          "Gagal meng-export kolase foto / Tidak ada reports yang sudah di approved";
-        try {
-          const errJson = await res.json();
-          if (errJson?.message) errorMessage = errJson.message;
-        } catch {
-          // ignore error if parsing JSON fails
-        }
-        toast.danger(errorMessage);
-        return;
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-
-      const contentDisposition = res.headers.get("Content-Disposition");
-      let fileName = "Kolase_Foto_Kegiatan.pdf";
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="?([^"]+)"?/);
-        if (match && match[1]) fileName = match[1];
-      }
-
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       window.URL.revokeObjectURL(url);
-
       toast.success("Kolase foto berhasil diunduh!");
-    } catch (error) {
-      toast.danger("Terjadi kesalahan jaringan saat mengunduh PDF");
-    } finally {
-      setIsExporting(false);
-    }
-  };
+    },
+    onError: async (error) => {
+      let message = "Terjadi kesalahan jaringan saat mengunduh PDF";
+
+      if (axios.isAxiosError(error)) {
+        const payload: unknown = error.response?.data;
+        if (payload instanceof Blob) {
+          try {
+            const parsed: unknown = JSON.parse(await payload.text());
+            if (
+              parsed &&
+              typeof parsed === "object" &&
+              "message" in parsed &&
+              typeof parsed.message === "string"
+            ) {
+              message = parsed.message;
+            }
+          } catch {
+            // Response bukan JSON; gunakan pesan fallback.
+          }
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+
+      toast.danger(message);
+    },
+  });
+
+  const isExporting = exportMutation.isPending;
 
   // UPDATED: Summary Cards with Slate tokens & calibrated status colors
   const summaryCards = [
@@ -243,6 +222,15 @@ export default function ApprovalView() {
     },
   ];
 
+  // Helper boolean untuk Contextual Adaptive Filter
+  const showWilayah =
+    selectedScope === "WILAYAH" ||
+    selectedScope === "WILAYAH_AND_CABANG" ||
+    selectedScope === "CABANG";
+
+  const showKancab = selectedScope === "CABANG";
+  const showDivisi = selectedScope === "DIVISI";
+
   return (
     <div className="space-y-6 mb-10">
       <AppBar
@@ -254,106 +242,81 @@ export default function ApprovalView() {
       {/* SUMMARY CARDS SECTION */}
       <SummaryCards summary={summaryCards} />
 
-      {/* UPDATED: Unified Toolbar Control Card Surface (rounded-2xl border-slate-200/60 shadow-surface) */}
+      {/* ADAPTIVE CONTEXTUAL TOOLBAR CARD */}
       <Card className="shadow-surface hover:shadow-surface-md transition-all duration-200 border border-slate-200/60 rounded-2xl p-4 sm:p-5 space-y-4 bg-white">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
-          {/* 1. Program */}
+        {/* BARIS 1: ADAPTIVE DROPDOWNS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:flex xl:flex-wrap gap-3 items-center">
+          {/* 1. Kategori Budaya */}
           <FilterCategory
             value={selectedCategory}
-            className="w-full"
+            className="w-full xl:w-56"
             categories={categoryList}
-            onChange={(val) =>
-              updateParams({
-                categoryId: val === "ALL" ? "" : val,
-                programId: val === "ALL" ? "" : val,
-                page: "1",
-              })
-            }
+            onChange={handleCategoryChange}
           />
 
-          {/* 2. Tipe Unit */}
+          {/* 2. Program Budaya (Cascading di bawah Kategori) */}
+          <FilterProgram
+            value={programFilter || "ALL"}
+            categoryId={selectedCategory}
+            isDisabled={!selectedCategory || selectedCategory === "ALL"}
+            className="w-full xl:w-56"
+            onChange={handleProgramChange}
+          />
+
+          {/* 3. Tipe Unit Scope */}
           <SelectUnitType
             value={selectedScope}
             onChange={handleScopeChange}
-            className="w-full"
+            className="w-full xl:w-52"
             showKanwilAndKancab={true}
           />
 
-          {/* 3. Kantor Wilayah */}
-          <SelectWilayah
-            regions={kanwilList}
-            value={kanwilId}
-            className="w-full"
-            isDisabled={selectedScope === "ALL" || selectedScope === "DIVISI"}
-            onChange={(val) => {
-              setKanwilId(val);
-              updateParams({
-                kanwilId: val === "ALL" ? "" : val,
-                kancabId: "",
-                divisiId: "",
-                page: "1",
-              });
-            }}
-          />
+          {/* 4. Kantor Wilayah (Hanya tampil jika scope Wilayah/Cabang) */}
+          {showWilayah && (
+            <SelectWilayah
+              regions={kanwilList}
+              value={kanwilId}
+              className="w-full xl:w-52"
+              isDisabled={false}
+              onChange={handleKanwilChange}
+            />
+          )}
 
-          {/* 4. Kantor Cabang */}
-          <SelectKancab
-            branches={kancabList}
-            value={kancabId}
-            className="w-full"
-            isDisabled={
-              selectedScope === "ALL" ||
-              selectedScope === "DIVISI" ||
-              selectedScope === "WILAYAH" ||
-              selectedScope === "WILAYAH_AND_CABANG" ||
-              kanwilId === "ALL" ||
-              kanwilList.length === 0
-            }
-            onChange={(val) => {
-              setKancabId(val);
-              updateParams({
-                kancabId: val === "ALL" ? "" : val,
-                divisiId: "",
-                page: "1",
-              });
-            }}
-          />
-          {/* 5. Divisi */}
-          <SelectDivisi
-            divisiList={divisiList}
-            value={divisiId}
-            className="w-full"
-            isDisabled={
-              selectedScope === "ALL" ||
-              selectedScope === "WILAYAH" ||
-              selectedScope === "WILAYAH_AND_CABANG" ||
-              selectedScope === "CABANG"
-            }
-            onChange={(val) => {
-              setDivisiId(val);
-              updateParams({
-                divisiId: val === "ALL" ? "" : val,
-                kanwilId: "",
-                kancabId: "",
-                page: "1",
-              });
-            }}
-          />
+          {/* 5. Kantor Cabang (Hanya tampil jika scope Cabang) */}
+          {showKancab && (
+            <SelectKancab
+              branches={kancabList}
+              value={kancabId}
+              className="w-full xl:w-52"
+              isDisabled={kanwilId === "ALL" || kanwilList.length === 0}
+              onChange={handleKancabChange}
+            />
+          )}
+
+          {/* 6. Divisi (Hanya tampil jika scope Divisi/Pusat) */}
+          {showDivisi && (
+            <SelectDivisi
+              divisiList={divisiList}
+              value={divisiId}
+              className="w-full xl:w-52"
+              isDisabled={false}
+              onChange={handleDivisiChange}
+            />
+          )}
         </div>
+
+        {/* DIVIDER */}
         <div className="border-t border-slate-100" />
 
+        {/* BARIS 2: STATUS PILLS & ACTION BAR */}
         <div className="flex flex-col md:flex-row w-full items-stretch md:items-center justify-between gap-3">
-          <div className="overflow-x-auto pb-1 md:pb-0">
+          <div className="overflow-x-auto pb-1 md:pb-0 scrollbar-none">
             <StatusTagGroup
               value={statusFilter}
-              onChange={(status) =>
-                updateParams({
-                  status: status === "ALL" ? "" : status,
-                  page: "1",
-                })
-              }
+              onChange={handleStatusChange}
             />
           </div>
+
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
             <div className="w-full sm:w-64">
               <ReportSearchBar
@@ -363,12 +326,13 @@ export default function ApprovalView() {
                 onClear={handleClearSearch}
               />
             </div>
-            {/* UPDATED: Export Button styling */}
+
+            {/* EXPORT KOLASE BUTTON */}
             <Button
               variant="outline"
               className="rounded-xl font-semibold border-slate-200 bg-white text-slate-700 hover:bg-slate-50 shadow-xs transition-all active:scale-[0.98] shrink-0 w-full sm:w-auto h-11"
               isDisabled={isExportDisabled || isExporting}
-              onPress={handleExportKolase}
+              onPress={() => exportMutation.mutate()}
             >
               <CiSaveDown1 className="text-lg text-slate-500" />
               {isExporting ? "Mengunduh..." : "Export Kolase"}
@@ -390,14 +354,16 @@ export default function ApprovalView() {
             />
           ))
         ) : (
-          /* UPDATED: Rich Empty State Card */
           <Card className="col-span-full rounded-2xl border border-slate-200/60 shadow-surface bg-white py-16 px-4 text-center">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
               <FiFileText className="w-6 h-6" />
             </div>
-            <p className="text-slate-900 font-bold text-base">Tidak ada laporan ditemukan</p>
+            <p className="text-slate-900 font-bold text-base">
+              Tidak ada laporan ditemukan
+            </p>
             <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
-              Coba sesuaikan filter status, kategori program, atau kriteria pencarian unit Anda.
+              Coba sesuaikan filter status, kategori program, atau kriteria
+              pencarian unit Anda.
             </p>
           </Card>
         )}
@@ -420,16 +386,13 @@ export default function ApprovalView() {
           activityName={selectedLogsReport.activityName}
         />
       )}
+
       <PaginationFooter
         page={pagination.page}
         totalPages={pagination.totalPages}
         totalItems={pagination.total}
         itemsPerPage={pagination.limit}
-        onPageChange={(pageNumber) =>
-          updateParams({
-            page: pageNumber.toString(),
-          })
-        }
+        onPageChange={handlePageChange}
       />
     </div>
   );
