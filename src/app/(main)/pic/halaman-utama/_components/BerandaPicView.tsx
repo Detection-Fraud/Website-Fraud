@@ -81,7 +81,7 @@ export default function BerandaPicView() {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">
-                    Kepatuhan TW Ini
+                    Kepatuhan Pada TW Ini
                   </h2>
                   <FiTarget
                     className={

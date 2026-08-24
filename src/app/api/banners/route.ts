@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     const banners = await prisma.loginBanner.findMany({
       where: whereClause,
       orderBy: { order: "asc" },
+      take: showAll ? 100 : 20,
     });
 
     return NextResponse.json(successResponse(banners));

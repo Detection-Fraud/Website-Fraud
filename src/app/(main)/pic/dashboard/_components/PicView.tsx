@@ -27,14 +27,17 @@ export default function PicView() {
     setSearchInput,
     handleSearch,
     handleClearSearch,
-    updateParams,
     router,
     statusFilter,
     summary,
     kanwilList,
     categoryList,
     categoryFilter,
-  } = useReportList();
+    handleCategoryChange,
+    handleStatusChange,
+    handleKancabChange,
+    handlePageChange,
+  } = useReportList({ defaultStatus: "ALL" });
 
   const { user } = useCurrentUser();
   const isKanwil = user?.unitType === "KANTOR_WILAYAH";
@@ -57,6 +60,12 @@ export default function PicView() {
   const myKanwil = kanwilList.find((k: any) => k.id === user?.unitId);
   const myKancabList = myKanwil ? myKanwil.children : [];
 
+  const dashboardTitle =
+    user?.unitType === "DIVISI"
+      ? "Dashboard Divisi"
+      : user?.unitType === "KANTOR_CABANG"
+        ? "Dashboard Kantor Cabang"
+        : "Dashboard Kantor Wilayah";
   return (
     <div className="space-y-6 mb-10">
       <AppBar
@@ -64,11 +73,11 @@ export default function PicView() {
           router.push("/pic/submit");
         }}
         textAddButton="Buat Laporan"
-        title="Dashboard Kantor Wilayah"
+        title={dashboardTitle}
         description="List laporan bulanan yang telah dikirim"
       />
 
-      {/* UPDATED: Welcome Hero Banner — Full-bleed 3D BG + Left Dark Zone */}
+      {/* UPDATED: Welcome Hero Banner â€” Full-bleed 3D BG + Left Dark Zone */}
       <Card className="relative overflow-hidden bg-slate-950 text-white rounded-2xl shadow-surface border border-slate-800/80 p-0 min-h-55">
         {/* Full-bleed Background Illustration */}
         <div className="absolute inset-0 pointer-events-none">
@@ -86,7 +95,7 @@ export default function PicView() {
           <div className="absolute inset-0 bg-slate-950/20" />
         </div>
 
-        {/* Left Content Column — lives inside the dark reading zone */}
+        {/* Left Content Column â€” lives inside the dark reading zone */}
         <div className="relative z-10 flex flex-col items-start justify-between gap-5 p-6 md:p-8 max-w-md">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -147,7 +156,7 @@ export default function PicView() {
                     setUnitLevel(val);
 
                     if (val === "KANWIL") {
-                      updateParams({ kancabId: "", page: "1" });
+                      handleKancabChange("ALL");
                     }
                   }}
                   className="w-full md:w-52"
@@ -177,9 +186,7 @@ export default function PicView() {
                     isDisabled={false}
                     labelOff
                     className="w-full md:w-52"
-                    onChange={(val) =>
-                      updateParams({ kancabId: val, page: "1" })
-                    }
+                    onChange={handleKancabChange}
                   />
                 )}
               </>
@@ -190,13 +197,7 @@ export default function PicView() {
               labelOff
               categories={categoryList}
               className="w-full md:w-52"
-              onChange={(key) =>
-                updateParams({
-                  categoryId: String(key),
-                  programId: String(key),
-                  page: "1",
-                })
-              }
+              onChange={handleCategoryChange}
             />
           </div>
         </Card.Content>
@@ -227,7 +228,7 @@ export default function PicView() {
             <div>
               <StatusTagGroup
                 value={statusFilter}
-                onChange={(status) => updateParams({ status, page: "1" })}
+                onChange={handleStatusChange}
               />
             </div>
           </div>
@@ -242,7 +243,7 @@ export default function PicView() {
           }
           data={reports}
           pagination={pagination}
-          onPageChange={(page) => updateParams({ page: String(page) })}
+          onPageChange={handlePageChange}
         />
       </Card>
     </div>

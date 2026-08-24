@@ -85,10 +85,10 @@ export default function BannerCarousel({ programs }: BannerCarouselProps) {
               onClick={() => handleOpenDetail(prog)}
             >
               <div className="absolute inset-0 w-full h-full">
-                {cat?.bannerUrl ? (
+                {cat?.bannerUrl || prog.bannerUrl ? (
                   <img
-                    src={cat.bannerUrl}
-                    alt={cat.name}
+                    src={cat?.bannerUrl || prog.bannerUrl || undefined}
+                    alt={cat?.name ?? prog.name}
                     className="w-full h-full object-cover object-center z-0 block"
                   />
                 ) : (
