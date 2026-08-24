@@ -1,7 +1,7 @@
 import { PrismaClient, UnitType } from "@generated/prisma";
 import bcrypt from "bcryptjs";
+import ExcelJS from "exceljs";
 import path from "path";
-import * as XLSX from "xlsx";
 
 const prisma = new PrismaClient();
 
@@ -44,10 +44,27 @@ async function main() {
     "data/unit/DATA DIVISI, KANWIL, KANCAB SELINDO PER 22 MEI 2026.xlsx",
   );
 
-  const workbook = XLSX.readFile(excelPath);
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rows: ExcelRow[] = XLSX.utils.sheet_to_json(sheet);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(excelPath);
+  const ws = workbook.worksheets[0];
+
+  const headers: string[] = [];
+  ws.getRow(1).eachCell((cell) => {
+    headers.push(String(cell.value ?? "").trim());
+  });
+
+  const rows: ExcelRow[] = [];
+  ws.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const rowObj: any = {};
+    row.eachCell((cell, colIndex) => {
+      const header = headers[colIndex - 1];
+      if (header) {
+        rowObj[header] = String(cell.value ?? "").trim();
+      }
+    });
+    if (Object.keys(rowObj).length > 0) rows.push(rowObj);
+  });
 
   console.log(`Total baris dari Excel: ${rows.length}`);
 
