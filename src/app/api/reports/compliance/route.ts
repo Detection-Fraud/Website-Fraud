@@ -2,6 +2,7 @@ import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
+import { programYearBounds } from "@/lib/program-period";
 import { successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 
@@ -28,37 +29,44 @@ export async function GET(req: Request) {
       unitTypeFilter,
     });
 
-    const yearStart = new Date(year, 0, 1);
-    const yearEnd = new Date(year, 11, 31, 23, 59, 59);
-
-    // 4. Ambil program dan aggregasi laporan
-    const [programs, submissions] = await Promise.all([
-      prisma.programCategory.findMany({
-        where: { targetUnit: "KEGIATAN" },
-        include: {
-          programs: {
-            where: { isActive: true },
-            select: { id: true, frequency: true, tw: true },
-          },
+    // 1. Ambil kategori dan program tahun terpilih (termasuk yang nonaktif untuk historis)
+    const programs = await prisma.programCategory.findMany({
+      where: {
+        targetUnit: "KEGIATAN",
+        ...(programId !== "ALL" && { id: programId }),
+      },
+      include: {
+        programs: {
+          where: { startDate: programYearBounds(year) },
+          select: { id: true, frequency: true, tw: true },
         },
-        orderBy: { name: "asc" },
-      }),
-      prisma.activityReport.groupBy({
-        by: ["unitId", "programId"],
-        where: {
-          status: "APPROVED",
-          ...(programId !== "ALL" && { program: { categoryId: programId } }),
-          unitId: { not: null },
-          tanggalKegiatan: {
-            gte: yearStart,
-            lte: yearEnd,
-          },
-        },
-        _count: { id: true },
-      }),
-    ]);
+      },
+      orderBy: { name: "asc" },
+    });
 
-    const programInfoList = programs.map((cat, i) => ({
+    // Filter kategori yang memiliki program di tahun ini agar target tidak 1 semu
+    const periodPrograms = programs.filter(
+      (category) => category.programs.length > 0,
+    );
+
+    const allProgramIds = periodPrograms.flatMap((category) =>
+      category.programs.map((program) => program.id),
+    );
+
+    // 2. Query aggregasi approved reports dalam scope program tahun ini
+    const submissions = allProgramIds.length > 0
+      ? await prisma.activityReport.groupBy({
+          by: ["unitId", "programId"],
+          where: {
+            status: "APPROVED",
+            unitId: { not: null },
+            programId: { in: allProgramIds },
+          },
+          _count: { id: true },
+        })
+      : [];
+
+    const programInfoList = periodPrograms.map((cat, i) => ({
       id: cat.id,
       name: cat.name,
       programIds: cat.programs.map((p) => p.id),
@@ -66,15 +74,19 @@ export async function GET(req: Request) {
       color: PROGRAM_COLORS[i % PROGRAM_COLORS.length],
     }));
 
-    const getUnitSubmissions = (unitId: string, progIds: string[]) => {
-      let sum = 0;
-      for (const sub of submissions) {
-        if (progIds.includes(sub.programId!) && sub.unitId === unitId) {
-          sum += sub._count.id;
-        }
-      }
-      return sum;
-    };
+    // O(1) Map lookup untuk performa tinggi (menghindari O(N*M) loop scan)
+    const submissionMap = new Map(
+      submissions.map((item) => [
+        `${item.unitId}:${item.programId}`,
+        item._count.id,
+      ]),
+    );
+
+    const getUnitSubmissions = (unitId: string, progIds: string[]) =>
+      progIds.reduce(
+        (sum, id) => sum + (submissionMap.get(`${unitId}:${id}`) ?? 0),
+        0,
+      );
 
     if (submissions.length === 0) {
       return NextResponse.json(
@@ -96,7 +108,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // 5. Kalkulasi compliance per unit
+    // 3. Kalkulasi compliance per unit
     const tableData = activeUnits.map((unit) => {
       const programCompliance = programInfoList.map((prog) => {
         const submitted = getUnitSubmissions(unit.id, prog.programIds);
@@ -145,7 +157,7 @@ export async function GET(req: Request) {
       row.rank = index + 1;
     });
 
-    // 6. Hitung statistik keseluruhan
+    // 4. Hitung statistik keseluruhan
     const reportedUnitsCount = filteredTableData.filter((u) =>
       u.programCompliance.some((p) => p.submitted > 0),
     ).length;

@@ -1,7 +1,14 @@
 import { api } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import type {
+  PicDashboardPeriod,
+  PicDashboardPeriodStatus,
+} from "@/lib/program-period";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-interface PicDashboardStats {
+export type PicPeriodStatus = PicDashboardPeriodStatus;
+export type PicPeriod = PicDashboardPeriod;
+
+export interface PicDashboardStats {
   target: number;
   approved: number;
   pending: number;
@@ -9,7 +16,7 @@ interface PicDashboardStats {
   compliance: number;
 }
 
-interface LeaderboardItem {
+export interface LeaderboardItem {
   id: string;
   name: string;
   kancabName: string;
@@ -18,7 +25,7 @@ interface LeaderboardItem {
   isMe: boolean;
 }
 
-interface ActiveProgram {
+export interface PeriodProgram {
   id: string;
   name: string;
   frequency: number;
@@ -26,6 +33,8 @@ interface ActiveProgram {
   bannerUrl: string | null;
   startDate: string;
   endDate: string;
+  uploadDeadline: string;
+  isActive: boolean;
   category: {
     id: string;
     name: string;
@@ -35,7 +44,7 @@ interface ActiveProgram {
   } | null;
 }
 
-interface RecentActivity {
+export interface RecentActivity {
   id: string;
   status: string;
   tanggalKegiatan: string;
@@ -43,19 +52,24 @@ interface RecentActivity {
   program: { name: string } | null;
 }
 
-interface PicDashboardData {
-  currentTw: number;
+export interface PicDashboardData {
+  periods: PicPeriod[];
+  selectedPeriod: PicPeriod | null;
   stats: PicDashboardStats;
-  rank: { position: number; total: number };
+  rank: { position: number | null; total: number };
   leaderboard: LeaderboardItem[];
-  activePrograms: ActiveProgram[];
+  periodPrograms: PeriodProgram[];
   recentActivities: RecentActivity[];
 }
 
-export function usePicDashboard() {
+export function usePicDashboard(period?: { year: number; tw: number }) {
   return useQuery<PicDashboardData>({
-    queryKey: ["pic-dashboard"],
-    queryFn: () => api.get("/pic/dashboard").then((res) => res.data),
+    queryKey: ["pic-dashboard", period?.year ?? null, period?.tw ?? null],
+    queryFn: () =>
+      api
+        .get("/pic/dashboard", { params: period })
+        .then((response) => response.data),
+    placeholderData: keepPreviousData,
     staleTime: 2 * 60 * 1000,
   });
 }

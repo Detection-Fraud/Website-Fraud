@@ -17,7 +17,8 @@ const NAMA_BULAN = [
 ];
 
 export async function getMonthlyTrend(
-  whereClause: Prisma.ActivityReportWhereInput,
+  currentWhere: Prisma.ActivityReportWhereInput,
+  previousWhere: Prisma.ActivityReportWhereInput,
   year: number,
 ) {
   const prevYear = year - 1;
@@ -25,7 +26,7 @@ export async function getMonthlyTrend(
   const countsPromises = Array.from({ length: 12 }, (_, month) => [
     prisma.activityReport.count({
       where: {
-        ...whereClause,
+        ...currentWhere,
         tanggalKegiatan: {
           gte: new Date(year, month, 1),
           lte: new Date(year, month + 1, 0, 23, 59, 59),
@@ -34,7 +35,7 @@ export async function getMonthlyTrend(
     }),
     prisma.activityReport.count({
       where: {
-        ...whereClause,
+        ...previousWhere,
         tanggalKegiatan: {
           gte: new Date(prevYear, month, 1),
           lte: new Date(prevYear, month + 1, 0, 23, 59, 59),

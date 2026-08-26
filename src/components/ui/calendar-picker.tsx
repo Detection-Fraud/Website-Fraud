@@ -61,9 +61,10 @@ export default function CalendarPicker({
       {isInvalid && (
         <FieldError>Tanggal berakhir harus setelah tanggal mulai</FieldError>
       )}
-      <DatePicker.Popover>
+      <DatePicker.Popover className="w-[19rem] max-w-[calc(100vw-2rem)] overflow-x-hidden p-3 sm:w-[20rem]">
         <Calendar
           aria-label={label || "Pilih tanggal"}
+          className="w-full max-w-none"
           minValue={minValue}
           maxValue={maxValue}
         >

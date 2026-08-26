@@ -1,9 +1,21 @@
 "use client";
 
-import { usePicDashboard } from "@/hooks/usePicDashboard";
-import { Card, Chip, Skeleton } from "@heroui/react";
+import {
+  type PicPeriodStatus,
+  usePicDashboard,
+} from "@/hooks/usePicDashboard";
+import {
+  Button,
+  Card,
+  Chip,
+  Label,
+  ListBox,
+  Select,
+  Skeleton,
+} from "@heroui/react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { useState } from "react";
 import {
   FiAward,
   FiCheckCircle,
@@ -14,20 +26,68 @@ import {
 import { MdPendingActions } from "react-icons/md";
 import BannerCarousel from "./BannerCarousel";
 
-const TW_LABELS = ["", "TW I", "TW II", "TW III", "TW IV"];
+const PERIOD_STATUS_LABEL: Record<PicPeriodStatus, string> = {
+  ACTIVITY_ACTIVE: "Sedang berjalan",
+  UPLOAD_OPEN: "Masa upload",
+  LATEST: "Periode terakhir",
+};
+
+function getComplianceColor(score: number) {
+  if (score >= 75) {
+    return {
+      text: "text-emerald-600",
+      bg: "bg-emerald-500",
+      icon: "text-emerald-500",
+    };
+  }
+  if (score >= 50) {
+    return {
+      text: "text-blue-600",
+      bg: "bg-blue-600",
+      icon: "text-blue-500",
+    };
+  }
+  if (score >= 25) {
+    return {
+      text: "text-amber-600",
+      bg: "bg-amber-500",
+      icon: "text-amber-500",
+    };
+  }
+  return {
+    text: "text-red-500",
+    bg: "bg-red-500",
+    icon: "text-red-400",
+  };
+}
 
 export default function BerandaPicView() {
-  const { data, isLoading } = usePicDashboard();
-  const {
-    currentTw = 0,
-    stats,
-    rank,
-    leaderboard = [],
-    activePrograms = [],
-    recentActivities = [],
-  } = data ?? {};
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  const selectedInput = selectedKey
+    ? {
+        year: Number(selectedKey.split("-")[0]),
+        tw: Number(selectedKey.split("-")[1]),
+      }
+    : undefined;
+
+  const { data, isLoading, isFetching, isError, refetch } =
+    usePicDashboard(selectedInput);
+
+  const periods = data?.periods ?? [];
+  const selectedPeriod = data?.selectedPeriod;
+  const stats = data?.stats;
+  const rank = data?.rank;
+  const leaderboard = data?.leaderboard ?? [];
+  const periodPrograms = data?.periodPrograms ?? [];
+  const recentActivities = data?.recentActivities ?? [];
+
+  const activeKey =
+    selectedKey ??
+    (selectedPeriod ? `${selectedPeriod.year}-${selectedPeriod.tw}` : "");
 
   const visualCompliance = Math.min(stats?.compliance ?? 0, 100);
+  const colorTheme = getComplianceColor(visualCompliance);
 
   if (isLoading) {
     return (
@@ -40,9 +100,26 @@ export default function BerandaPicView() {
       </div>
     );
   }
+
+  if (isError) {
+    return (
+      <Card className="border border-red-200 bg-red-50 shadow-none">
+        <Card.Content className="flex flex-col items-center gap-3 py-12 text-center">
+          <p className="font-semibold text-red-800">Dashboard gagal dimuat</p>
+          <p className="text-sm text-red-600">
+            Periksa koneksi lalu coba muat kembali.
+          </p>
+          <Button variant="secondary" onPress={() => void refetch()}>
+            Coba lagi
+          </Button>
+        </Card.Content>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <header className="mb-8 flex items-end justify-between">
+      <header className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 mb-2">
             <span className="inline-block w-1 h-6 rounded-full bg-linear-to-b from-blue-500 to-blue-700" />
@@ -50,18 +127,56 @@ export default function BerandaPicView() {
               Beranda PIC
             </h1>
           </div>
-          <p className="text-slate-500 mt-0 ml-3">
-            Pantau kepatuhan dan performa kegiatan Anda{" "}
-            {currentTw ? (
-              <span className="font-semibold text-blue-600">
-                {TW_LABELS[currentTw]}
-              </span>
-            ) : (
-              ""
-            )}
-            .
+          <p className="ml-3 mt-0 flex flex-wrap items-center gap-2 text-slate-500">
+            <span>Pantau kepatuhan dan performa kegiatan Anda.</span>
+            {selectedPeriod ? (
+              <>
+                <span className="font-semibold text-blue-600">
+                  {selectedPeriod.label}
+                </span>
+                <Chip size="sm" variant="secondary">
+                  <Chip.Label>
+                    {PERIOD_STATUS_LABEL[selectedPeriod.status] ??
+                      selectedPeriod.status}
+                  </Chip.Label>
+                </Chip>
+              </>
+            ) : null}
           </p>
         </div>
+
+        {periods.length > 1 && (
+          <div className="w-full sm:w-56">
+            <Select
+              aria-label="Pilih Periode Program"
+              value={activeKey}
+              onChange={(key) => setSelectedKey(key ? String(key) : null)}
+              className="w-full"
+            >
+              <Label className="text-xs font-medium text-slate-600 mb-1">
+                Periode Program {isFetching && "..."}
+              </Label>
+              <Select.Trigger className="min-h-11 bg-white border border-slate-200">
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {periods.map((period) => (
+                    <ListBox.Item
+                      key={`${period.year}-${period.tw}`}
+                      id={`${period.year}-${period.tw}`}
+                      textValue={period.label}
+                    >
+                      {period.label}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          </div>
+        )}
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -69,7 +184,7 @@ export default function BerandaPicView() {
         <div className="lg:col-span-8">
           <Card className="h-full border border-slate-200 shadow-sm rounded-lg">
             <Card.Content>
-              <BannerCarousel programs={activePrograms} />
+              <BannerCarousel programs={periodPrograms} />
             </Card.Content>
           </Card>
         </div>
@@ -78,89 +193,77 @@ export default function BerandaPicView() {
         <div className="lg:col-span-4">
           <Card className="h-full border border-slate-200 shadow-sm rounded-lg">
             <Card.Content className="p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">
-                    Kepatuhan Pada TW Ini
-                  </h2>
-                  <FiTarget
-                    className={
-                      visualCompliance >= 75
-                        ? "text-emerald-500"
-                        : visualCompliance >= 50
-                          ? "text-blue-500"
-                          : visualCompliance >= 25
-                            ? "text-amber-500"
-                            : "text-red-400"
-                    }
-                  />
-                </div>
+              {selectedPeriod ? (
+                <>
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">
+                        Kepatuhan Pada TW Ini
+                      </h2>
+                      <FiTarget className={colorTheme.icon} />
+                    </div>
 
-                <div
-                  className={`text-6xl font-black tracking-tighter mb-2 ${
-                    visualCompliance >= 75
-                      ? "text-emerald-600"
-                      : visualCompliance >= 50
-                        ? "text-blue-600"
-                        : visualCompliance >= 25
-                          ? "text-amber-600"
-                          : "text-red-500"
-                  }`}
-                >
-                  {stats?.compliance ?? 0}%
-                </div>
-                <p className="text-sm text-slate-500 mb-6 max-w-[28ch] leading-relaxed">
-                  Telah disetujui{" "}
-                  <span className="font-semibold text-slate-700">
-                    {stats?.approved ?? 0}
-                  </span>{" "}
-                  dari target{" "}
-                  <span className="font-semibold text-slate-700">
-                    {stats?.target ?? 0}
-                  </span>{" "}
-                  kegiatan.
-                </p>
+                    <div
+                      className={`text-6xl font-black tracking-tighter mb-2 ${colorTheme.text}`}
+                    >
+                      {stats?.compliance ?? 0}%
+                    </div>
+                    <p className="text-sm text-slate-500 mb-6 max-w-[28ch] leading-relaxed">
+                      Telah disetujui{" "}
+                      <span className="font-semibold text-slate-700">
+                        {stats?.approved ?? 0}
+                      </span>{" "}
+                      dari target{" "}
+                      <span className="font-semibold text-slate-700">
+                        {stats?.target ?? 0}
+                      </span>{" "}
+                      kegiatan.
+                    </p>
 
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-8">
-                  <div
-                    className={`h-full rounded-full transition-all duration-1000 ease-out ${
-                      visualCompliance >= 75
-                        ? "bg-emerald-500"
-                        : visualCompliance >= 50
-                          ? "bg-blue-600"
-                          : visualCompliance >= 25
-                            ? "bg-amber-500"
-                            : "bg-red-500"
-                    }`}
-                    style={{ width: `${visualCompliance}%` }}
-                  />
-                </div>
-              </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-8">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ease-out ${colorTheme.bg}`}
+                        style={{ width: `${visualCompliance}%` }}
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Card className="bg-amber-50/50 border border-amber-100 shadow-none">
-                  <Card.Content>
-                    <div className="text-amber-700 text-xs mb-1 font-semibold">
-                      Menunggu
-                    </div>
-                    <div className="text-2xl font-bold text-amber-900 flex items-center gap-2">
-                      {stats?.pending ?? 0}{" "}
-                      <MdPendingActions className="text-amber-500 text-lg" />
-                    </div>
-                  </Card.Content>
-                </Card>
-                <Card className="bg-red-50/50 border border-red-100 shadow-none">
-                  <Card.Content>
-                    <div className="text-red-700 text-xs mb-1 font-semibold">
-                      Ditolak
-                    </div>
-                    <div className="text-2xl font-bold text-red-900 flex items-center gap-2">
-                      {stats?.rejected ?? 0}{" "}
-                      <FiXCircle className="text-red-500 text-lg" />
-                    </div>
-                  </Card.Content>
-                </Card>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card className="bg-amber-50/50 border border-amber-100 shadow-none">
+                      <Card.Content>
+                        <div className="text-amber-700 text-xs mb-1 font-semibold">
+                          Menunggu
+                        </div>
+                        <div className="text-2xl font-bold text-amber-900 flex items-center gap-2">
+                          {stats?.pending ?? 0}{" "}
+                          <MdPendingActions className="text-amber-500 text-lg" />
+                        </div>
+                      </Card.Content>
+                    </Card>
+                    <Card className="bg-red-50/50 border border-red-100 shadow-none">
+                      <Card.Content>
+                        <div className="text-red-700 text-xs mb-1 font-semibold">
+                          Ditolak
+                        </div>
+                        <div className="text-2xl font-bold text-red-900 flex items-center gap-2">
+                          {stats?.rejected ?? 0}{" "}
+                          <FiXCircle className="text-red-500 text-lg" />
+                        </div>
+                      </Card.Content>
+                    </Card>
+                  </div>
+                </>
+              ) : (
+                <div className="flex min-h-72 flex-col items-center justify-center text-center">
+                  <FiTarget className="mb-3 size-8 text-slate-300" />
+                  <p className="font-semibold text-slate-700">
+                    Belum ada periode program
+                  </p>
+                  <p className="mt-1 max-w-xs text-sm text-slate-500">
+                    Statistik akan tersedia setelah program budaya dibuat.
+                  </p>
+                </div>
+              )}
             </Card.Content>
           </Card>
         </div>
@@ -190,7 +293,7 @@ export default function BerandaPicView() {
                     </p>
                   </div>
                 ) : (
-                  recentActivities.map((act: any, index: number) => (
+                  recentActivities.map((act, index) => (
                     <div key={act.id} className="relative pl-8">
                       {/* Timeline Vertical Line */}
                       {index !== recentActivities.length - 1 && (
@@ -227,7 +330,13 @@ export default function BerandaPicView() {
                           )}
                           <span className="text-slate-300">•</span>
                           <span
-                            className={`uppercase font-medium tracking-wide text-[10px]  ${act.status === "APPROVED" ? "text-emerald-600" : act.status === "REJECTED" ? "text-red-600" : "text-amber-600"}`}
+                            className={`uppercase font-medium tracking-wide text-[10px]  ${
+                              act.status === "APPROVED"
+                                ? "text-emerald-600"
+                                : act.status === "REJECTED"
+                                  ? "text-red-600"
+                                  : "text-amber-600"
+                            }`}
                           >
                             {act.status.toLowerCase()}
                           </span>
@@ -242,7 +351,6 @@ export default function BerandaPicView() {
         </div>
 
         {/* BENTO CELL 4 */}
-
         <div className="lg:col-span-5">
           <Card className="h-full border border-slate-200 shadow-sm rounded-lg">
             <Card.Header className="flex items-center justify-between px-6 pt-6 pb-2 border-b border-slate-100">
@@ -274,68 +382,61 @@ export default function BerandaPicView() {
                     </p>
                   </div>
                 ) : (
-                  leaderboard.map((pic: any, idx: number) => (
-                    <div
-                      key={pic.id}
-                      className={`flex items-center gap-4 p-3 rounded-xl transition-all ${
-                        pic.isMe
-                          ? "bg-blue-50 ring-1 ring-blue-200 shadow-sm"
-                          : "hover:bg-slate-50 border border-transparent"
-                      }`}
-                    >
+                  leaderboard.map((pic, idx) => {
+                    const picTheme = getComplianceColor(pic.compliance);
+                    return (
                       <div
-                        className={`flex items-center justify-center size-8 rounded-full text-xs font-black shrink-0 ${
-                          idx === 0
-                            ? "bg-amber-400 text-amber-950 shadow-sm"
-                            : idx === 1
-                              ? "bg-slate-300 text-slate-800 shadow-sm"
-                              : idx === 2
-                                ? "bg-orange-300/80 text-orange-950 shadow-sm"
-                                : "bg-transparent text-slate-400"
+                        key={pic.id}
+                        className={`flex items-center gap-4 p-3 rounded-xl transition-all ${
+                          pic.isMe
+                            ? "bg-blue-50 ring-1 ring-blue-200 shadow-sm"
+                            : "hover:bg-slate-50 border border-transparent"
                         }`}
                       >
-                        {idx + 1}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 min-w-0">
-                          <span className="truncate">{pic.name}</span>
-                          {pic.isMe && (
-                            <Chip
-                              size="sm"
-                              className="h-4 bg-blue-100 px-1 shrink-0"
-                            >
-                              <Chip.Label className="text-[9px] uppercase tracking-widest font-bold text-blue-700">
-                                Saya
-                              </Chip.Label>
-                            </Chip>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 truncate mt-0.5">
-                          {pic.kancabName}
-                        </p>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <p
-                          className={`text-sm font-black ${
-                            pic.compliance >= 75
-                              ? "text-emerald-600"
-                              : pic.compliance >= 50
-                                ? "text-blue-600"
-                                : pic.compliance >= 25
-                                  ? "text-amber-600"
-                                  : "text-red-500"
+                        <div
+                          className={`flex items-center justify-center size-8 rounded-full text-xs font-black shrink-0 ${
+                            idx === 0
+                              ? "bg-amber-400 text-amber-950 shadow-sm"
+                              : idx === 1
+                                ? "bg-slate-300 text-slate-800 shadow-sm"
+                                : idx === 2
+                                  ? "bg-orange-300/80 text-orange-950 shadow-sm"
+                                  : "bg-transparent text-slate-400"
                           }`}
                         >
-                          {pic.compliance}%
-                        </p>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mt-0.5">
-                          {pic.approved} Apprv
-                        </p>
+                          {idx + 1}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 min-w-0">
+                            <span className="truncate">{pic.name}</span>
+                            {pic.isMe && (
+                              <Chip
+                                size="sm"
+                                className="h-4 bg-blue-100 px-1 shrink-0"
+                              >
+                                <Chip.Label className="text-[9px] uppercase tracking-widest font-bold text-blue-700">
+                                  Saya
+                                </Chip.Label>
+                              </Chip>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">
+                            {pic.kancabName}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className={`text-sm font-black ${picTheme.text}`}>
+                            {pic.compliance}%
+                          </p>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mt-0.5">
+                            {pic.approved} Apprv
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </Card.Content>

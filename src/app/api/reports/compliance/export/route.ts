@@ -1,7 +1,8 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
-import { MONTHS_NAMES_ID, PERIODE_CONFIG } from "@/lib/api/constants";
+import { MONTHS_NAMES_ID } from "@/lib/api/constants";
 import { resolveScope, type ActiveUnit } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
+import { programYearBounds } from "@/lib/program-period";
 import { Prisma } from "@generated/prisma";
 import ExcelJS from "exceljs";
 
@@ -26,6 +27,7 @@ export async function GET(req: Request) {
       unitTypeFilter,
     });
 
+    // 1. Ambil kategori beserta program dalam bound tahun yang dipilih (termasuk program nonaktif untuk histori)
     const categories = await prisma.programCategory.findMany({
       where: {
         targetUnit: "KEGIATAN",
@@ -33,17 +35,25 @@ export async function GET(req: Request) {
       },
       include: {
         programs: {
-          where: {
-            isActive: true,
+          where: { startDate: programYearBounds(year) },
+          select: {
+            id: true,
+            tw: true,
+            frequency: true,
+            startDate: true,
+            endDate: true,
           },
-          select: { id: true, tw: true, frequency: true },
-          orderBy: { tw: "asc" },
+          orderBy: [{ tw: "asc" }, { startDate: "asc" }],
         },
       },
       orderBy: { name: "asc" },
     });
 
-    const allProgramIds = categories.flatMap((c) =>
+    const periodCategories = categories.filter(
+      (category) => category.programs.length > 0,
+    );
+
+    const allProgramIds = periodCategories.flatMap((c) =>
       c.programs.map((p) => p.id),
     );
 
@@ -57,12 +67,24 @@ export async function GET(req: Request) {
     workbook.creator = "Cubic - BULOG";
     workbook.created = new Date();
 
-    for (const [periodeName, config] of Object.entries(PERIODE_CONFIG)) {
+    // 2. Buat sheet dinamis berdasarkan TW aktif dan hitung rentang bulan secara otomatis
+    const sheetPeriods = [
+      { name: "TW I", tw: [1] },
+      { name: "TW II", tw: [2] },
+      { name: "TW III", tw: [3] },
+      { name: "TW IV", tw: [4] },
+      { name: "SEMESTER I", tw: [1, 2] },
+      { name: "SEMESTER II", tw: [3, 4] },
+    ];
+
+    for (const period of sheetPeriods) {
+      const months = getMonthsForTw(periodCategories, period.tw);
+      if (months.length === 0) continue;
       buildSheet(workbook, {
-        sheetName: periodeName,
-        months: config.months,
+        sheetName: period.name,
+        months,
         activeUnits,
-        categories,
+        categories: periodCategories,
         monthlyData,
       });
     }
@@ -109,6 +131,25 @@ export async function GET(req: Request) {
   }
 }
 
+// ── Helper: getMonthsForTw ──
+function getMonthsForTw(
+  categories: CategoryWithTwPrograms[],
+  twValues: number[],
+) {
+  const months = new Set<number>();
+  for (const category of categories) {
+    for (const program of category.programs) {
+      if (!program.tw || !twValues.includes(program.tw)) continue;
+      const start = new Date(program.startDate).getMonth() + 1;
+      const end = new Date(program.endDate).getMonth() + 1;
+      for (let month = start; month <= end; month++) {
+        months.add(month);
+      }
+    }
+  }
+  return [...months].sort((a, b) => a - b);
+}
+
 // ── Helper: getMonthlySubmissions ──
 
 interface MonthlySubmission {
@@ -149,17 +190,12 @@ async function getMonthlySubmissions(
 
 // ── Helper: getSubmissionCount ──
 function getSubmissionCount(
-  monthlyData: MonthlySubmission[],
+  submissionMap: Map<string, number>,
   unitId: string,
   programId: string,
   month: number,
 ): number {
-  return (
-    monthlyData.find(
-      (d) =>
-        d.unitId === unitId && d.programId === programId && d.bulan === month,
-    )?.jumlah ?? 0
-  );
+  return submissionMap.get(`${unitId}:${programId}:${month}`) ?? 0;
 }
 
 // ── Helper: buildSheet ──
@@ -171,6 +207,8 @@ interface CategoryWithTwPrograms {
     id: string;
     tw: number | null;
     frequency: number;
+    startDate: Date | string;
+    endDate: Date | string;
   }[];
 }
 
@@ -237,6 +275,11 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
 
   const groupedUnits = groupUnitsHierarchically(activeUnits);
 
+  // O(1) Map lookup untuk sel data Excel (menggantikan .find() berulang ribuan kali)
+  const submissionMap = new Map(
+    monthlyData.map((d) => [`${d.unitId}:${d.programId}:${d.bulan}`, d.jumlah]),
+  );
+
   let kanwilNo = 0;
 
   for (const group of groupedUnits) {
@@ -247,7 +290,6 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
       if (!unit) continue;
       const isKanwil = unit.type === "KANTOR_WILAYAH";
 
-      // Tentukan TW number dari sheetName (null = semester sheet)
       const twNumber: number | null =
         { "TW I": 1, "TW II": 2, "TW III": 3, "TW IV": 4 }[sheetName] ?? null;
       const semesterTWs: Record<string, number[]> = {
@@ -262,29 +304,26 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
           let target: number;
 
           if (twNumber != null) {
-            // Sheet TW: cari program dengan tw=twNumber
-            const prog = cat.programs.find((p) => p.tw === twNumber);
-            if (!prog) return null; // category tidak aktif di TW ini
-            progIds = [prog.id];
-            target = prog.frequency;
+            const twPrograms = cat.programs.filter((p) => p.tw === twNumber);
+            if (twPrograms.length === 0) return null;
+            progIds = twPrograms.map((p) => p.id);
+            target = twPrograms.reduce((sum, p) => sum + p.frequency, 0);
           } else if (semesterTWList) {
-            // Sheet Semester: ambil semua TW dalam semester
-            const semProgs = cat.programs.filter(
+            const semesterPrograms = cat.programs.filter(
               (p) => p.tw != null && semesterTWList.includes(p.tw),
             );
-            if (semProgs.length === 0) return null;
-            progIds = semProgs.map((p) => p.id);
-            target = semProgs.reduce((s, p) => s + p.frequency, 0);
+            if (semesterPrograms.length === 0) return null;
+            progIds = semesterPrograms.map((p) => p.id);
+            target = semesterPrograms.reduce((sum, p) => sum + p.frequency, 0);
           } else {
-            // Fallback: semua program di category
             progIds = cat.programs.map((p) => p.id);
-            target = cat.programs.reduce((s, p) => s + p.frequency, 0);
+            target = cat.programs.reduce((sum, p) => sum + p.frequency, 0);
           }
 
           const monthlyValues = months.map((m) =>
             progIds.reduce(
               (sum, pid) =>
-                sum + getSubmissionCount(monthlyData, unit.id, pid, m),
+                sum + getSubmissionCount(submissionMap, unit.id, pid, m),
               0,
             ),
           );

@@ -22,33 +22,11 @@ export async function getRankingCC(params: RankingCCParams) {
     whereClause,
     page,
     limit = DEFAULT_PAGE_SIZE,
-    startMonth = 0,
-    year,
-    endMonth = 11,
     unitType,
+    programTarget,
   } = params;
 
-  const startDate = new Date(year, startMonth, 1);
-  const endDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
-
-  const startTw = Math.floor(startMonth / 3) + 1;
-  const endTw = Math.floor(endMonth / 3) + 1;
-  // Ambil array TW yang masuk dalam rentang filter
-  const twList: number[] = [];
-  for (let t = startTw; t <= endTw; t++) {
-    twList.push(t);
-  }
-
-  const activePrograms = await prisma.programBudaya.findMany({
-    where: {
-      isActive: true,
-      ...(twList.length < 4 ? { tw: { in: twList } } : {}),
-    },
-    select: { frequency: true },
-  });
-
-  const totalTarget = activePrograms.reduce((sum, p) => sum + p.frequency, 0);
-  const effectiveTarget = totalTarget > 0 ? totalTarget : 1;
+  const effectiveTarget = programTarget > 0 ? programTarget : 1;
 
   let targetUnitTypes: UnitType[] | undefined;
   if (unitType === "WILAYAH") targetUnitTypes = [UnitType.KANTOR_WILAYAH];
@@ -70,9 +48,8 @@ export async function getRankingCC(params: RankingCCParams) {
   }
   const ccWhereClause = {
     ...whereClause,
-    tanggalKegiatan: { gte: startDate, lte: endDate },
     ...(eligibleCreatedByIds
-      ? { createdById: { in: eligibleCreatedByIds } } // ✅ filter skalar, bukan relasi
+      ? { createdById: { in: eligibleCreatedByIds } }
       : {}),
   };
 

@@ -3,19 +3,11 @@ import { Prisma } from "@generated/prisma";
 
 export async function getDistribusi(
   whereClause: Prisma.ActivityReportWhereInput,
-  startMonth: number,
-  endMonth: number,
-  year: number,
 ) {
-  const startDate = new Date(year, startMonth, 1);
-  const endDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
-
   const raw = await prisma.activityReport.groupBy({
     by: ["programId"],
     where: {
-      ...whereClause,
-      programId: { not: null },
-      tanggalKegiatan: { gte: startDate, lte: endDate },
+      AND: [whereClause, { programId: { not: null } }],
     },
     _count: { id: true },
   });

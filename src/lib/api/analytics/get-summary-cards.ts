@@ -2,15 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { AnalyticsScope } from "./types";
 
 export async function getSummaryCards(scope: AnalyticsScope) {
-  const { whereClause, year, startMonth, endMonth } = scope;
-
-  const summaryStartDate = new Date(year, startMonth, 1);
-  const summaryEndDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
-
-  const summaryWhereClause = {
-    ...whereClause,
-    tanggalKegiatan: { gte: summaryStartDate, lte: summaryEndDate },
-  };
+  const { whereClause } = scope;
+  const summaryWhereClause = whereClause;
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

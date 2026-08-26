@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { RankingParams } from "./types";
 import { getApprovalStatusText } from "../constants";
+import { RankingParams } from "./types";
 
 const RANKING_PAGE_SIZE = 10;
 
@@ -14,18 +14,9 @@ export async function getRanking(params: RankingParams) {
     rankingPage,
     rankingUnitId,
     user,
-    year,
-    startMonth = 0,
-    endMonth = 11,
   } = params;
 
-  const startDate = new Date(year, startMonth, 1);
-  const endDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
-
-  const fullWhereClause = {
-    ...whereClause,
-    tanggalKegiatan: { gte: startDate, lte: endDate },
-  };
+  const fullWhereClause = whereClause;
 
   // 6. Ranking wilayah
   let rankingWilayah: {
@@ -180,7 +171,11 @@ export async function getRanking(params: RankingParams) {
       }),
       prisma.activityReport.groupBy({
         by: ["unitId"],
-        where: { ...fullWhereClause, unitId: { not: null }, status: "APPROVED" },
+        where: {
+          ...fullWhereClause,
+          unitId: { not: null },
+          status: "APPROVED",
+        },
         _count: { id: true },
       }),
     ]);

@@ -1,34 +1,119 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
+import {
+  programYearBounds,
+  resolvePicDashboardPeriods,
+  startOfLocalDay,
+} from "@/lib/program-period";
 import { successResponse } from "@/lib/response";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { user } = await requireAuth();
     if (user.role !== "PIC") throw new Error("Akses ditolak. Khusus PIC");
 
-    const now = new Date();
-    const currentTw = Math.ceil((now.getMonth() + 1) / 3);
+    const today = startOfLocalDay(new Date());
+    const requestedYear = Number(request.nextUrl.searchParams.get("year"));
+    const requestedTw = Number(request.nextUrl.searchParams.get("tw"));
 
-    // TW quarter range: TW1=Jan-Mar, TW2=Apr-Jun, TW3=Jul-Sep, TW4=Oct-Dec
-    const twStartMonth = (currentTw - 1) * 3; // 0-indexed
-    const twStart = new Date(now.getFullYear(), twStartMonth, 1);
-    const twEnd = new Date(now.getFullYear(), twStartMonth + 3, 0, 23, 59, 59);
+    // 1. Ambil periode terbuka + aktivitas terakhir
+    const [currentWindowPrograms, recentActivities] = await Promise.all([
+      prisma.programBudaya.findMany({
+        where: {
+          tw: { not: null },
+          startDate: { lte: today },
+          uploadDeadline: { gte: today },
+        },
+        select: {
+          isActive: true,
+          tw: true,
+          startDate: true,
+          endDate: true,
+          uploadDeadline: true,
+        },
+      }),
+      prisma.activityReport.findMany({
+        where: { createdById: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          status: true,
+          tanggalKegiatan: true,
+          createdAt: true,
+          program: { select: { name: true } },
+        },
+      }),
+    ]);
 
-    // Keep month range for personal stats only
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
+    const openPrograms = currentWindowPrograms.filter(
+      (program) => program.isActive,
     );
+    const fallbackProgram =
+      currentWindowPrograms.length === 0
+        ? await prisma.programBudaya.findFirst({
+            where: {
+              tw: { not: null },
+              uploadDeadline: { lt: today },
+            },
+            orderBy: [{ startDate: "desc" }, { updatedAt: "desc" }],
+            select: {
+              tw: true,
+              startDate: true,
+              endDate: true,
+              uploadDeadline: true,
+            },
+          })
+        : null;
 
-    const activePrograms = await prisma.programBudaya.findMany({
-      where: { isActive: true, tw: currentTw },
+    const requested =
+      Number.isInteger(requestedYear) &&
+      requestedYear > 0 &&
+      Number.isInteger(requestedTw) &&
+      requestedTw >= 1 &&
+      requestedTw <= 4
+        ? { year: requestedYear, tw: requestedTw }
+        : undefined;
+
+    // 2. Resolve daftar periode dan periode terpilih
+    const { periods, selectedPeriod } = resolvePicDashboardPeriods({
+      openPrograms,
+      fallbackProgram,
+      hasCurrentWindow: currentWindowPrograms.length > 0,
+      requested,
+      now: today,
+    });
+
+    if (!selectedPeriod) {
+      return NextResponse.json(
+        successResponse(
+          {
+            periods: [],
+            selectedPeriod: null,
+            stats: {
+              target: 0,
+              approved: 0,
+              pending: 0,
+              rejected: 0,
+              compliance: 0,
+            },
+            rank: { position: null, total: 0 },
+            leaderboard: [],
+            periodPrograms: [],
+            recentActivities,
+          },
+          "Belum ada data program budaya",
+        ),
+      );
+    }
+
+    // 3. Ambil seluruh program di periode terpilih
+    const allPeriodPrograms = await prisma.programBudaya.findMany({
+      where: {
+        tw: selectedPeriod.tw,
+        startDate: programYearBounds(selectedPeriod.year),
+      },
       select: {
         id: true,
         name: true,
@@ -37,6 +122,8 @@ export async function GET() {
         frequency: true,
         startDate: true,
         endDate: true,
+        uploadDeadline: true,
+        isActive: true,
         category: {
           select: {
             id: true,
@@ -47,103 +134,95 @@ export async function GET() {
           },
         },
       },
+      orderBy: [{ startDate: "asc" }, { name: "asc" }],
     });
 
-    const twTarget = Math.max(
-      1,
-      activePrograms.reduce((sum, p) => sum + p.frequency, 0),
+    // Carousel HANYA menampilkan program yang aktif
+    const periodPrograms = allPeriodPrograms.filter((p) => p.isActive);
+
+    // Metrik kepatuhan menghitung SEMUA program pada periode tersebut (termasuk yang nonaktif)
+    const programIds = allPeriodPrograms.map((program) => program.id);
+    const target = allPeriodPrograms.reduce(
+      (sum, program) => sum + program.frequency,
+      0,
     );
+    const reportScope = { programId: { in: programIds } };
 
-    const statsRaw = await prisma.activityReport.groupBy({
-      by: ["status"],
-      where: {
-        createdById: user.id,
-        tanggalKegiatan: { gte: twStart, lte: twEnd },
-      },
-      _count: { id: true },
-    });
+    // 4. Hitung stats dan leaderboard
+    const [statsRaw, picApprovedCounts] = await Promise.all([
+      prisma.activityReport.groupBy({
+        by: ["status"],
+        where: { createdById: user.id, ...reportScope },
+        _count: { id: true },
+      }),
+      prisma.activityReport.groupBy({
+        by: ["createdById"],
+        where: {
+          status: "APPROVED",
+          createdById: { not: null },
+          createdBy: { role: "PIC" },
+          ...reportScope,
+        },
+        _count: { id: true },
+      }),
+    ]);
 
-    const getCount = (status: string) =>
-      statsRaw.find((s) => s.status === status)?._count.id || 0;
-    const approved = getCount("APPROVED");
-    // LEBIH DARI > 100 %
-    // const compliance =
-    //   twTarget > 0 ? Number(((approved / twTarget) * 100).toFixed(1)) : 0;
-
-    // fix compliance hanya = 100%
+    const count = (status: "APPROVED" | "PENDING" | "REJECTED") =>
+      statsRaw.find((item) => item.status === status)?._count.id ?? 0;
+    const approved = count("APPROVED");
     const compliance =
-      twTarget > 0
-        ? Number((Math.min(approved / twTarget, 1) * 100).toFixed(1))
+      target > 0
+        ? Number((Math.min(approved / target, 1) * 100).toFixed(1))
         : 0;
 
-    const recentActivities = await prisma.activityReport.findMany({
-      where: { createdById: user.id },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: {
-        id: true,
-        status: true,
-        tanggalKegiatan: true,
-        createdAt: true,
-        program: { select: { name: true } },
-      },
-    });
-
-    const picApprovedCounts = await prisma.activityReport.groupBy({
-      by: ["createdById"],
-      where: {
-        status: "APPROVED",
-        tanggalKegiatan: { gte: twStart, lte: twEnd }, // full TW range
-        createdBy: {
-          role: "PIC",
-        },
-      },
-      _count: { id: true },
-    });
-
-    const picIds = picApprovedCounts.map((p) => p.createdById!);
+    const picIds = picApprovedCounts.flatMap((item) =>
+      item.createdById ? [item.createdById] : [],
+    );
     const picUsers = picIds.length
       ? await prisma.user.findMany({
           where: { id: { in: picIds } },
           select: { id: true, name: true, unit: { select: { name: true } } },
         })
       : [];
+    const userMap = new Map(picUsers.map((item) => [item.id, item]));
 
-    const allPicRanked = picApprovedCounts
-      .map((p) => {
-        const u = picUsers.find((user) => user.id === p.createdById);
+    const allRanked = picApprovedCounts
+      .map((item) => {
+        const pic = userMap.get(item.createdById!);
         return {
-          id: p.createdById!,
-          name: u?.name || "Unknown",
-          kancabName: u?.unit?.name || "Unit",
-          approved: p._count.id,
-          compliance: Number(
-            (Math.min(p._count.id / twTarget, 1) * 100).toFixed(1),
-          ),
-          isMe: p.createdById === user.id,
+          id: item.createdById!,
+          name: pic?.name ?? "Unknown",
+          kancabName: pic?.unit?.name ?? "Unit",
+          approved: item._count.id,
+          compliance:
+            target > 0
+              ? Number((Math.min(item._count.id / target, 1) * 100).toFixed(1))
+              : 0,
+          isMe: item.createdById === user.id,
         };
       })
       .sort((a, b) => b.compliance - a.compliance || b.approved - a.approved);
 
-    const myRankIndex = allPicRanked.findIndex((l) => l.id === user.id);
-    const myRank = myRankIndex >= 0 ? myRankIndex + 1 : null;
-
-    const leaderboard = allPicRanked.slice(0, 5);
+    const myIndex = allRanked.findIndex((item) => item.id === user.id);
 
     return NextResponse.json(
       successResponse(
         {
-          currentTw,
+          periods,
+          selectedPeriod,
           stats: {
-            target: Math.round(twTarget),
+            target,
             approved,
-            pending: getCount("PENDING"),
-            rejected: getCount("REJECTED"),
+            pending: count("PENDING"),
+            rejected: count("REJECTED"),
             compliance,
           },
-          rank: { position: myRank, total: leaderboard.length },
-          leaderboard,
-          activePrograms,
+          rank: {
+            position: myIndex < 0 ? null : myIndex + 1,
+            total: allRanked.length,
+          },
+          leaderboard: allRanked.slice(0, 5),
+          periodPrograms,
           recentActivities,
         },
         "Berhasil",

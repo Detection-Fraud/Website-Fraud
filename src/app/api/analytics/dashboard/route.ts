@@ -4,11 +4,14 @@ import { getRanking } from "@/lib/api/analytics/get-ranking";
 import { getRankingCC } from "@/lib/api/analytics/get-ranking-cc";
 import { getSummaryCards } from "@/lib/api/analytics/get-summary-cards";
 import { getTopUnits } from "@/lib/api/analytics/get-top-units";
+import {
+  isAnalyticsPeriod,
+  resolveProgramPeriod,
+} from "@/lib/api/analytics/resolve-program-period";
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
-import { getMonthRange } from "@/lib/api/constants";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
-import { successResponse } from "@/lib/response";
+import { errorResponse, successResponse } from "@/lib/response";
 import { UnitType } from "@generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -81,18 +84,37 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { startMonth, endMonth } = getMonthRange(periode);
+    const rawPeriod = searchParams.get("periode") || "ALL";
+    if (!isAnalyticsPeriod(rawPeriod)) {
+      return NextResponse.json(errorResponse("Periode tidak valid", 400), {
+        status: 400,
+      });
+    }
+
+    const [periodScope, previousPeriodScope] = await Promise.all([
+      resolveProgramPeriod({ year, period: rawPeriod, programId }),
+      resolveProgramPeriod({ year: year - 1, period: rawPeriod }),
+    ]);
+
+    whereClause.programId = { in: periodScope.programIds };
+    const previousWhereClause = {
+      ...whereClause,
+      programId: { in: previousPeriodScope.programIds },
+    };
+
+    const scope = {
+      whereClause,
+      year,
+      programTarget: periodScope.target,
+    };
 
     const [summary, trends, distribusi, ranking, topUnit, ccRanking] =
       await Promise.all([
-        getSummaryCards({ whereClause, year, startMonth, endMonth }),
-        getMonthlyTrend(whereClause, year),
-        getDistribusi(whereClause, startMonth, endMonth, year),
+        getSummaryCards(scope),
+        getMonthlyTrend(whereClause, previousWhereClause, year),
+        getDistribusi(whereClause),
         getRanking({
-          whereClause,
-          year,
-          startMonth,
-          endMonth,
+          ...scope,
           kanwilId,
           kancabId,
           divisiId,
@@ -101,17 +123,9 @@ export async function GET(request: NextRequest) {
           rankingUnitId,
           user,
         }),
-        getTopUnits({
-          whereClause,
-          year,
-          startMonth,
-          endMonth,
-        }),
+        getTopUnits({ whereClause }),
         getRankingCC({
-          whereClause,
-          year,
-          startMonth,
-          endMonth,
+          ...scope,
           page: rankingCCPage,
           limit: 10,
           kanwilId,
@@ -120,6 +134,7 @@ export async function GET(request: NextRequest) {
           unitType,
         }),
       ]);
+
     return NextResponse.json(
       successResponse(
         {

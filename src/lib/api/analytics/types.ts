@@ -3,8 +3,7 @@ import { Prisma } from "@generated/prisma";
 export interface AnalyticsScope {
   whereClause: Prisma.ActivityReportWhereInput;
   year: number;
-  startMonth: number;
-  endMonth: number;
+  programTarget: number;
 }
 
 export interface RankingParams extends AnalyticsScope {

@@ -1,27 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@generated/prisma";
 
-interface GetTopUnitsParams {
-  whereClause: Prisma.ActivityReportWhereInput;
-  year: number;
-  startMonth: number;
-  endMonth: number;
-}
 export async function getTopUnits({
   whereClause,
-  year,
-  startMonth,
-  endMonth,
-}: GetTopUnitsParams) {
-  const startDate = new Date(year, startMonth, 1);
-  const endDate = new Date(year, endMonth + 1, 0, 23, 59, 59);
-
+}: {
+  whereClause: Prisma.ActivityReportWhereInput;
+}) {
   const topUnitRaw = await prisma.activityReport.groupBy({
     by: ["unitId"],
     where: {
-      ...whereClause,
-      unitId: { not: null },
-      tanggalKegiatan: { gte: startDate, lte: endDate },
+      AND: [whereClause, { unitId: { not: null } }],
     },
     _count: { id: true },
     orderBy: {
