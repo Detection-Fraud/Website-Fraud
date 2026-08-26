@@ -7,9 +7,10 @@ import { useState } from "react";
 interface ProgramPayload {
   name: string;
   frequency: number;
-  tw?: number | null;
+  tw: number;
   startDate: string;
   endDate: string;
+  uploadDeadline: string;
   isActive: boolean;
   categoryId?: string | null;
   description?: string | null;
@@ -19,57 +20,56 @@ interface ProgramPayload {
 export function useProgramMutation() {
   const queryClient = useQueryClient();
   const modalState = useOverlayState();
-
   const modalAddState = useOverlayState();
-
   const [selectedProgram, setSelectedProgram] = useState<ProgramBudaya | null>(
     null,
   );
 
+  const invalidateProgramQueries = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["programs"] }),
+      queryClient.invalidateQueries({ queryKey: ["program-list"] }),
+      queryClient.invalidateQueries({ queryKey: ["categories"] }),
+      queryClient.invalidateQueries({ queryKey: ["program-categories"] }),
+      queryClient.invalidateQueries({ queryKey: ["program-periods"] }),
+      queryClient.invalidateQueries({ queryKey: ["pic-dashboard"] }),
+    ]);
+
   const saveMutation = useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       payload,
       programId,
     }: {
       payload: ProgramPayload;
       programId?: string;
-    }) => {
-      if (programId) {
-        return api.put(`/programs/${programId}`, payload);
-      }
-      return api.post("/programs", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["programs"] });
-      queryClient.invalidateQueries({ queryKey: ["program-list"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      queryClient.invalidateQueries({ queryKey: ["program-categories"] });
+    }) =>
+      programId
+        ? api.put(`/programs/${programId}`, payload)
+        : api.post("/programs", payload),
+    onSuccess: async () => {
+      await invalidateProgramQueries();
       modalAddState.close();
     },
     onError: (error: any) => {
-      const message =
-        error.response?.data?.message ||
-        error?.message ||
-        "Gagal menyimpan program";
-      toast.danger("Gagal Menyimpan", { description: message });
+      toast.danger("Gagal menyimpan", {
+        description:
+          error.response?.data?.message ||
+          error.message ||
+          "Gagal menyimpan program",
+      });
     },
   });
 
   const toggleMutation = useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       programId,
       isActive,
     }: {
       programId: string;
       isActive: boolean;
-    }) => {
-      return api.patch(`/programs/${programId}`, { isActive });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["programs"] });
-      queryClient.invalidateQueries({ queryKey: ["program-list"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      queryClient.invalidateQueries({ queryKey: ["program-categories"] });
+    }) => api.patch(`/programs/${programId}`, { isActive }),
+    onSuccess: async () => {
+      await invalidateProgramQueries();
       modalState.close();
     },
   });
@@ -89,29 +89,24 @@ export function useProgramMutation() {
     modalState.open();
   };
 
-  const handleAddProgram = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const formData = new FormData(e.currentTarget);
+  const handleAddProgram = (formData: FormData) => {
     const payload: ProgramPayload = {
-      name: formData.get("name") as string,
+      name: String(formData.get("name") || ""),
       frequency: Number(formData.get("frequency")),
-      tw: Number(formData.get("tw")) || null,
-      startDate: formData.get("startDate") as string,
-      endDate: formData.get("endDate") as string,
+      tw: Number(formData.get("tw")),
+      startDate: String(formData.get("startDate") || ""),
+      endDate: String(formData.get("endDate") || ""),
+      uploadDeadline: String(formData.get("uploadDeadline") || ""),
       isActive: true,
-      categoryId: (formData.get("categoryId") as string) || null,
-      description: (formData.get("description") as string) || null,
-      bannerUrl: (formData.get("bannerUrl") as string) || null,
+      categoryId: String(formData.get("categoryId") || "") || null,
+      description: String(formData.get("description") || "") || null,
+      bannerUrl: String(formData.get("bannerUrl") || "") || null,
     };
 
-    saveMutation.mutate({
-      payload,
-      programId: selectedProgram?.id,
-    });
+    saveMutation.mutate({ payload, programId: selectedProgram?.id });
   };
 
-  const handleConfirmToggle = async () => {
+  const handleConfirmToggle = () => {
     if (!selectedProgram) return;
     toggleMutation.mutate({
       programId: selectedProgram.id,
@@ -120,20 +115,15 @@ export function useProgramMutation() {
   };
 
   return {
-    // Modal & Actions
     modalState,
+    modalAddState,
     selectedProgram,
     isActionLoading: saveMutation.isPending || toggleMutation.isPending,
-    handleToggleClick,
-    handleConfirmToggle,
-
-    // Modal add & update
-    modalAddState,
-    handleAddToggleClick,
-    handleAddProgram,
-    handleEditToggleClick,
-
-    // Error dari mutations
     mutationError: saveMutation.error || toggleMutation.error,
+    handleAddProgram,
+    handleAddToggleClick,
+    handleConfirmToggle,
+    handleEditToggleClick,
+    handleToggleClick,
   };
 }

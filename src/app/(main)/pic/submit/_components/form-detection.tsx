@@ -25,6 +25,7 @@ export interface InitialData {
 import { useReportSubmission } from "@/hooks/useReportSubmission";
 import { useMemo } from "react";
 import { FiCheckCircle, FiInfo } from "react-icons/fi";
+import { isProgramUploadOpen } from "@/lib/program-period";
 
 interface PropTypes {
   programs: ProgramBudaya[];
@@ -68,18 +69,9 @@ export default function FormDetection({
   const safePrograms = Array.isArray(programs) ? programs : [];
 
   const availablePrograms = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     return safePrograms.filter((program) => {
-      // Filter out if program is disabled/inactive (except when editing existing report)
-      if (!program.isActive && initialData?.programId !== program.id)
-        return false;
-      // Keep if it's the currently edited program
       if (initialData?.programId === program.id) return true;
-      // Filter out if end date has passed
-      const endDate = new Date(program.endDate);
-      endDate.setHours(0, 0, 0, 0);
-      return today <= endDate;
+      return isProgramUploadOpen(program);
     });
   }, [safePrograms, initialData?.programId]);
 

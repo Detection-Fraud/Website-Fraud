@@ -1,3 +1,4 @@
+import { isProgramUploadOpen } from "@/lib/program-period";
 import { InitialData, ReportFormData } from "@/types/report.types";
 import { ProgramBudaya } from "@generated/prisma";
 import type { Key } from "@heroui/react";
@@ -23,8 +24,6 @@ export function useFormDetectionLogic({
 
   const programsInCategory = useMemo(() => {
     if (!selectedCategoryId) return [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
     const safePrograms = Array.isArray(programs) ? programs : [];
     return safePrograms.filter((program: any) => {
@@ -32,10 +31,7 @@ export function useFormDetectionLogic({
 
       if (initialData?.programId === program.id) return true;
 
-      // Filter jika program sudah lewat endDate
-      const endDate = new Date(program.endDate);
-      endDate.setHours(0, 0, 0, 0);
-      return today <= endDate;
+      return isProgramUploadOpen(program);
     });
   }, [selectedCategoryId, programs, initialData]);
 

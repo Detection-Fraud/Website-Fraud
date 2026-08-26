@@ -2,6 +2,10 @@ import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
+import {
+  isActivityDateInsideProgram,
+  isProgramUploadOpen,
+} from "@/lib/program-period";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
 import { createReportSchema } from "@/schemas/report.schema";
 import { UploadedPhoto } from "@/types/photo.types";
@@ -188,32 +192,22 @@ export async function POST(request: Request) {
     });
 
     if (!programData) {
-      return NextResponse.json(errorResponse("Program tidak ditemukan", 400), {
-        status: 400,
-      });
+      return NextResponse.json(
+        errorResponse("Program tidak ditemukan", 404),
+        { status: 404 },
+      );
     }
 
-    const inputDate = new Date(tanggalKegiatan);
-    const startDate = new Date(programData.startDate);
-    const endDate = new Date(programData.endDate);
-
-    inputDate.setHours(0, 0, 0, 0);
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (today > endDate) {
+    if (!isProgramUploadOpen(programData)) {
       return NextResponse.json(
-        errorResponse("Tanggal kegiatan sudah berakhir", 403),
+        errorResponse("Jendela upload program sedang tertutup", 403),
         { status: 403 },
       );
     }
 
-    if (inputDate < startDate || inputDate > endDate) {
+    if (!isActivityDateInsideProgram(tanggalKegiatan, programData)) {
       return NextResponse.json(
-        errorResponse("Tanggal kegiatan diluar periode program", 400),
+        errorResponse("Tanggal kegiatan di luar periode program", 400),
         { status: 400 },
       );
     }

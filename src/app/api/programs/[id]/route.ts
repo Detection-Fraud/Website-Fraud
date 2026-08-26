@@ -2,7 +2,7 @@ import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import {
-  createProgramSchema,
+  toggleProgramSchema,
   updateProgramSchema,
 } from "@/schemas/program.schema";
 import { NextResponse } from "next/server";
@@ -17,7 +17,7 @@ export async function PATCH(
     await requireAdmin();
 
     const body = await req.json();
-    const parsedData = updateProgramSchema.safeParse(body);
+    const parsedData = toggleProgramSchema.safeParse(body);
 
     if (!parsedData.success) {
       return NextResponse.json(
@@ -60,7 +60,7 @@ export async function PUT(
     await requireAdmin();
 
     const body = await req.json();
-    const parsedData = createProgramSchema.safeParse(body);
+    const parsedData = updateProgramSchema.safeParse(body);
 
     if (!parsedData.success) {
       return NextResponse.json(
@@ -79,15 +79,29 @@ export async function PUT(
       startDate,
       tw,
       endDate,
+      uploadDeadline,
       categoryId,
       description,
       bannerUrl,
     } = parsedData.data;
 
-    if (new Date(endDate) < new Date(startDate)) {
+    const conflictCount = await prisma.activityReport.count({
+      where: {
+        programId: id,
+        OR: [
+          { tanggalKegiatan: { lt: startDate } },
+          { tanggalKegiatan: { gt: endDate } },
+        ],
+      },
+    });
+
+    if (conflictCount > 0) {
       return NextResponse.json(
-        errorResponse("Tanggal selesai harus setelah tanggal mulai", 400),
-        { status: 400 },
+        errorResponse(
+          `Rentang baru bertabrakan dengan ${conflictCount} laporan lama`,
+          409,
+        ),
+        { status: 409 },
       );
     }
 
@@ -116,8 +130,9 @@ export async function PUT(
         name,
         frequency,
         tw: tw ?? null,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate,
+        endDate,
+        uploadDeadline,
         categoryId: categoryId || null,
         description: description || null,
         bannerUrl: bannerUrl || null,

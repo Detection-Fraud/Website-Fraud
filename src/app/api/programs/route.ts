@@ -126,19 +126,11 @@ export async function POST(req: Request) {
       tw,
       startDate,
       endDate,
+      uploadDeadline,
       categoryId,
       description,
       bannerUrl,
     } = parsedData.data;
-
-    if (new Date(endDate) < new Date(startDate)) {
-      return NextResponse.json(
-        errorResponse("Tanggal selesai harus setelah tanggal mulai", 400),
-        {
-          status: 400,
-        },
-      );
-    }
 
     if (categoryId) {
       const category = await prisma.programCategory.findUnique({
@@ -164,8 +156,9 @@ export async function POST(req: Request) {
         name,
         frequency,
         tw: tw ?? null,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate,
+        endDate,
+        uploadDeadline,
         isActive: true,
         categoryId: categoryId || null,
         description: description || null,

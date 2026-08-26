@@ -48,21 +48,21 @@ enum UnitType {
 
 // NEW MODEL UNIT
 model Unit {
-  id String @id @default(uuid())
+  id   String   @id @default(uuid())
   name String
   type UnitType
 
-  kodeDolog String
+  kodeDolog    String
   kodeSubdolog String
-  kodeOrg String
-  kodeDivisi String?
+  kodeOrg      String
+  kodeDivisi   String?
 
-  parentId     String?
-  parent       Unit?    @relation("UnitHierarchy", fields: [parentId], references: [id])
-  children     Unit[]   @relation("UnitHierarchy")
+  parentId String?
+  parent   Unit?   @relation("UnitHierarchy", fields: [parentId], references: [id])
+  children Unit[]  @relation("UnitHierarchy")
 
-  users User[]
-  activityReport ActivityReport[]
+  users             User[]
+  activityReport    ActivityReport[]
   participationData ParticipationData[]
 
   createdAt DateTime @default(now())
@@ -74,24 +74,24 @@ model Unit {
 }
 
 model User {
-  id String @id @default(uuid())
+  id       String  @id @default(uuid())
   username String? @unique
   password String?
-  
-  authProvider String @default("LOCAL")
-  samlNameId String? @unique
+
+  authProvider String  @default("LOCAL")
+  samlNameId   String? @unique
 
   name String
-  
-  role Role @default(VIEWER)
+
+  role     Role    @default(VIEWER)
   isActive Boolean @default(true)
 
   unitId String?
-  unit Unit? @relation(fields: [unitId], references: [id])
+  unit   Unit?   @relation(fields: [unitId], references: [id])
 
   passwordChangedAt DateTime? @default(now())
 
-  createdReports ActivityReport[] @relation("CreatedReports")
+  createdReports         ActivityReport[]    @relation("CreatedReports")
   importedParticipations ParticipationData[]
 
   createdAt DateTime @default(now())
@@ -104,16 +104,15 @@ model User {
 }
 
 model ProgramCategory {
-  id String @id @default(uuid())
-  name String @unique
+  id    String  @id @default(uuid())
+  name  String  @unique
   color String?
 
-  bannerUrl String?
-  targetUnit ProgramUnit @default(KEGIATAN)
-  defaultFrequency Int @default(1)
+  bannerUrl        String?
+  targetUnit       ProgramUnit @default(KEGIATAN)
+  defaultFrequency Int         @default(1)
 
-  
-  programs ProgramBudaya[]
+  programs          ProgramBudaya[]
   participationData ParticipationData[]
 
   createdAt DateTime @default(now())
@@ -127,14 +126,15 @@ model ProgramBudaya {
 
   bannerUrl String?
 
-  frequency Int @default(1)
-  tw Int?
-  startDate DateTime
-  endDate DateTime
-  isActive Boolean @default(true)
+  frequency      Int      @default(1)
+  tw             Int?
+  startDate      DateTime
+  endDate        DateTime
+  uploadDeadline DateTime
+  isActive       Boolean  @default(true)
 
-  categoryId String?
-  category ProgramCategory? @relation(fields: [categoryId], references: [id])
+  categoryId  String?
+  category    ProgramCategory? @relation(fields: [categoryId], references: [id])
   description String?
 
   createdAt DateTime @default(now())
@@ -145,21 +145,21 @@ model ProgramBudaya {
   @@index([isActive])
   @@index([categoryId])
   @@index([tw])
-  @@index([startDate, endDate])
+  @@index([startDate, endDate, uploadDeadline])
 }
 
 model ParticipationData {
-  id String @id @default(uuid())
-  unitId String
-  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  categoryId String
-  category ProgramCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  tw Int 
-  year Int
-  percentage Int
-  importedAt DateTime @default(now())
+  id           String          @id @default(uuid())
+  unitId       String
+  unit         Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  categoryId   String
+  category     ProgramCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tw           Int
+  year         Int
+  percentage   Int
+  importedAt   DateTime        @default(now())
   importedById String?
-  importedBy User? @relation(fields: [importedById], references: [id], onDelete: Cascade)
+  importedBy   User?           @relation(fields: [importedById], references: [id], onDelete: Cascade)
 
   @@unique([unitId, categoryId, tw, year])
   @@index([categoryId])
@@ -171,24 +171,22 @@ model ActivityReport {
   id String @id @default(uuid())
 
   unitId String?
-  unit Unit? @relation(fields: [unitId], references: [id])
+  unit   Unit?   @relation(fields: [unitId], references: [id])
 
   createdById String?
-  createdBy User? @relation("CreatedReports", fields: [createdById], references: [id])
+  createdBy   User?   @relation("CreatedReports", fields: [createdById], references: [id])
 
   programId String?
-  program ProgramBudaya? @relation(fields: [programId], references: [id])
+  program   ProgramBudaya? @relation(fields: [programId], references: [id])
 
   activityName String
-  
+
   tanggalKegiatan DateTime
 
-  lokasi String
+  lokasi      String
   description String
 
   status ReportStatus @default(PENDING)
-
-
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -206,18 +204,17 @@ model ActivityReport {
   @@index([tanggalKegiatan])
   @@index([status, unitId])
   @@index([unitId, programId, tanggalKegiatan])
-  
 }
 
 model ActivityLog {
-  id String @id @default(uuid())
+  id       String         @id @default(uuid())
   reportId String
-  report ActivityReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  report   ActivityReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   action ActivityAction
-  notes String?
+  notes  String?
 
-  actorId String?
+  actorId   String?
   actorName String?
   actorRole String?
 
@@ -225,32 +222,30 @@ model ActivityLog {
 
   @@index([reportId])
 }
+
 model ActivityPhoto {
   id Int @id @default(autoincrement())
 
   reportId String
-  report ActivityReport @relation(fields: [reportId], references: [id])
+  report   ActivityReport @relation(fields: [reportId], references: [id])
 
   originalName String
 
-  imageUrl  String
-  publicId  String? // Cloudinary public_id untuk keperluan delete
+  imageUrl String
+  publicId String? // Cloudinary public_id untuk keperluan delete
 
   @@index([reportId])
 }
 
 model LoginBanner {
-  id String @id @default(uuid())
-  imageUrl String
-  name String
-  role String
-  unit String
-  period String
-  order Int @default(0)
-  isActive Boolean @default(true)
+  id        String   @id @default(uuid())
+  imageUrl  String
+  name      String
+  role      String
+  unit      String
+  period    String
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-
-
