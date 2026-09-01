@@ -23,9 +23,9 @@ export interface InitialData {
 }
 
 import { useReportSubmission } from "@/hooks/useReportSubmission";
+import { isProgramUploadOpen } from "@/lib/program-period";
 import { useMemo } from "react";
 import { FiCheckCircle, FiInfo } from "react-icons/fi";
-import { isProgramUploadOpen } from "@/lib/program-period";
 
 interface PropTypes {
   programs: ProgramBudaya[];
@@ -60,6 +60,7 @@ export default function FormDetection({
     minDate,
     maxDate,
     isDateDisabled,
+    isNoAiMode,
   } = useFormDetectionLogic({
     initialData,
     tanganiSubmitFinal,
@@ -287,32 +288,47 @@ export default function FormDetection({
           {/* AREA TOMBOL */}
           <div className="mt-2 grid grid-cols-2 gap-3 w-full">
             {/* Tombol Check AI */}
-            <Button
-              type="button"
-              onPress={handleCheckFraud}
-              variant="primary"
-              isDisabled={
-                !adaGambarIdle || adaGambarLoading || totalGambar === 0
-              }
-              className="w-full font-semibold"
-            >
-              Cek AI
-            </Button>
+            {!isNoAiMode ? (
+              <>
+                <Button
+                  type="button"
+                  onPress={handleCheckFraud}
+                  variant="primary"
+                  isDisabled={
+                    !adaGambarIdle || adaGambarLoading || totalGambar === 0
+                  }
+                  className="w-full font-semibold"
+                >
+                  Cek AI
+                </Button>
 
-            {/* Tombol Submit Final */}
-            <Button
-              type="submit" // Akan memicu handleSubmit() di tag <Form> atas
-              variant={semuaLulus ? "primary" : "secondary"}
-              isDisabled={
-                !semuaLulus ||
-                adaGambarFraud ||
-                adaGambarLoading ||
-                totalGambar === 0
-              }
-              className="w-full font-semibold shadow-sm"
-            >
-              Submit
-            </Button>
+                {/* Tombol Submit Final */}
+                <Button
+                  type="submit" // Akan memicu handleSubmit() di tag <Form> atas
+                  variant={semuaLulus ? "primary" : "secondary"}
+                  isDisabled={
+                    !semuaLulus ||
+                    adaGambarFraud ||
+                    adaGambarLoading ||
+                    totalGambar === 0
+                  }
+                  className="w-full font-semibold shadow-sm"
+                >
+                  Submit
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="submit"
+                variant="primary"
+                isDisabled={
+                  totalGambar < 1 || totalGambar > 2 || isDateDisabled
+                }
+                className="col-span-2 w-full font-semibold shadow-sm"
+              >
+                Kirim Bukti Foto (Siap diunggah)
+              </Button>
+            )}
           </div>
         </Form>
       </Card.Content>

@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { CategoryCapabilities } from "@/lib/program-capabilities";
 import { ActivityReportItem, SummaryStats } from "@/types/report.types";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -27,6 +28,7 @@ export type ReportScope = (typeof REPORT_SCOPES)[number];
 
 interface UseReportListOptions {
   defaultStatus?: ReportStatusFilter;
+  purpose?: "EVIDENCE" | "ALL";
 }
 
 export interface PaginationInfo {
@@ -86,6 +88,7 @@ export function getCategoryUpdates(categoryId: string) {
 
 export function useReportList({
   defaultStatus = "ALL",
+  purpose = "ALL",
 }: UseReportListOptions = {}) {
   const {
     updateParams,
@@ -114,7 +117,10 @@ export function useReportList({
   });
 
   const wilayahMaster = useWilayahFilter();
-  const { categories: categoryList } = useCategoryList("KEGIATAN");
+  const { categories: allCategoryList } = useCategoryList();
+  const categoryList = allCategoryList.filter(
+    (category: CategoryCapabilities) => category.evidenceMode !== "NONE",
+  );
 
   const kancabList = useMemo(() => {
     if (kanwilId === "ALL") return [];
@@ -129,6 +135,7 @@ export function useReportList({
     limit,
     search,
     status: statusFilter,
+    purpose,
     categoryId: categoryFilter !== "ALL" ? categoryFilter : undefined,
     programId: programFilter !== "ALL" ? programFilter : undefined,
     kanwilId,

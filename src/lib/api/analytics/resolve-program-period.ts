@@ -34,6 +34,7 @@ export async function resolveProgramPeriod(input: {
     where: {
       startDate: programYearBounds(input.year),
       tw: { in: twValues },
+      category: { targetUnit: "KEGIATAN" },
       ...(input.programId ? { id: input.programId } : {}),
     },
     select: {

@@ -2,14 +2,15 @@
 
 import CardCompliance from "@/components/compliance/CardCompliance";
 import FilterSection from "@/components/compliance/FilterSection";
+import ParticipationReportSection from "@/components/compliance/ParticipationReportSection";
+import RankingPartisipasiSection from "@/components/compliance/RankingPartisipasiSection";
 import TableCompliance from "@/components/compliance/TableCompliance";
 import TableIndicators from "@/components/compliance/TableIndicators";
 import AppBar from "@/components/layout/Appbar";
-import RankingPartisipasiSection from "@/components/compliance/RankingPartisipasiSection";
 import { useComplianceReport } from "@/hooks/useComplianceReport";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Tabs } from "@heroui/react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export default function ComplianceReportView() {
   const {
@@ -30,7 +31,10 @@ export default function ComplianceReportView() {
     handleYearChange,
   } = useComplianceReport();
 
-  const filters = { kanwilId, kancabId, divisiId, programId, year };
+  const filters = useMemo(
+    () => ({ kanwilId, kancabId, divisiId, programId, year }),
+    [kanwilId, kancabId, divisiId, programId, year],
+  );
 
   const { user } = useCurrentUser();
   let defaultTab = "NASIONAL";
@@ -173,9 +177,30 @@ export default function ComplianceReportView() {
           <Tabs.Panel id="KEGIATAN">{renderKegiatanContent()}</Tabs.Panel>
 
           <Tabs.Panel id="PARTISIPASI">
-            <div className="pt-4">
-              <RankingPartisipasiSection />
-            </div>
+            <Tabs defaultSelectedKey="VALUE_ONLY">
+              <Tabs.ListContainer>
+                <Tabs.List aria-label="Jenis laporan partisipasi">
+                  <Tabs.Tab id="VALUE_ONLY">
+                    Value only
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                  <Tabs.Tab id="WITH_EVIDENCE">
+                    Dengan evidence
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                </Tabs.List>
+              </Tabs.ListContainer>
+              <Tabs.Panel id="VALUE_ONLY">
+                <div className="pt-4">
+                  <RankingPartisipasiSection />
+                </div>
+              </Tabs.Panel>
+              <Tabs.Panel id="WITH_EVIDENCE">
+                <div className="pt-4">
+                  <ParticipationReportSection />
+                </div>
+              </Tabs.Panel>
+            </Tabs>
           </Tabs.Panel>
         </Tabs>
       ) : (

@@ -107,7 +107,7 @@ export async function getRankingCC(params: RankingCCParams) {
       const submitted = item._count.id;
       const approved = approvedMap.get(item.createdById!) ?? 0;
       const compliancePercent = Number(
-        (Math.min(approved / effectiveTarget, 1) * 100).toFixed(1),
+        (Math.min(approved / effectiveTarget, 1.2) * 100).toFixed(1),
       );
 
       return {

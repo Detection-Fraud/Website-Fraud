@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
     const year = parseInt(
       searchParams.get("year") || String(new Date().getFullYear()),
     );
-    const periode = searchParams.get("periode") || "ALL";
     const unitType = searchParams.get("unitType") || "ALL";
     const kanwilId = searchParams.get("kanwilId") || undefined;
     const kancabId = searchParams.get("kancabId") || undefined;

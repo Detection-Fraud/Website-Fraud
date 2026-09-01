@@ -1,20 +1,18 @@
 "use client";
 
+import AppBar from "@/components/layout/Appbar";
+import { useProgramList } from "@/hooks/useProgramList";
 import { useReportStore } from "@/store/useReportStore";
 import { Card } from "@heroui/react";
 import { useEffect } from "react";
-
 import { CiImageOn } from "react-icons/ci";
-
-import AppBar from "@/components/layout/Appbar";
-import { useProgramList } from "@/hooks/useProgramList";
-import GridPreview from "./gridPreview";
-import FormDetection from "./form-detection";
 import DetectionDropzone from "./DetectionDropzone";
+import FormDetection from "./form-detection";
+import GridPreview from "./gridPreview";
 
 export default function DetectionPage() {
   const { resetStore } = useReportStore();
-  const { programs } = useProgramList();
+  const { programs } = useProgramList({ purpose: "EVIDENCE" });
 
   useEffect(() => {
     return () => resetStore();
@@ -22,45 +20,42 @@ export default function DetectionPage() {
 
   return (
     <div className="w-full space-y-6">
-      {/* HEADER HALAMAN */}
       <AppBar
-        title="Upload Foto Kegiatan"
-        description="Sistem dilengkapi dengan AI Pendeteksi Duplikat (Fraud). Upload maksimal 10 foto dokumentasi."
+        title="Kirim Bukti Kegiatan"
+        description="Unggah 1 hingga 2 foto sebagai bukti kegiatan budaya unit kerja Anda."
         showAddButton={false}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 w-full max-w-5xl mx-auto gap-4 lg:gap-6 px-4 items-start">
-        {/* KOLOM KIRI (Besar): DROPZONE & PREVIEW */}
-        <Card className="w-full p-6 lg:col-span-2 shadow-sm" variant="default">
-          <Card.Content>
-            <h2 className="text-lg mb-4 font-semibold text-gray-800">
-              Bukti Foto Kegiatan
-            </h2>
-            <DetectionDropzone />
-            <GridPreview />
-          </Card.Content>
-        </Card>
-
-        {/* KOLOM KANAN (Kecil): FORM TEKS & TOMBOL */}
-        <div className="lg:col-span-1 flex flex-col gap-6 sticky top-6 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 w-full max-w-6xl mx-auto gap-6 px-4 items-start">
+        <div className="lg:col-span-5 flex flex-col gap-6">
           <FormDetection programs={programs} />
+        </div>
+
+        <div className="lg:col-span-7 flex flex-col gap-6">
+          <Card className="w-full p-6 shadow-sm" variant="default">
+            <Card.Content>
+              <h2 className="text-lg mb-4 font-semibold text-gray-800">
+                Bukti Foto
+              </h2>
+              <DetectionDropzone />
+              <GridPreview />
+            </Card.Content>
+          </Card>
 
           <Card className="bg-blue-50 border border-blue-200 rounded-xl p-4">
             <div className="flex flex-row items-center justify-start gap-2">
-              <div>
-                <CiImageOn className="text-lg text-blue-600" />
-              </div>
+              <CiImageOn className="text-lg text-blue-600" />
               <Card.Header>
                 <Card.Title className="text-sm font-medium text-blue-900">
-                  Catatan Penting :{" "}
+                  Petunjuk Pengunggahan:
                 </Card.Title>
               </Card.Header>
             </div>
             <Card.Content className="px-6">
-              <ul className="space-y-2 text-sm text-blue-800 list-disc">
-                <li>Maksimal 2 foto per upload</li>
-                <li>Foto akan dicek otomatis oleh AI</li>
-                <li>Foto fraud harus dihapus/diganti</li>
+              <ul className="space-y-1 text-xs text-blue-800 list-disc">
+                <li>Wajib mengunggah minimal 1 dan maksimal 2 foto.</li>
+                <li>Foto dikirim sebagai bukti untuk pemeriksaan Admin.</li>
+                <li>Pastikan foto jelas dan sesuai kegiatan yang dilaporkan.</li>
               </ul>
             </Card.Content>
           </Card>

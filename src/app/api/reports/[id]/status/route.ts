@@ -1,5 +1,6 @@
-import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
+import { ApiError, handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { usesDirectAdminScore } from "@/lib/program-capabilities";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
 import { reviewReportSchema } from "@/schemas/report.schema";
 import { NextRequest, NextResponse } from "next/server";
@@ -11,11 +12,8 @@ export async function PATCH(
 ) {
   try {
     const session = await requireAdmin();
-
     const { id } = await params;
-    const body = await req.json();
-
-    const parsedData = reviewReportSchema.safeParse(body);
+    const parsedData = reviewReportSchema.safeParse(await req.json());
 
     if (!parsedData.success) {
       const errorMessage = formatZodError(parsedData.error);
@@ -30,46 +28,69 @@ export async function PATCH(
     }
 
     const { status, notes } = parsedData.data;
+    const reviewNotes = status === "REJECTED" ? notes?.trim() ?? null : null;
 
-    const currentReport = await prisma.activityReport.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+    const report = await prisma.$transaction(async (tx) => {
+      const transition = await tx.activityReport.updateMany({
+        where: { id, status: "PENDING" },
+        data: { status, notes: reviewNotes },
+      });
 
-    if (!currentReport) {
-      return NextResponse.json(errorResponse("Laporan tidak ditemukan", 404));
-    }
+      if (transition.count !== 1) {
+        throw new ApiError(
+          "Laporan tidak ditemukan atau statusnya sudah berubah",
+          409,
+        );
+      }
 
-    if (currentReport.status !== "PENDING") {
-      return NextResponse.json(
-        errorResponse(
-          "Hanya laporan dengan status PENDING yang dapat diubah",
-          400,
-        ),
-        { status: 400 },
-      );
-    }
-
-    const [updatedReport, log] = await prisma.$transaction([
-      prisma.activityReport.update({
-        where: { id },
-        data: { status, notes: status === "REJECTED" ? notes : null },
-      }),
-      prisma.activityLog.create({
+      await tx.activityLog.create({
         data: {
           reportId: id,
-          action: status === "APPROVED" ? "APPROVED" : "REJECTED",
-          notes: status === "REJECTED" ? notes : null,
-
+          action: status,
+          notes: reviewNotes,
           actorId: session.user.id,
           actorName: session.user.name,
           actorRole: session.user.role,
         },
-      }),
-    ]);
+      });
+
+      const transitionedReport = await tx.activityReport.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+          program: {
+            select: {
+              category: {
+                select: {
+                  targetUnit: true,
+                  evidenceMode: true,
+                  scoreInputMode: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!transitionedReport) {
+        throw new Error("Laporan hasil transisi tidak ditemukan");
+      }
+
+      return transitionedReport;
+    });
+
+    const category = report.program?.category;
+    const nextAction =
+      status === "APPROVED" && category && usesDirectAdminScore(category)
+        ? { type: "ENTER_PARTICIPATION_SCORE" as const, reportId: report.id }
+        : null;
 
     return NextResponse.json(
-      successResponse(updatedReport, "Laporan berhasil diperbarui"),
+      successResponse(
+        { reportId: report.id, status: report.status, nextAction },
+        "Laporan berhasil diperbarui",
+      ),
     );
   } catch (error) {
     return handleApiError(error, "PATCH /api/reports/[id]/status");

@@ -106,6 +106,8 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
 
   // --- Handlers ---
   const handleCheckFraud = async () => {
+    if (imageStore.isNoAiMode) return;
+
     const imageNotCheck = imageStore.images.filter(
       (img) => img.status === "IDLE",
     );

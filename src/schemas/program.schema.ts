@@ -1,10 +1,13 @@
+import { getCapabilityError } from "@/lib/program-capabilities";
 import { z } from "zod";
 
-export const createCategorySchema = z.object({
+const categoryFieldsSchema = z.object({
   name: z.string().min(2, "Nama kategori minimal 2 karakter"),
   color: z.string().optional().nullable(),
   bannerUrl: z.string().optional().nullable().or(z.literal("")),
-  targetUnit: z.enum(["KEGIATAN", "PARTISIPASI_PERSEN"]).default("KEGIATAN"),
+  targetUnit: z.enum(["KEGIATAN", "PARTISIPASI_PERSEN"]),
+  evidenceMode: z.enum(["NONE", "PHOTO_WITH_AI", "PHOTO_WITHOUT_AI"]),
+  scoreInputMode: z.enum(["NONE", "EXCEL_IMPORT", "DIRECT_ADMIN"]),
   defaultFrequency: z.coerce
     .number()
     .int()
@@ -12,9 +15,36 @@ export const createCategorySchema = z.object({
     .default(1),
 });
 
+export const createCategorySchema = categoryFieldsSchema.superRefine(
+  (data, ctx) => {
+    const message = getCapabilityError(data);
+    if (message) {
+      ctx.addIssue({ code: "custom", path: ["scoreInputMode"], message });
+    }
+  },
+);
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 
-export const updateCategorySchema = createCategorySchema.partial();
+export const updateCategorySchema = categoryFieldsSchema
+  .partial()
+  .superRefine((data, ctx) => {
+    const hasCompleteCapabilityPatch =
+      data.targetUnit !== undefined &&
+      data.evidenceMode !== undefined &&
+      data.scoreInputMode !== undefined;
+
+    if (!hasCompleteCapabilityPatch) return;
+
+    const message = getCapabilityError({
+      targetUnit: data.targetUnit!,
+      evidenceMode: data.evidenceMode!,
+      scoreInputMode: data.scoreInputMode!,
+    });
+
+    if (message) {
+      ctx.addIssue({ code: "custom", path: ["scoreInputMode"], message });
+    }
+  });
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 
 const programFieldsSchema = z.object({
@@ -32,10 +62,18 @@ const programFieldsSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const TW_MONTH_RANGES = {
+  1: [1, 3],
+  2: [4, 6],
+  3: [7, 9],
+  4: [10, 12],
+} as const;
+
 type PeriodInput = Partial<z.infer<typeof programFieldsSchema>>;
 
 function validatePeriod(data: PeriodInput, ctx: z.RefinementCtx) {
-  const { startDate, endDate, uploadDeadline } = data;
+  const { tw, startDate, endDate, uploadDeadline } = data;
+  const twRange = tw && TW_MONTH_RANGES[tw as keyof typeof TW_MONTH_RANGES];
 
   if (startDate && endDate && startDate > endDate) {
     ctx.addIssue({
@@ -55,6 +93,27 @@ function validatePeriod(data: PeriodInput, ctx: z.RefinementCtx) {
       path: ["endDate"],
       message: "Periode kegiatan harus berada dalam satu tahun",
     });
+  }
+
+  if (twRange && startDate && endDate) {
+    const startMonth = startDate.getUTCMonth() + 1;
+    const endMonth = endDate.getUTCMonth() + 1;
+    const [firstMonth, lastMonth] = twRange;
+
+    if (startMonth < firstMonth || startMonth > lastMonth) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["startDate"],
+        message: `Tanggal mulai harus berada dalam rentang bulan TW${tw}`,
+      });
+    }
+    if (endMonth < firstMonth || endMonth > lastMonth) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: `Tanggal selesai harus berada dalam rentang bulan TW${tw}`,
+      });
+    }
   }
 
   if (endDate && uploadDeadline && endDate > uploadDeadline) {

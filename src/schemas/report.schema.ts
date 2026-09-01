@@ -8,12 +8,15 @@ export const createReportSchema = z.object({
   lokasi: z.string().min(3, "Lokasi minimal 3 karakter"),
   description: z.string().min(10, "Deskripsi minimal 10 karakter"),
   programId: z.uuid("Program ID tidak valid"),
-  uploadedPhotos: z.array(
-    z.object({
-      originalName: z.string(),
-      imageUrl: z.string().min(1, "URL foto tidak valid"),
-    }),
-  ),
+  uploadedPhotos: z
+    .array(
+      z.object({
+        originalName: z.string(),
+        imageUrl: z.string().min(1, "URL foto tidak valid"),
+      }),
+    )
+    .min(1, "Minimal 1 foto")
+    .max(2, "Maksimal 2 foto"),
 });
 
 export const reviewReportSchema = z
@@ -55,6 +58,8 @@ export const updateReportSchema = z.object({
         publicId: z.string().optional().nullable(),
       }),
     )
+    .min(1, "Minimal 1 foto")
+    .max(2, "Maksimal 2 foto")
     .optional(),
 });
 export type CreateReportInput = z.infer<typeof createReportSchema>;

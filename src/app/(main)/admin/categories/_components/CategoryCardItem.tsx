@@ -1,7 +1,8 @@
-import { CategoryWithStats } from "@/hooks/useCategoryList";
+import type { CategoryWithStats } from "@/hooks/useCategoryList";
+import { getCategoryCapabilityPreset } from "@/lib/category-capability-presets";
 import { Button, Card, Chip, Tooltip } from "@heroui/react";
 import Image from "next/image";
-import { FiEdit2, FiLayers, FiTarget, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 
 interface CategoryCardItemProps {
   category: CategoryWithStats;
@@ -16,138 +17,171 @@ export default function CategoryCardItem({
   onDelete,
   isDeleting,
 }: CategoryCardItemProps) {
-  const hasPrograms = category.totalProgram > 0;
   const cardColor = category.color || "#3b82f6";
+  const capability = getCategoryCapabilityPreset({
+    targetUnit: category.targetUnit,
+    evidenceMode: category.evidenceMode,
+    scoreInputMode: category.scoreInputMode,
+  });
+  const isCapabilityLocked = category.locks.capability;
+  const isDeleteLocked = category.locks.deletion;
+  const initials = category.name
+    .trim()
+    .split(/\s+/)
+    .map((word) => word[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  const metrics: Array<[string, number]> = [
+    ["Program", category.usage.programCount],
+    ["Program aktif", category.usage.activeProgramCount],
+    ["Laporan", category.usage.reportCount],
+    ["Partisipasi", category.usage.participationCount],
+    ["Riwayat skor", category.usage.historyCount],
+  ];
+
   return (
-    <Card className="border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl overflow-hidden flex flex-col justify-between group bg-white">
-      {/* 1. TOP BANNER COVER HEADER */}
-      <div className="relative h-32 w-full overflow-hidden bg-slate-100">
-        {category.bannerUrl ? (
-          <Image
-            src={category.bannerUrl}
-            alt={category.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            width={800}
-            height={600}
-            unoptimized
-          />
-        ) : (
-          <div
-            className="w-full h-full"
-            style={{
-              background: `linear-gradient(135deg, ${cardColor}dd, ${cardColor}66)`,
-            }}
-          />
-        )}
-
-        {/* Floating Target Unit Chip (Top Right) */}
-        <div className="absolute top-3 right-3">
-          <Chip
-            size="sm"
-            className="bg-white/90 backdrop-blur-md text-slate-800 border border-white/50 shadow-xs font-semibold"
-          >
-            <Chip.Label className="text-[10px] uppercase tracking-wider">
-              {category.targetUnit === "PARTISIPASI_PERSEN"
-                ? "Partisipasi %"
-                : "Kegiatan"}
-            </Chip.Label>
-          </Chip>
-        </div>
-      </div>
-
-      {/* 2. CARD CONTENT BODY */}
-      <Card.Content className="p-5 space-y-4">
-        {/* Title + Luminous Color Dot */}
-        <div className="flex items-center gap-2">
-          <span
-            className="size-3 rounded-full shrink-0 shadow-xs ring-2 ring-white"
-            style={{ backgroundColor: cardColor }}
-          />
-          <h3 className="text-base font-bold text-slate-900 tracking-tight truncate">
-            {category.name}
-          </h3>
-        </div>
-
-        {/* Stats Grid - Vertical Stack */}
-        <div className="grid grid-cols-2 gap-2">
-          {/* Total Program */}
-          <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 space-y-1">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-0">
-              <FiLayers className="size-3 shrink-0 text-slate-400" />
-              <span className="truncate">Total Program</span>
+    <Card className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-none">
+      <Card.Content className="flex flex-1 flex-col gap-5 p-5">
+        <div className="flex items-start gap-3">
+          {category.bannerUrl ? (
+            <Image
+              src={category.bannerUrl}
+              alt={category.name}
+              className="h-14 w-14 shrink-0 rounded-xl border border-slate-200 object-cover"
+              width={56}
+              height={56}
+              unoptimized
+            />
+          ) : (
+            <div
+              aria-hidden="true"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-lg font-bold text-white"
+              style={{ backgroundColor: cardColor }}
+            >
+              {initials}
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-sm font-extrabold text-slate-900">
-                {category.totalProgram}
-              </span>
-              <span className="text-[10px] font-semibold text-emerald-600 whitespace-nowrap">
-                ({category.totalActive} aktif)
-              </span>
-            </div>
-          </div>
-
-          {/* Freq Default */}
-          <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 space-y-1">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-0">
-              <FiTarget className="size-3 shrink-0 text-slate-400" />
-              <span className="truncate">Freq Default</span>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-sm font-extrabold text-slate-900">
-                {category.defaultFrequency}x
-              </span>
-              <span className="text-[10px] font-medium text-slate-500">
-                / TW
-              </span>
-            </div>
-          </div>
-        </div>
-      </Card.Content>
-
-      {/* 3. ACTION FOOTER */}
-      <div className="px-5 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-end gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onPress={() => onEdit(category)}
-          className="h-8 text-xs font-semibold"
-        >
-          <FiEdit2 className="size-3.5 mr-1" /> Edit
-        </Button>
-
-        {hasPrograms ? (
-          <Tooltip delay={0}>
-            <Tooltip.Trigger aria-label="Status hapus kategori">
-              <Button
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col items-start gap-2">
+              <div className="flex min-w-0 items-start gap-2">
+                <span
+                  aria-hidden="true"
+                  className="mt-1.5 size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: cardColor }}
+                />
+                <h3 className="line-clamp-2 text-base font-bold leading-5 tracking-tight text-slate-900">
+                  {category.name}
+                </h3>
+              </div>
+              <Chip
                 size="sm"
+                variant="soft"
+                color="warning"
+                className="max-w-full"
+              >
+                <Chip.Label className="text-xs font-semibold">
+                  {category.targetUnit === "PARTISIPASI_PERSEN"
+                    ? "Partisipasi (%)"
+                    : "Kegiatan"}
+                </Chip.Label>
+              </Chip>
+            </div>
+          </div>
+        </div>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+          {metrics.map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs text-slate-500">{label}</dt>
+              <dd className="mt-0.5 text-base font-semibold tabular-nums text-slate-900">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <div className="space-y-3" aria-label="Kapabilitas kategori">
+          <div className="flex flex-wrap gap-2">
+            <Chip size="sm" variant="soft">
+              <Chip.Label>Bukti: {capability.evidenceLabel}</Chip.Label>
+            </Chip>
+            <Chip size="sm" variant="soft">
+              <Chip.Label>Nilai: {capability.scoreLabel}</Chip.Label>
+            </Chip>
+          </div>
+          <p
+            className={`text-xs font-medium ${isCapabilityLocked ? "text-amber-700" : "text-emerald-700"}`}
+          >
+            {isCapabilityLocked
+              ? "Kapabilitas terkunci karena kategori sudah digunakan."
+              : "Kapabilitas dapat diubah karena kategori belum digunakan."}
+          </p>
+        </div>
+        {capability.showFrequency && (
+          <div
+            aria-label="Frekuensi kategori"
+            className="border-t border-slate-200 pt-3 text-sm text-slate-600"
+          >
+            Frekuensi default:{" "}
+            <span className="font-semibold text-slate-900">
+              {category.defaultFrequency} / TW
+            </span>
+          </div>
+        )}
+        {isDeleteLocked && (
+          <p
+            className="text-xs font-medium text-red-700"
+            aria-label="Alasan penghapusan terkunci"
+          >
+            Penghapusan terkunci karena kategori memiliki data terkait.
+          </p>
+        )}
+      </Card.Content>
+      <Card.Footer className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50/60 p-4 sm:flex-row sm:justify-end">
+        <Button
+          size="md"
+          variant="secondary"
+          onPress={() => onEdit(category)}
+          className="min-h-11 w-full font-semibold sm:w-auto"
+        >
+          <FiEdit2 className="mr-1 size-4" /> Edit
+        </Button>
+        {isDeleteLocked ? (
+          <Tooltip delay={0}>
+            <Tooltip.Trigger
+              aria-label="Status hapus kategori"
+              className="w-full sm:w-auto"
+            >
+              <Button
+                size="md"
                 variant="outline"
                 isDisabled
-                className="h-8 text-xs text-slate-400 border-slate-200 opacity-60 cursor-not-allowed"
+                className="min-h-11 w-full cursor-not-allowed border-slate-200 text-slate-400 opacity-60 sm:w-auto"
               >
-                <FiTrash2 className="size-3.5 mr-1" /> Hapus
+                <FiTrash2 className="mr-1 size-4" /> Hapus
               </Button>
             </Tooltip.Trigger>
             <Tooltip.Content showArrow placement="top">
               <Tooltip.Arrow />
               <p>
-                Kategori tidak dapat dihapus karena masih memiliki program
-                terkait
+                Penghapusan tidak tersedia karena kategori memiliki program,
+                laporan, data partisipasi, atau riwayat skor terkait.
               </p>
             </Tooltip.Content>
           </Tooltip>
         ) : (
           <Button
-            size="sm"
-            variant="outline"
+            size="md"
+            variant="danger"
             onPress={() => onDelete(category.id)}
             isDisabled={isDeleting}
-            className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50"
+            isPending={isDeleting}
+            className="min-h-11 w-full font-semibold sm:w-auto"
           >
-            <FiTrash2 className="size-3.5 mr-1" />{" "}
-            {isDeleting ? "..." : "Hapus"}
+            <FiTrash2 className="mr-1 size-4" />
+            {isDeleting ? "Menghapus..." : "Hapus"}
           </Button>
         )}
-      </div>
+      </Card.Footer>
     </Card>
   );
 }

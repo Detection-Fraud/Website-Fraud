@@ -1,13 +1,18 @@
 import { isProgramUploadOpen } from "@/lib/program-period";
+import { useReportStore } from "@/store/useReportStore";
 import { InitialData, ReportFormData } from "@/types/report.types";
-import { ProgramBudaya } from "@generated/prisma";
+import { ProgramBudaya, ProgramCategory } from "@generated/prisma";
 import type { Key } from "@heroui/react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { useEffect, useMemo, useState } from "react";
 
+export type ProgramWithCategory = ProgramBudaya & {
+  category?: ProgramCategory | null;
+};
+
 interface UseFormDetectionLogicProps {
   initialData?: InitialData;
-  programs: ProgramBudaya[];
+  programs: ProgramWithCategory[];
   tanganiSubmitFinal: (formData: ReportFormData) => void;
 }
 
@@ -22,11 +27,20 @@ export function useFormDetectionLogic({
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<Key | null>();
 
+  useEffect(() => {
+    if (!initialData?.programId) return;
+
+    const initialProgram = programs.find(
+      (program) => program.id === initialData.programId,
+    );
+    if (initialProgram) setSelectedCategoryId(initialProgram.categoryId);
+  }, [initialData?.programId, programs]);
+
   const programsInCategory = useMemo(() => {
     if (!selectedCategoryId) return [];
 
     const safePrograms = Array.isArray(programs) ? programs : [];
-    return safePrograms.filter((program: any) => {
+    return safePrograms.filter((program) => {
       if (program.categoryId !== selectedCategoryId) return false;
 
       if (initialData?.programId === program.id) return true;
@@ -52,7 +66,7 @@ export function useFormDetectionLogic({
           .toISOString()
           .split("T")[0];
         return parseDate(dateString);
-      } catch (e) {
+      } catch {
         return null;
       }
     }
@@ -102,6 +116,22 @@ export function useFormDetectionLogic({
     tanganiSubmitFinal(formData);
   };
 
+  const selectedCategory = useMemo(() => {
+    const programList = Array.isArray(programs) ? programs : [];
+    const prog = programList.find((p) => p.id === selectedProgramId);
+    return prog?.category || null;
+  }, [selectedProgramId, programs]);
+
+  const isNoAiMode =
+    selectedCategory?.targetUnit === "PARTISIPASI_PERSEN" &&
+    selectedCategory.evidenceMode === "PHOTO_WITHOUT_AI" &&
+    selectedCategory.scoreInputMode === "DIRECT_ADMIN";
+
+  const setIsNoAiMode = useReportStore((s) => s.setIsNoAiMode);
+  useEffect(() => {
+    setIsNoAiMode(Boolean(isNoAiMode));
+  }, [isNoAiMode, setIsNoAiMode]);
+
   return {
     selectedProgramId,
     setSelectedProgramId,
@@ -115,5 +145,8 @@ export function useFormDetectionLogic({
     minDate,
     maxDate,
     isDateDisabled,
+
+    isNoAiMode,
+    selectedCategory,
   };
 }

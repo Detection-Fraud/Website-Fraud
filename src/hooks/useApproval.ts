@@ -2,42 +2,65 @@ import { api } from "@/lib/api";
 import { StatusType } from "@/types/status.types";
 import { toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { AxiosError } from "axios";
+
+type ReviewStatus = Extract<StatusType, "APPROVED" | "REJECTED">;
+
 interface ApprovalPayload {
   id: string;
-  status: StatusType;
+  status: ReviewStatus;
   notes?: string;
 }
+
+interface ApprovalErrorBody {
+  message?: string;
+}
+
+export interface ApprovalResult {
+  reportId: string;
+  status: ReviewStatus;
+  nextAction: {
+    type: "ENTER_PARTICIPATION_SCORE";
+    reportId: string;
+  } | null;
+}
+
 export function useApproval() {
   const queryClient = useQueryClient();
 
-  const mutation = useMutation({
-    mutationFn: async ({ id, status, notes }: ApprovalPayload) => {
-      const res = await api.patch(`/reports/${id}/status`, { status, notes });
-      return res.data;
+  const mutation = useMutation<
+    ApprovalResult,
+    AxiosError<ApprovalErrorBody>,
+    ApprovalPayload
+  >({
+    mutationFn: async ({ id, status, notes }) => {
+      const response = await api.patch<ApprovalResult>(
+        `/reports/${id}/status`,
+        { status, notes },
+      );
+      return response.data;
     },
-    onSuccess: (data) => {
-      toast.success(data.message || "Status updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    onSuccess: async (_result, { id }) => {
+      toast.success("Status approval berhasil diperbarui");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
+        queryClient.invalidateQueries({ queryKey: ["report-detail", id] }),
+      ]);
     },
     onError: (error) => {
-      if (error instanceof Error) {
-        toast.danger(error.message);
-      } else {
-        toast.danger("Terjadi kesalahan jaringan");
-      }
+      toast.danger(
+        error.response?.data?.message ||
+          error.message ||
+          "Terjadi kesalahan jaringan",
+      );
     },
   });
 
-  const handleApprove = async (id: string) => {
-    return mutation.mutateAsync({
-      id,
-      status: "APPROVED",
-    });
-  };
+  const handleApprove = (id: string) =>
+    mutation.mutateAsync({ id, status: "APPROVED" });
 
-  const handleReject = async (id: string, notes: string) => {
-    return mutation.mutateAsync({ id, status: "REJECTED", notes });
-  };
+  const handleReject = (id: string, notes: string) =>
+    mutation.mutateAsync({ id, status: "REJECTED", notes });
 
   return {
     isLoading: mutation.isPending,

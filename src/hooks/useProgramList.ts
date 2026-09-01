@@ -1,17 +1,27 @@
 import { api } from "@/lib/api";
-import { ProgramBudaya } from "@generated/prisma";
+import { ProgramBudaya, ProgramCategory, ProgramUnit } from "@generated/prisma";
 import { useQuery } from "@tanstack/react-query";
 
+export type ProgramWithCategory = ProgramBudaya & {
+  category?: ProgramCategory | null;
+};
 interface ProgramListPayload {
-  data: ProgramBudaya[];
+  data: ProgramWithCategory[];
 }
+export type ProgramListFilter = {
+  categoryId?: string;
+  purpose?: "EVIDENCE";
+  targetUnit?: ProgramUnit;
+};
 
-export function useProgramList(categoryId?: string) {
+export function useProgramList(filters?: string | ProgramListFilter) {
+  const queryParams =
+    typeof filters === "string" ? { categoryId: filters } : filters || {};
   const { data, isLoading, error } = useQuery<ProgramListPayload>({
-    queryKey: ["program-list", categoryId || "ALL"],
+    queryKey: ["program-list", queryParams],
     queryFn: () => {
-      const params: Record<string, any> = { limit: 100 };
-      if (categoryId && categoryId !== "ALL") params.categoryId = categoryId;
+      const params = { limit: 100, ...queryParams };
+      if (params.categoryId === "ALL") delete params.categoryId;
       return api.get("/programs", { params }).then((res) => res.data);
     },
     staleTime: 30 * 1000,

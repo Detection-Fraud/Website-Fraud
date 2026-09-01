@@ -1,4 +1,4 @@
-import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { handleApiError, requirePic } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import {
   programYearBounds,
@@ -10,20 +10,18 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
-    const { user } = await requireAuth();
-    if (user.role !== "PIC") throw new Error("Akses ditolak. Khusus PIC");
-
+    const { user } = await requirePic();
     const today = startOfLocalDay(new Date());
     const requestedYear = Number(request.nextUrl.searchParams.get("year"));
     const requestedTw = Number(request.nextUrl.searchParams.get("tw"));
 
-    // 1. Ambil periode terbuka + aktivitas terakhir
     const [currentWindowPrograms, recentActivities] = await Promise.all([
       prisma.programBudaya.findMany({
         where: {
           tw: { not: null },
           startDate: { lte: today },
           uploadDeadline: { gte: today },
+          category: { targetUnit: "KEGIATAN" },
         },
         select: {
           isActive: true,
@@ -56,6 +54,7 @@ export async function GET(request: NextRequest) {
             where: {
               tw: { not: null },
               uploadDeadline: { lt: today },
+              category: { targetUnit: "KEGIATAN" },
             },
             orderBy: [{ startDate: "desc" }, { updatedAt: "desc" }],
             select: {
@@ -76,7 +75,6 @@ export async function GET(request: NextRequest) {
         ? { year: requestedYear, tw: requestedTw }
         : undefined;
 
-    // 2. Resolve daftar periode dan periode terpilih
     const { periods, selectedPeriod } = resolvePicDashboardPeriods({
       openPrograms,
       fallbackProgram,
@@ -108,11 +106,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 3. Ambil seluruh program di periode terpilih
     const allPeriodPrograms = await prisma.programBudaya.findMany({
       where: {
         tw: selectedPeriod.tw,
         startDate: programYearBounds(selectedPeriod.year),
+        category: { targetUnit: "KEGIATAN" },
       },
       select: {
         id: true,
@@ -137,10 +135,7 @@ export async function GET(request: NextRequest) {
       orderBy: [{ startDate: "asc" }, { name: "asc" }],
     });
 
-    // Carousel HANYA menampilkan program yang aktif
     const periodPrograms = allPeriodPrograms.filter((p) => p.isActive);
-
-    // Metrik kepatuhan menghitung SEMUA program pada periode tersebut (termasuk yang nonaktif)
     const programIds = allPeriodPrograms.map((program) => program.id);
     const target = allPeriodPrograms.reduce(
       (sum, program) => sum + program.frequency,
@@ -148,7 +143,6 @@ export async function GET(request: NextRequest) {
     );
     const reportScope = { programId: { in: programIds } };
 
-    // 4. Hitung stats dan leaderboard
     const [statsRaw, picApprovedCounts] = await Promise.all([
       prisma.activityReport.groupBy({
         by: ["status"],
@@ -172,7 +166,7 @@ export async function GET(request: NextRequest) {
     const approved = count("APPROVED");
     const compliance =
       target > 0
-        ? Number((Math.min(approved / target, 1) * 100).toFixed(1))
+        ? Number((Math.min(approved / target, 1.2) * 100).toFixed(1))
         : 0;
 
     const picIds = picApprovedCounts.flatMap((item) =>
@@ -196,7 +190,9 @@ export async function GET(request: NextRequest) {
           approved: item._count.id,
           compliance:
             target > 0
-              ? Number((Math.min(item._count.id / target, 1) * 100).toFixed(1))
+              ? Number(
+                  (Math.min(item._count.id / target, 1.2) * 100).toFixed(1),
+                )
               : 0,
           isMe: item.createdById === user.id,
         };

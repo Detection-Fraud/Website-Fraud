@@ -33,6 +33,14 @@ export function ProgramCardItem({
   const isActive = program.isActive;
   const categoryColor = program.category?.color || "#3b82f6";
   const displayBanner = program.bannerUrl || program.category?.bannerUrl;
+  const isDirectAdmin =
+    program.category?.targetUnit === "PARTISIPASI_PERSEN" &&
+    program.category.evidenceMode === "PHOTO_WITHOUT_AI" &&
+    program.category.scoreInputMode === "DIRECT_ADMIN";
+  const isExcelImport =
+    program.category?.targetUnit === "PARTISIPASI_PERSEN" &&
+    program.category.evidenceMode === "NONE" &&
+    program.category.scoreInputMode === "EXCEL_IMPORT";
   const satuan =
     program.category?.targetUnit === "PARTISIPASI_PERSEN"
       ? "Partisipasi (%)"
@@ -114,8 +122,21 @@ export function ProgramCardItem({
               </span>
             </div>
             <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
-              {program.frequency}x{" "}
-              <span className="font-normal text-zinc-400">/ TW</span>
+              {isDirectAdmin ? (
+                <span className="flex flex-col gap-0.5">
+                  <span>Kuota bukti per unit: 1 per triwulan</span>
+                  <span className="font-normal text-zinc-400">
+                    Persentase partisipasi 0-100%
+                  </span>
+                </span>
+              ) : isExcelImport ? (
+                <span>Persentase partisipasi melalui Excel</span>
+              ) : (
+                <>
+                  {program.frequency}x{" "}
+                  <span className="font-normal text-zinc-400">/ TW</span>
+                </>
+              )}
             </span>
           </div>
 

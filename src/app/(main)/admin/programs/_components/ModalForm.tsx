@@ -45,7 +45,7 @@ export default function ModalForm({
   program,
 }: ModalFormProps) {
   const { data: categories = [], isLoading: isLoadingCategories } =
-    useProgramCategoryQuery("KEGIATAN");
+    useProgramCategoryQuery({});
 
   const [selectedTw, setSelectedTw] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<DateValue | null>(null);
@@ -68,13 +68,34 @@ export default function ModalForm({
     setSelectedCategoryId(program?.categoryId ?? null);
   }, [isOpen, program]);
 
+  const evidenceCategories = useMemo(
+    () =>
+      categories.filter(
+        (category: ProgramCategory) => category.evidenceMode !== "NONE",
+      ),
+    [categories],
+  );
+
   const selectedCategory = useMemo(
     () =>
-      categories.find(
+      evidenceCategories.find(
         (category: ProgramCategory) => category.id === selectedCategoryId,
       ),
-    [categories, selectedCategoryId],
+    [evidenceCategories, selectedCategoryId],
   );
+
+  const isDirectAdmin =
+    selectedCategory?.targetUnit === "PARTISIPASI_PERSEN" &&
+    selectedCategory.evidenceMode === "PHOTO_WITHOUT_AI" &&
+    selectedCategory.scoreInputMode === "DIRECT_ADMIN";
+  const isExcelImport =
+    selectedCategory?.targetUnit === "PARTISIPASI_PERSEN" &&
+    selectedCategory.evidenceMode === "NONE" &&
+    selectedCategory.scoreInputMode === "EXCEL_IMPORT";
+
+  useEffect(() => {
+    if (isDirectAdmin) setFrequencyValue("1");
+  }, [isDirectAdmin]);
 
   const periodError = useMemo(() => {
     if (!startDate || !endDate || !uploadDeadline) return null;
@@ -94,11 +115,17 @@ export default function ModalForm({
     const categoryId = key ? String(key) : null;
     setSelectedCategoryId(categoryId);
 
-    if (!program && categoryId) {
-      const category = categories.find(
+    if (categoryId) {
+      const category = evidenceCategories.find(
         (item: ProgramCategory) => item.id === categoryId,
       );
-      if (category?.defaultFrequency != null) {
+      const categoryIsDirectAdmin =
+        category?.targetUnit === "PARTISIPASI_PERSEN" &&
+        category.evidenceMode === "PHOTO_WITHOUT_AI" &&
+        category.scoreInputMode === "DIRECT_ADMIN";
+      if (categoryIsDirectAdmin) {
+        setFrequencyValue("1");
+      } else if (!program && category?.defaultFrequency != null) {
         setFrequencyValue(String(category.defaultFrequency));
       }
     }
@@ -120,76 +147,80 @@ export default function ModalForm({
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onClose}>
-        <Modal.Backdrop variant="blur">
-          <Modal.Container placement="center" scroll="inside" size="lg">
-            <Modal.Dialog className="border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-              <Modal.CloseTrigger />
-              <Modal.Header className="border-b border-slate-100 px-6 py-5 dark:border-zinc-900">
-                <div className="flex items-center gap-3">
-                  <Modal.Icon className="rounded-xl bg-slate-100 p-2.5 text-slate-700 dark:bg-zinc-900 dark:text-zinc-200">
-                    <FiLayers className="size-5" />
-                  </Modal.Icon>
-                  <div>
-                    <Modal.Heading className="text-base font-semibold">
-                      {program ? "Edit Program Budaya" : "Tambah Program Budaya"}
-                    </Modal.Heading>
-                    <Description className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
-                      Atur target, periode kegiatan, dan batas upload laporan.
-                    </Description>
-                  </div>
+      <Modal.Backdrop variant="blur">
+        <Modal.Container placement="center" scroll="inside" size="lg">
+          <Modal.Dialog className="border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+            <Modal.CloseTrigger />
+            <Modal.Header className="border-b border-slate-100 px-6 py-5 dark:border-zinc-900">
+              <div className="flex items-center gap-3">
+                <Modal.Icon className="rounded-xl bg-slate-100 p-2.5 text-slate-700 dark:bg-zinc-900 dark:text-zinc-200">
+                  <FiLayers className="size-5" />
+                </Modal.Icon>
+                <div>
+                  <Modal.Heading className="text-base font-semibold">
+                    {program ? "Edit Program Budaya" : "Tambah Program Budaya"}
+                  </Modal.Heading>
+                  <Description className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
+                    Atur target, periode kegiatan, dan batas upload laporan.
+                  </Description>
                 </div>
-              </Modal.Header>
+              </div>
+            </Modal.Header>
 
-              <Modal.Body className="px-2 py-3">
-                <Surface className="bg-transparent p-0 shadow-none" variant="default">
-                  <Form className="space-y-3" onSubmit={handleSubmit}>
-                    <Fieldset className="space-y-4">
-                      <FieldGroup className="space-y-4">
-                        <TextField
+            <Modal.Body className="px-2 py-3">
+              <Surface
+                className="bg-transparent p-0 shadow-none"
+                variant="default"
+              >
+                <Form className="space-y-3" onSubmit={handleSubmit}>
+                  <Fieldset className="space-y-4">
+                    <FieldGroup className="space-y-4">
+                      <TextField
+                        isRequired
+                        defaultValue={program?.name ?? ""}
+                        name="name"
+                        validate={(value) =>
+                          value.trim().length < 3
+                            ? "Nama program minimal 3 karakter"
+                            : null
+                        }
+                      >
+                        <Label>Nama program</Label>
+                        <Input
+                          className="h-11"
+                          placeholder="Contoh: DONITA TW I 2026"
+                          variant="secondary"
+                        />
+                        <FieldError />
+                      </TextField>
+
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Select
+                          aria-label="Kategori induk"
+                          className="w-full"
                           isRequired
-                          defaultValue={program?.name ?? ""}
-                          name="name"
-                          validate={(value) =>
-                            value.trim().length < 3
-                              ? "Nama program minimal 3 karakter"
-                              : null
+                          onChange={handleCategoryChange}
+                          placeholder={
+                            isLoadingCategories
+                              ? "Memuat kategori..."
+                              : "Pilih kategori"
                           }
+                          value={selectedCategoryId ?? ""}
+                          variant="secondary"
                         >
-                          <Label>Nama program</Label>
-                          <Input
-                            className="h-11"
-                            placeholder="Contoh: DONITA TW I 2026"
-                            variant="secondary"
-                          />
-                          <FieldError />
-                        </TextField>
-
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <Select
-                            aria-label="Kategori induk"
-                            className="w-full"
-                            isRequired
-                            onChange={handleCategoryChange}
-                            placeholder={
-                              isLoadingCategories
-                                ? "Memuat kategori..."
-                                : "Pilih kategori"
-                            }
-                            value={selectedCategoryId ?? ""}
-                            variant="secondary"
-                          >
-                            <Label>
-                              <span className="flex items-center gap-1.5">
-                                <FiFolder className="size-4" /> Kategori induk
-                              </span>
-                            </Label>
-                            <Select.Trigger className="h-11 items-center">
-                              <Select.Value />
-                              <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                              <ListBox>
-                                {categories.map((category: ProgramCategory) => (
+                          <Label>
+                            <span className="flex items-center gap-1.5">
+                              <FiFolder className="size-4" /> Kategori induk
+                            </span>
+                          </Label>
+                          <Select.Trigger className="h-11 items-center">
+                            <Select.Value />
+                            <Select.Indicator />
+                          </Select.Trigger>
+                          <Select.Popover>
+                            <ListBox>
+                              {evidenceCategories.map(
+                                (category: ProgramCategory) => (
                                   <ListBox.Item
                                     id={category.id}
                                     key={category.id}
@@ -198,17 +229,37 @@ export default function ModalForm({
                                     {category.name}
                                     <ListBox.ItemIndicator />
                                   </ListBox.Item>
-                                ))}
-                              </ListBox>
-                            </Select.Popover>
-                            <Description>Induk pilar program budaya.</Description>
-                          </Select>
-                          <input
-                            name="categoryId"
-                            type="hidden"
-                            value={selectedCategoryId ?? ""}
-                          />
+                                ),
+                              )}
+                            </ListBox>
+                          </Select.Popover>
+                          <Description>Induk pilar program budaya.</Description>
+                        </Select>
+                        <input
+                          name="categoryId"
+                          type="hidden"
+                          value={selectedCategoryId ?? ""}
+                        />
 
+                        {isDirectAdmin ? (
+                          <div className="flex flex-col gap-1">
+                            <Label>
+                              <span className="flex items-center gap-1.5">
+                                <FiTarget className="size-4" /> Kuota bukti
+                              </span>
+                            </Label>
+                            <p className="text-sm font-semibold">
+                              Kuota bukti per unit: 1 per triwulan
+                            </p>
+                            <Description>Persentase partisipasi 0-100%</Description>
+                            <input name="frequency" type="hidden" value="1" />
+                          </div>
+                        ) : isExcelImport ? (
+                          <div className="flex flex-col gap-1">
+                            <Label>Sumber nilai</Label>
+                            <Description>Persentase partisipasi dimasukkan melalui Excel.</Description>
+                          </div>
+                        ) : (
                           <TextField
                             isRequired
                             name="frequency"
@@ -220,80 +271,72 @@ export default function ModalForm({
                           >
                             <Label>
                               <span className="flex items-center gap-1.5">
-                                <FiTarget className="size-4" /> Target frekuensi
+                                <FiTarget className="size-4" /> Target frekuensi kegiatan
                               </span>
                             </Label>
-                            <Input
-                              className="h-11"
-                              min={1}
-                              type="number"
-                              variant="secondary"
-                            />
-                            <Description>
-                              {selectedCategory?.defaultFrequency != null
-                                ? `Bawaan kategori: ${selectedCategory.defaultFrequency} laporan per TW.`
-                                : "Jumlah laporan yang ditargetkan per TW."}
-                            </Description>
+                            <Input className="h-11" min={1} type="number" variant="secondary" />
+                            <Description>Jumlah laporan kegiatan yang ditargetkan per TW.</Description>
                             <FieldError />
                           </TextField>
-                        </div>
+                        )}
+                      </div>
 
-                        <ProgramPeriodFields
-                          endDate={endDate}
-                          onEndDateChange={setEndDate}
-                          onStartDateChange={setStartDate}
-                          onTwChange={setSelectedTw}
-                          onUploadDeadlineChange={setUploadDeadline}
-                          periodError={periodError}
-                          selectedTw={selectedTw}
-                          startDate={startDate}
-                          uploadDeadline={uploadDeadline}
-                        />
+                      <ProgramPeriodFields
+                        endDate={endDate}
+                        onEndDateChange={setEndDate}
+                        onStartDateChange={setStartDate}
+                        onTwChange={setSelectedTw}
+                        onUploadDeadlineChange={setUploadDeadline}
+                        periodError={periodError}
+                        selectedTw={selectedTw}
+                        startDate={startDate}
+                        uploadDeadline={uploadDeadline}
+                      />
 
-                        <TextField
-                          defaultValue={program?.description ?? ""}
-                          name="description"
-                        >
-                          <Label>Deskripsi atau catatan program</Label>
-                          <TextArea
-                            placeholder="Catatan tujuan atau mekanisme pelaksanaan program..."
-                            rows={2}
-                            variant="secondary"
-                          />
-                        </TextField>
-
-                        <ProgramBannerField
-                          initialBannerUrl={program?.bannerUrl}
-                          isOpen={isOpen}
-                          onUploadingChange={setIsBannerUploading}
-                        />
-                      </FieldGroup>
-
-                      <Fieldset.Actions className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-zinc-900">
-                        <Button
-                          isDisabled={isLoading}
-                          onPress={onClose}
-                          type="button"
+                      <TextField
+                        defaultValue={program?.description ?? ""}
+                        name="description"
+                      >
+                        <Label>Deskripsi atau catatan program</Label>
+                        <TextArea
+                          placeholder="Catatan tujuan atau mekanisme pelaksanaan program..."
+                          rows={2}
                           variant="secondary"
-                        >
-                          Batal
-                        </Button>
-                        <Button
-                          isDisabled={submitDisabled}
-                          isPending={isLoading}
-                          type="submit"
-                          variant="primary"
-                        >
-                          {program ? "Perbarui program" : "Simpan program"}
-                        </Button>
-                      </Fieldset.Actions>
-                    </Fieldset>
-                  </Form>
-                </Surface>
-              </Modal.Body>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
+                        />
+                      </TextField>
+
+                      <ProgramBannerField
+                        initialBannerUrl={program?.bannerUrl}
+                        isOpen={isOpen}
+                        onUploadingChange={setIsBannerUploading}
+                      />
+                    </FieldGroup>
+
+                    <Fieldset.Actions className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-zinc-900">
+                      <Button
+                        isDisabled={isLoading}
+                        onPress={onClose}
+                        type="button"
+                        variant="secondary"
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        isDisabled={submitDisabled}
+                        isPending={isLoading}
+                        type="submit"
+                        variant="primary"
+                      >
+                        {program ? "Perbarui program" : "Simpan program"}
+                      </Button>
+                    </Fieldset.Actions>
+                  </Fieldset>
+                </Form>
+              </Surface>
+            </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }

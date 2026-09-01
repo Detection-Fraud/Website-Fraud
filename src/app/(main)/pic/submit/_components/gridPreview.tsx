@@ -4,8 +4,13 @@ import { useReportStore } from "@/store/useReportStore";
 import { Card, Button, Chip } from "@heroui/react";
 import { IoMdClose } from "react-icons/io";
 
-export default function GridPreview() {
-  const { images, removeImage } = useReportStore();
+interface GridPreviewProps {
+  isNoAiMode?: boolean;
+}
+
+export default function GridPreview({ isNoAiMode: propIsNoAiMode }: GridPreviewProps) {
+  const { images, removeImage, isNoAiMode: storeIsNoAiMode } = useReportStore();
+  const isNoAiMode = propIsNoAiMode ?? storeIsNoAiMode;
 
   if (images.length === 0) return null;
 
@@ -15,17 +20,19 @@ export default function GridPreview() {
         Preview Gambar ({images.length})
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {images.map((item) => (
           <Card
             key={item.id}
             variant="default"
             className={`w-full overflow-hidden transition-colors duration-300 ${
-              item.status === "FRAUD"
+              !isNoAiMode && item.status === "FRAUD"
                 ? "border-2 border-danger bg-danger-50"
-                : item.status === "LULUS"
+                : !isNoAiMode && item.status === "LULUS"
                   ? "border-2 border-success"
-                  : "border-2 border-transparent"
+                  : isNoAiMode
+                    ? "border-2 border-emerald-500/30"
+                    : "border-2 border-transparent"
             }`}
           >
             <Button
@@ -40,7 +47,7 @@ export default function GridPreview() {
             </Button>
 
             <Card.Content className="p-0 relative">
-              {item.status === "FRAUD" ? (
+              {!isNoAiMode && item.status === "FRAUD" ? (
                 <div className="flex flex-row w-full h-48 bg-gray-100">
                   <div className="w-1/2 relative h-full border-r-2 border-danger border-dashed">
                     <p className="absolute top-1 left-2 z-10 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded">
@@ -71,12 +78,12 @@ export default function GridPreview() {
                 <div className="relative w-full h-48 bg-gray-100 flex justify-center items-center">
                   <img
                     alt="Preview Gambar"
-                    className={`w-full h-full object-cover transition-all duration-300 ${item.status === "LOADING" ? "blur-sm grayscale" : ""}`}
+                    className={`w-full h-full object-cover transition-all duration-300 ${!isNoAiMode && item.status === "LOADING" ? "blur-sm grayscale" : ""}`}
                     src={item.previewUrl}
                   />
 
                   {/* Animasi Loading Spinner di tengah gambar */}
-                  {item.status === "LOADING" && (
+                  {!isNoAiMode && item.status === "LOADING" && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 z-10">
                       <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mb-2"></div>
                       <p className="text-white text-xs font-semibold tracking-wider">
@@ -102,24 +109,28 @@ export default function GridPreview() {
               {/* Status Chip */}
               <Chip
                 size="sm"
-                variant={item.status === "IDLE" ? "primary" : "secondary"}
+                variant={isNoAiMode || item.status === "IDLE" ? "primary" : "secondary"}
                 color={
-                  item.status === "LULUS"
+                  isNoAiMode
                     ? "success"
-                    : item.status === "FRAUD"
-                      ? "danger"
-                      : item.status === "LOADING"
-                        ? "warning"
-                        : "default"
+                    : item.status === "LULUS"
+                      ? "success"
+                      : item.status === "FRAUD"
+                        ? "danger"
+                        : item.status === "LOADING"
+                          ? "warning"
+                          : "default"
                 }
               >
-                {item.status === "IDLE"
-                  ? "Menunggu"
-                  : item.status === "LOADING"
-                    ? "Analisis AI"
-                    : item.status === "LULUS"
-                      ? "Aman"
-                      : "Duplikat!"}
+                {isNoAiMode
+                  ? "Siap diunggah"
+                  : item.status === "IDLE"
+                    ? "Menunggu Cek"
+                    : item.status === "LOADING"
+                      ? "Analisis AI"
+                      : item.status === "LULUS"
+                        ? "Aman"
+                        : "Duplikat!"}
               </Chip>
             </Card.Footer>
           </Card>

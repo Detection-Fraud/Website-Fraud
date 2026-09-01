@@ -1,15 +1,9 @@
 import { ActivityReportItem } from "@/types/report.types";
-import {
-  Button,
-  Card,
-  Chip,
-  Separator,
-  Tooltip,
-  useOverlayState,
-} from "@heroui/react";
+import { Button, Card, Chip, Separator, Tooltip } from "@heroui/react";
 import {
   FiCalendar,
   FiCheck,
+  FiEdit3,
   FiEye,
   FiFolder,
   FiMapPin,
@@ -22,9 +16,10 @@ import CardCaraousel from "./CardCaraousel";
 
 interface CardApprovalProps {
   report: ActivityReportItem;
-  onApprove?: (id: string) => void;
+  onApprove?: (id: string, trigger: HTMLButtonElement) => void;
   onOpenModal?: () => void;
   onOpenLogs?: () => void;
+  onOpenScore?: (id: string, trigger: HTMLButtonElement) => void;
 }
 
 export default function CardApproval({
@@ -32,6 +27,7 @@ export default function CardApproval({
   onApprove,
   onOpenModal,
   onOpenLogs,
+  onOpenScore,
 }: CardApprovalProps) {
   const {
     id,
@@ -46,20 +42,12 @@ export default function CardApproval({
     photos,
   } = report;
 
-  const state = useOverlayState();
-
-  const coverImage =
-    photos && photos.length > 0
-      ? photos[0].imageUrl
-      : "/placeholder-ativity.jpg";
-
   const formattedDate = new Date(tanggalKegiatan).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
-  // UPDATED: Calibrated Status Chips (Amber for PENDING, Emerald for APPROVED, Rose for REJECTED)
   const getStatusConfig = (statusState: string) => {
     switch (statusState) {
       case "APPROVED":
@@ -90,6 +78,12 @@ export default function CardApproval({
 
   const statusConfig = getStatusConfig(status);
 
+  const isDirectAdminApproved =
+    status === "APPROVED" &&
+    program?.category?.targetUnit === "PARTISIPASI_PERSEN" &&
+    program.category.evidenceMode === "PHOTO_WITHOUT_AI" &&
+    program.category.scoreInputMode === "DIRECT_ADMIN";
+
   const getParentRegion = () => {
     if (!unit) return "";
     return unit.name.replace(/Kanwil | Kancab /gi, "");
@@ -108,12 +102,14 @@ export default function CardApproval({
                   className={`shadow-xs ${statusConfig?.bgColor} ${statusConfig?.textColor}`}
                   size="md"
                 >
-                  <GoDotFill
-                    className={`${statusConfig?.dotColor} rounded-full w-2 h-2`}
-                  />
-                  <Chip.Label className={`${statusConfig?.textColor} text-xs`}>
-                    {statusConfig?.label}
-                  </Chip.Label>
+                  <div className="flex items-center gap-1.5 px-0.5">
+                    <GoDotFill
+                      className={`w-2.5 h-2.5 ${statusConfig?.dotColor} ${status === "PENDING" ? "animate-pulse" : ""}`}
+                    />
+                    <Chip.Label className="text-xs font-semibold">
+                      {statusConfig?.label}
+                    </Chip.Label>
+                  </div>
                 </Chip>
               </div>
             </div>
@@ -121,52 +117,48 @@ export default function CardApproval({
         </Card.Header>
 
         <Card.Content className="p-5 flex flex-col gap-4">
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2">
-              {activityName}
-            </h3>
+          <div className="space-y-1">
+            <Tooltip delay={0}>
+              <Tooltip.Trigger className="w-full text-left cursor-default">
+                <h3 className="font-bold text-slate-800 text-base leading-snug line-clamp-1">
+                  {activityName}
+                </h3>
+              </Tooltip.Trigger>
+              <Tooltip.Content showArrow placement="top">
+                <Tooltip.Arrow />
+                {activityName}
+              </Tooltip.Content>
+            </Tooltip>
+            {program && (
+              <div className="flex items-center gap-1.5 text-xs text-blue-800 font-medium">
+                <FiFolder className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                <span className="line-clamp-1">{program.name}</span>
+              </div>
+            )}
           </div>
 
-          {/* UPDATED: Slate Metadata List */}
-          <div className="flex flex-col gap-3 text-xs text-slate-600">
+          <div className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
             <div className="flex items-center gap-2">
-              <FiCalendar className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <span className="truncate tabular-nums font-medium text-slate-700">
-                {formattedDate}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <FiMapPin className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <span className="truncate font-medium text-slate-700">
-                {lokasi}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <LuBuilding2 className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <Tooltip>
-                <Tooltip.Trigger className="truncate font-semibold text-slate-800">
-                  {unit?.name}
-                </Tooltip.Trigger>
-                <Tooltip.Content>
-                  <Tooltip.Arrow />
-                  {unit?.name}
-                </Tooltip.Content>
-              </Tooltip>
-              <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 uppercase border border-slate-200/60">
+              <LuBuilding2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="font-semibold text-slate-800">
                 {getParentRegion()}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <FiUser className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <span className="truncate font-medium text-slate-700">
-                {createdBy?.name}
-              </span>
+              <FiCalendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>{formattedDate}</span>
             </div>
+
             <div className="flex items-center gap-2">
-              <FiFolder className="text-slate-400 w-3.5 h-3.5 shrink-0" />
-              <span className="truncate font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100">
-                {program?.name}
+              <FiMapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="line-clamp-1">{lokasi}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <FiUser className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="line-clamp-1">
+                {createdBy?.name || "Petugas Tidak Dikenal"}
               </span>
             </div>
 
@@ -191,36 +183,69 @@ export default function CardApproval({
         <div className="w-full space-y-3">
           <Separator className="w-full bg-slate-100 my-1" />
 
-          <div className="w-full flex gap-2.5">
-            {/* UPDATED: Soft Rose Reject Button */}
-            <Button
-              className="rounded-xl flex-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/60 font-semibold text-xs shadow-xs active:scale-[0.98] transition-all"
-              fullWidth
-              onClick={onOpenModal}
-              isDisabled={status !== "PENDING"}
-            >
-              <FiX className="w-3.5 h-3.5" />
-              Reject
-            </Button>
+          {isDirectAdminApproved && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                  <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-800">
+                    Penilaian partisipasi
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                    Kelola persentase partisipasi untuk laporan yang telah
+                    disetujui.
+                  </p>
+                </div>
+              </div>
+              <Button
+                fullWidth
+                variant="outline"
+                aria-label={`Kelola nilai partisipasi untuk ${activityName}`}
+                className="mt-3 min-h-11 rounded-xl border-slate-300 bg-white text-slate-700 hover:bg-slate-100 font-semibold text-xs shadow-xs active:scale-[0.98] transition-all"
+                onPress={(event) =>
+                  onOpenScore?.(id, event.target as HTMLButtonElement)
+                }
+              >
+                <FiEdit3 className="h-3.5 w-3.5" aria-hidden="true" />
+                Kelola Nilai
+              </Button>
+            </div>
+          )}
 
-            {/* UPDATED: High-Contrast Emerald Approve Button */}
-            <Button
-              className="rounded-xl flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs active:scale-[0.98] transition-all"
-              fullWidth
-              onClick={() => onApprove?.(id)}
-              isDisabled={status !== "PENDING"}
-            >
-              <FiCheck className="w-3.5 h-3.5" />
-              Approve
-            </Button>
-          </div>
+          {!isDirectAdminApproved && (
+            <div className="w-full flex gap-2.5">
+              <Button
+                className="rounded-xl flex-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/60 font-semibold text-xs shadow-xs active:scale-[0.98] transition-all"
+                fullWidth
+                onPress={onOpenModal}
+                isDisabled={status !== "PENDING"}
+              >
+                <FiX className="w-3.5 h-3.5" aria-hidden="true" />
+                Tolak
+              </Button>
+
+              <Button
+                className="rounded-xl flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs active:scale-[0.98] transition-all"
+                fullWidth
+                onPress={(event) =>
+                  onApprove?.(id, event.target as HTMLButtonElement)
+                }
+                isDisabled={status !== "PENDING"}
+              >
+                <FiCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                Approve
+              </Button>
+            </div>
+          )}
 
           {/* UPDATED: Sky Soft View Logs Button */}
           <Button
             fullWidth
             variant="outline"
             className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 rounded-xl font-semibold text-xs transition-all active:scale-[0.98]"
-            onClick={onOpenLogs}
+            onPress={onOpenLogs}
           >
             <FiEye className="w-3.5 h-3.5 text-slate-500" />
             Lihat Log

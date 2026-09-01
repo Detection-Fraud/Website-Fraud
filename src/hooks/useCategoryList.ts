@@ -1,34 +1,48 @@
 import { api } from "@/lib/api";
-import { ProgramCategory } from "@generated/prisma";
+import type { CategoryWithStats } from "@/types/program-category";
+import type { ProgramCategory } from "@generated/prisma";
 import { useQuery } from "@tanstack/react-query";
 
-export interface CategoryWithStats extends ProgramCategory {
-  totalProgram: number;
-  totalActive: number;
-}
+export type { CategoryWithStats } from "@/types/program-category";
 
-interface CategoryListPayload {
-  success: boolean;
-  message: string;
-  data: CategoryWithStats[];
-}
+export type CategoryFilter = Partial<
+  Pick<ProgramCategory, "targetUnit" | "evidenceMode" | "scoreInputMode">
+>;
+
+type TargetUnit = "KEGIATAN" | "PARTISIPASI_PERSEN";
 
 export function useCategoryList(
-  targetUnit?: "KEGIATAN" | "PARTISIPASI_PERSEN",
-) {
-  const { data, isLoading, error, refetch } = useQuery<CategoryListPayload>({
-    queryKey: ["categories", targetUnit],
-    queryFn: () => {
-      const params = targetUnit ? `?targetUnit=${targetUnit}` : "";
-      return api.get(`/programs/categories${params}`).then((res) => res.data);
-    },
+  filters?: CategoryFilter,
+): ReturnType<typeof useCategoryListImpl>;
+export function useCategoryList(
+  targetUnit?: TargetUnit,
+): ReturnType<typeof useCategoryListImpl>;
+export function useCategoryList(input: CategoryFilter | TargetUnit = {}) {
+  const filters: CategoryFilter =
+    typeof input === "string" ? { targetUnit: input } : input;
+  return useCategoryListImpl(filters);
+}
+
+function useCategoryListImpl(filters: CategoryFilter) {
+  const params = new URLSearchParams();
+  if (filters.targetUnit) params.set("targetUnit", filters.targetUnit);
+  if (filters.evidenceMode) params.set("evidenceMode", filters.evidenceMode);
+  if (filters.scoreInputMode)
+    params.set("scoreInputMode", filters.scoreInputMode);
+  const query = params.toString();
+
+  const result = useQuery<CategoryWithStats[]>({
+    queryKey: ["categories", filters],
+    queryFn: () =>
+      api
+        .get(`/programs/categories${query ? `?${query}` : ""}`)
+        .then((res) => res.data),
     staleTime: 30 * 1000,
   });
-
   return {
-    categories: data?.data ?? [],
-    isLoading,
-    error: error ? (error as Error).message : null,
-    refetch,
+    categories: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error ? (result.error as Error).message : null,
+    refetch: result.refetch,
   };
 }

@@ -10,7 +10,9 @@ interface ImageFile {
 
 interface ReportStore {
   step: number;
+  isNoAiMode: boolean;
   images: ImageFile[];
+  setIsNoAiMode: (isNoAi: boolean) => void;
   setStep: (step: number) => void;
   addImages: (images: ImageFile[]) => void;
   removeImage: (id: string) => void;
@@ -24,8 +26,10 @@ interface ReportStore {
 
 export const useReportStore = create<ReportStore>((set) => ({
   step: 1,
+  isNoAiMode: false,
   images: [],
 
+  setIsNoAiMode: (isNoAiMode) => set({ isNoAiMode }),
   setStep: (newStep) => set({ step: newStep }),
 
   addImages: (newImages) =>
@@ -56,6 +60,6 @@ export const useReportStore = create<ReportStore>((set) => ({
       state.images.forEach((img) => {
         if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
       });
-      return { step: 1, images: [] };
+      return { step: 1, isNoAiMode: false, images: [] };
     }),
 }));

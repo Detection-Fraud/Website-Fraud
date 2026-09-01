@@ -5,12 +5,18 @@ import { CategoryWithStats } from "@/hooks/useCategoryList";
 import { useCategoryMutation } from "@/hooks/useCategoryMutation";
 import { useUploadMutation } from "@/hooks/useUploadMutation";
 import {
+  CATEGORY_CAPABILITY_PRESETS,
+  getCategoryCapabilityPreset,
+  getCategoryCapabilityPresetForForm,
+} from "@/lib/category-capability-presets";
+import {
   Button,
   ColorArea,
   ColorPicker,
   ColorSlider,
   ColorSwatch,
   ColorSwatchPicker,
+  Description,
   Form,
   Input,
   Label,
@@ -20,7 +26,7 @@ import {
   TextField,
   parseColor,
 } from "@heroui/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FiTrash2 } from "react-icons/fi";
 
 interface ModalFormCategoryProps {
@@ -40,40 +46,75 @@ export default function ModalFormCategory({
 
   const isEdit = !!initialData;
   const [color, setColor] = useState(() => parseColor("#3b82f6"));
-  const [targetUnit, setTargetUnit] = useState<string>("KEGIATAN");
+  const [capabilityPresetId, setCapabilityPresetId] = useState<string>(
+    CATEGORY_CAPABILITY_PRESETS[0].id,
+  );
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const previewObjectUrlRef = useRef<string | null>(null);
+
+  const revokePreviewObjectUrl = useCallback(() => {
+    const objectUrl = previewObjectUrlRef.current;
+    if (objectUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    previewObjectUrlRef.current = null;
+  }, []);
 
   useEffect(() => {
+    revokePreviewObjectUrl();
     if (initialData) {
       setColor(parseColor(initialData.color || "#3b82f6"));
-      setTargetUnit(initialData.targetUnit || "KEGIATAN");
       setBannerUrl(initialData.bannerUrl || null);
       setImagePreview(initialData.bannerUrl || null);
+      const persistedPreset = getCategoryCapabilityPreset({
+        targetUnit: initialData.targetUnit,
+        evidenceMode: initialData.evidenceMode,
+        scoreInputMode: initialData.scoreInputMode,
+      });
+      setCapabilityPresetId(
+        persistedPreset.isSelectable
+          ? persistedPreset.id
+          : CATEGORY_CAPABILITY_PRESETS[0].id,
+      );
     } else {
       setColor(parseColor("#3b82f6"));
-      setTargetUnit("KEGIATAN");
       setBannerUrl(null);
       setImagePreview(null);
+      setCapabilityPresetId(CATEGORY_CAPABILITY_PRESETS[0].id);
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, revokePreviewObjectUrl]);
+
+  useEffect(() => {
+    return revokePreviewObjectUrl;
+  }, [revokePreviewObjectUrl]);
 
   const handleBannerUpload = async (files: File[]) => {
+    if (bannerUrl || imagePreview) return;
     const file = files[0];
     if (!file) return;
 
+    revokePreviewObjectUrl();
+
     // Preview lokal instan
-    setImagePreview(URL.createObjectURL(file));
+    const objectUrl = URL.createObjectURL(file);
+    previewObjectUrlRef.current = objectUrl;
+    setImagePreview(objectUrl);
 
     try {
       const res = await uploadFile(file);
+      revokePreviewObjectUrl();
       setBannerUrl(res.url);
-    } catch (err) {
-      setImagePreview(initialData?.bannerUrl || null);
+      setImagePreview(res.url);
+    } catch {
+      revokePreviewObjectUrl();
+      setBannerUrl(null);
+      setImagePreview(null);
     }
   };
 
   const handleRemoveBanner = () => {
+    revokePreviewObjectUrl();
     setBannerUrl(null);
     setImagePreview(null);
   };
@@ -81,12 +122,17 @@ export default function ModalFormCategory({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const capabilityPreset = getCategoryCapabilityPresetForForm(
+      capabilityPresetId,
+    );
 
     const payload = {
       name: formData.get("name") as string,
       color: color.toString("hex"),
-      bannerUrl: bannerUrl,
-      targetUnit: targetUnit as "KEGIATAN" | "PARTISIPASI_PERSEN",
+      bannerUrl,
+      targetUnit: capabilityPreset.targetUnit,
+      evidenceMode: capabilityPreset.evidenceMode,
+      scoreInputMode: capabilityPreset.scoreInputMode,
       defaultFrequency: Number(formData.get("defaultFrequency") || 1),
     };
 
@@ -97,13 +143,17 @@ export default function ModalFormCategory({
         await createCategory(payload);
       }
       onClose();
-    } catch (err) {
+    } catch {
       // Handled by mutation toast
     }
   };
 
-  const isPartisipasi = targetUnit === "PARTISIPASI_PERSEN";
   const isLoading = isCreating || isUpdating || isUploading;
+  const selectedCapabilityPreset =
+    getCategoryCapabilityPresetForForm(capabilityPresetId);
+  const isPartisipasi =
+    selectedCapabilityPreset.targetUnit === "PARTISIPASI_PERSEN";
+
   return (
     <Modal>
       <Modal.Backdrop
@@ -111,10 +161,10 @@ export default function ModalFormCategory({
         onOpenChange={onClose}
         className="backdrop-blur-sm"
       >
-        <Modal.Container scroll="outside">
-          <Modal.Dialog className="sm:max-w-md">
+        <Modal.Container scroll="inside">
+          <Modal.Dialog className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-full flex-col sm:max-w-2xl">
             <Modal.CloseTrigger />
-            <Modal.Header className="flex flex-col gap-1">
+            <Modal.Header className="flex shrink-0 flex-col gap-1">
               <Modal.Heading className="text-lg font-bold text-foreground">
                 {isEdit ? "Edit Kategori Program" : "Tambah Kategori Program"}
               </Modal.Heading>
@@ -125,8 +175,12 @@ export default function ModalFormCategory({
               </p>
             </Modal.Header>
 
-            <Form validationBehavior="native" onSubmit={handleSubmit}>
-              <Modal.Body className="space-y-4 py-2">
+            <Form
+              validationBehavior="native"
+              onSubmit={handleSubmit}
+              className="contents"
+            >
+              <Modal.Body className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2">
                 {/* Nama kategori */}
                 <TextField
                   name="name"
@@ -137,9 +191,9 @@ export default function ModalFormCategory({
                     Nama Kategori
                   </Label>
                   <Input
-                    placeholder="Contoh: DONITA, MAKNYOS"
+                    placeholder="Contoh: DONITA, MAKNYOS, TOGA"
                     autoComplete="off"
-                    className={"mt-1"}
+                    className="mt-1"
                   />
                 </TextField>
 
@@ -149,16 +203,16 @@ export default function ModalFormCategory({
                     Warna Identitas
                   </Label>
                   <ColorPicker value={color} onChange={setColor}>
-                    <ColorPicker.Trigger className={"flex items-center gap-2"}>
+                    <ColorPicker.Trigger className="flex items-center gap-2">
                       <ColorSwatch size="lg" />
                       <Label className="font-mono text-xs uppercase text-slate-600">
                         {color.toString("hex")}
                       </Label>
                     </ColorPicker.Trigger>
-                    <ColorPicker.Popover className={"gap-2 p-3"}>
+                    <ColorPicker.Popover className="gap-2 p-3">
                       <ColorArea
                         aria-label="Color Area"
-                        className={"max-w-full"}
+                        className="max-w-full"
                         colorSpace="hsb"
                         xChannel="saturation"
                         yChannel="brightness"
@@ -168,7 +222,7 @@ export default function ModalFormCategory({
                       <ColorSlider
                         aria-label="Hue"
                         channel="hue"
-                        className={"gap-1 px-1"}
+                        className="gap-1 px-1"
                         colorSpace="hsb"
                       >
                         <ColorSlider.Track>
@@ -176,7 +230,7 @@ export default function ModalFormCategory({
                         </ColorSlider.Track>
                       </ColorSlider>
                       <ColorSwatchPicker
-                        className={"justify-center pt-2"}
+                        className="justify-center pt-2"
                         size="xs"
                       >
                         {[
@@ -200,91 +254,109 @@ export default function ModalFormCategory({
 
                 {/* BANNER UPLOAD FILE */}
                 <div className="flex flex-col gap-1">
-                  <Label className="text-xe font-semibold text-slate-700">
+                  <Label className="text-xs font-semibold text-slate-700">
                     Gambar Banner (Opsional)
                   </Label>
-                  {imagePreview ? (
-                    <div className="relative group rounded-xl overflow-hidden border border-slate-200 h-32 bg-slate-100 flex items-center justify-center">
-                      <img
-                        src={imagePreview}
-                        alt="Banner Preview"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  {bannerUrl || imagePreview ? (
+                    <>
+                      <div className="flex aspect-video items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                        <img
+                          src={imagePreview ?? bannerUrl ?? ""}
+                          alt="Banner Preview"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex items-center justify-end pt-2">
                         <Button
                           size="sm"
                           variant="danger"
                           type="button"
+                          aria-label="Hapus banner"
                           onPress={handleRemoveBanner}
                           isDisabled={isLoading}
                         >
-                          <FiTrash2 className="w-4 h-4 mr-1" />
-                          Hapus Foto
+                          <FiTrash2 className="mr-1 h-4 w-4" />
+                          Hapus banner
                         </Button>
                       </div>
-                    </div>
+                    </>
                   ) : (
                     <Dropzone
-                      variant="compact"
+                      variant="normal"
                       multiple={false}
                       maxSizeMb={2}
-                      label="Klik atau drop gambar banner di sini"
+                      label="Unggah banner"
                       onFileSelected={handleBannerUpload}
                       isDisabled={isLoading}
                     />
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {/* TARGET unit */}
-                  <div className="flex flex-col gap-1">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {/* CAPABILITY PRESET */}
+                  <div className="col-span-2 flex flex-col gap-1">
                     <Label className="text-xs font-semibold text-slate-700">
-                      Satuan Target
+                      Preset Kapabilitas
                     </Label>
                     <Select
-                      value={targetUnit}
-                      onChange={(val) => setTargetUnit(String(val))}
-                      className={"mt-1"}
-                      aria-label="Satuan Target"
+                      value={capabilityPresetId}
+                      onChange={(value) => setCapabilityPresetId(String(value))}
+                      isDisabled={
+                        Boolean(initialData?.locks.capability) || isLoading
+                      }
+                      aria-label="Preset kapabilitas kategori"
+                      className="w-full"
                     >
                       <Select.Trigger>
                         <Select.Value />
                         <Select.Indicator />
                       </Select.Trigger>
-
                       <Select.Popover>
                         <ListBox>
-                          <ListBox.Item id={"KEGIATAN"} textValue="KEGIATAN">
-                            Kegiatan (Jumlah)
-                          </ListBox.Item>
-                          <ListBox.Item
-                            id="PARTISIPASI_PERSEN"
-                            textValue="PARTISIPASI_PERSEN"
-                          >
-                            Partisipasi (%)
-                          </ListBox.Item>
+                          {CATEGORY_CAPABILITY_PRESETS.map((preset) => (
+                            <ListBox.Item
+                              key={preset.id}
+                              id={preset.id}
+                              textValue={preset.title}
+                            >
+                              <div className="flex min-w-0 flex-col gap-0.5">
+                                <ListBox.ItemIndicator />
+                                <span className="font-medium">
+                                  {preset.title}
+                                </span>
+                                <span className="text-xs text-muted">
+                                  {preset.description}
+                                </span>
+                              </div>
+                            </ListBox.Item>
+                          ))}
                         </ListBox>
                       </Select.Popover>
+                      {initialData?.locks.capability && (
+                        <Description role="status" className="text-xs text-muted">
+                          Kapabilitas tidak dapat diubah karena kategori sudah
+                          digunakan.
+                        </Description>
+                      )}
                     </Select>
                   </div>
 
-                  {/* Default Frequency */}
-                  {isPartisipasi ? (
+                  {/* DEFAULT FREQUENCY */}
+                  {selectedCapabilityPreset.showFrequency && isPartisipasi ? (
                     <>
                       <input type="hidden" name="defaultFrequency" value="1" />
                       <div className="flex flex-col gap-1">
                         <Label className="text-xs font-semibold text-slate-700">
-                          Default Frekuensi / TW
+                          Kuota bukti
                         </Label>
                         <div className="mt-1 h-10 flex items-center px-3 rounded-lg bg-slate-50 border border-slate-200">
                           <span className="text-xs text-slate-400 italic">
-                            Tidak digunakan — data Partisipasi diimport via
-                            Excel
+                            Kuota bukti per unit: 1 per triwulan
                           </span>
                         </div>
                       </div>
                     </>
-                  ) : (
+                  ) : selectedCapabilityPreset.showFrequency ? (
                     <TextField
                       name="defaultFrequency"
                       isRequired
@@ -300,11 +372,14 @@ export default function ModalFormCategory({
                         className="mt-1"
                       />
                     </TextField>
+                  ) : (
+                    <input type="hidden" name="defaultFrequency" value="1" />
                   )}
                 </div>
+
               </Modal.Body>
 
-              <Modal.Footer className="mt-4 flex items-center justify-end gap-2">
+              <Modal.Footer className="mt-4 flex shrink-0 flex-col-reverse items-stretch gap-2 border-t border-slate-200 bg-slate-50/80 sm:flex-row sm:items-center sm:justify-end">
                 <Button
                   variant="secondary"
                   type="button"

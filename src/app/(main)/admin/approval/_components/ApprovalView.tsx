@@ -18,7 +18,7 @@ import FilterProgram from "@/components/ui/FilterProgram";
 import { ActivityReportItem } from "@/types/report.types";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
 import { CiSaveDown1 } from "react-icons/ci";
 import { FiAlertTriangle, FiFileText, FiImage } from "react-icons/fi";
@@ -26,6 +26,7 @@ import CardApproval from "./CardApproval";
 import ModalLogs from "./ModalLogs";
 import ModalNotes from "./ModalNotes";
 import PaginationFooter from "../../../../../components/ui/PaginationFooter";
+import ParticipationScoreModal from "./ParticipationScoreModal";
 
 const SCOPE_MAP: Partial<Record<UnitTypeFilter, string>> = {
   WILAYAH: "KANWIL_ONLY",
@@ -33,6 +34,7 @@ const SCOPE_MAP: Partial<Record<UnitTypeFilter, string>> = {
   CABANG: "KANCAB",
   DIVISI: "DIVISI",
 };
+
 export default function ApprovalView() {
   const {
     reports,
@@ -61,7 +63,7 @@ export default function ApprovalView() {
     handleKancabChange,
     handleDivisiChange,
     handlePageChange,
-  } = useReportList({ defaultStatus: "PENDING" });
+  } = useReportList({ defaultStatus: "PENDING", purpose: "EVIDENCE" });
 
   const { handleApprove } = useApproval();
 
@@ -73,6 +75,9 @@ export default function ApprovalView() {
 
   const [selectedLogsReport, setSelectedLogsReport] =
     useState<ActivityReportItem | null>(null);
+  const [scoreReportId, setScoreReportId] = useState<string | null>(null);
+  const [scoreReportName, setScoreReportName] = useState<string | undefined>();
+  const scoreReturnFocusRef = useRef<HTMLButtonElement | null>(null);
 
   const selectedScope: UnitTypeFilter = scopeFilter;
 
@@ -98,8 +103,32 @@ export default function ApprovalView() {
     logsModalState.close();
   };
 
-  const handleApproveReport = (id: string) => {
-    handleApprove(id);
+  const handleApproveReport = async (
+    id: string,
+    trigger: HTMLButtonElement,
+  ) => {
+    try {
+      const result = await handleApprove(id);
+      if (result.nextAction?.type !== "ENTER_PARTICIPATION_SCORE") return;
+
+      scoreReturnFocusRef.current = trigger;
+      setScoreReportId(result.nextAction.reportId);
+      setScoreReportName(
+        reports.find((report) => report.id === id)?.activityName,
+      );
+    } catch {
+      // useApproval owns error feedback; do not compensate a committed approval.
+    }
+  };
+
+  const closeScoreModal = () => {
+    setScoreReportId(null);
+    setScoreReportName(undefined);
+    const trigger = scoreReturnFocusRef.current;
+    scoreReturnFocusRef.current = null;
+    queueMicrotask(() => {
+      if (trigger?.isConnected && !trigger.disabled) trigger.focus();
+    });
   };
 
   // Logic Disabled Export Button
@@ -349,6 +378,11 @@ export default function ApprovalView() {
               key={report.id}
               report={report}
               onApprove={handleApproveReport}
+              onOpenScore={(id, trigger) => {
+                scoreReturnFocusRef.current = trigger;
+                setScoreReportId(id);
+                setScoreReportName(report.activityName);
+              }}
               onOpenModal={() => handleOpenRejectModal(report)}
               onOpenLogs={() => handleOpenLogsModal(report)}
             />
@@ -386,6 +420,13 @@ export default function ApprovalView() {
           activityName={selectedLogsReport.activityName}
         />
       )}
+
+      <ParticipationScoreModal
+        isOpen={scoreReportId !== null}
+        reportId={scoreReportId}
+        reportName={scoreReportName}
+        onClose={closeScoreModal}
+      />
 
       <PaginationFooter
         page={pagination.page}
