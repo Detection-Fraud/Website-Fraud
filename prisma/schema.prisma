@@ -20,6 +20,23 @@ enum Role {
   VIEWER
 }
 
+enum EvidenceMode {
+  NONE
+  PHOTO_WITH_AI
+  PHOTO_WITHOUT_AI
+}
+
+enum ScoreInputMode {
+  NONE
+  EXCEL_IMPORT
+  DIRECT_ADMIN
+}
+
+enum ScoreHistoryAction {
+  CREATED
+  UPDATED
+}
+
 enum ProgramUnit {
   KEGIATAN
   PARTISIPASI_PERSEN
@@ -97,6 +114,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  assessedParticipations ParticipationData[] @relation("ParticipationAssessors")
+  scoreHistoryEntries    ParticipationScoreHistory[] @relation("ScoreHistoryActors")
+
   @@index([role])
   @@index([isActive])
   @@index([authProvider])
@@ -111,6 +131,11 @@ model ProgramCategory {
   bannerUrl        String?
   targetUnit       ProgramUnit @default(KEGIATAN)
   defaultFrequency Int         @default(1)
+
+  evidenceMode EvidenceMode @default(PHOTO_WITH_AI)
+  scoreInputMode ScoreInputMode @default(NONE)
+  scoreHistories ParticipationScoreHistory[]
+
 
   programs          ProgramBudaya[]
   participationData ParticipationData[]
@@ -156,7 +181,14 @@ model ParticipationData {
   category     ProgramCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   tw           Int
   year         Int
-  percentage   Int
+  percentage   Int?
+  evidenceReportId String? @unique
+  evidenceReport    ActivityReport? @relation("ParticipationEvidence", fields: [evidenceReportId], references: [id], onDelete: Restrict)
+  assessedById     String?
+  assessedBy       User? @relation("ParticipationAssessors", fields: [assessedById], references: [id], onDelete: Restrict)
+  assessedAt       DateTime?
+  updatedAt        DateTime @updatedAt
+  scoreHistories   ParticipationScoreHistory[]
   importedAt   DateTime        @default(now())
   importedById String?
   importedBy   User?           @relation(fields: [importedById], references: [id], onDelete: Cascade)
@@ -165,6 +197,28 @@ model ParticipationData {
   @@index([categoryId])
   @@index([year, tw])
   @@index([unitId])
+}
+
+model ParticipationScoreHistory {
+  id                  String             @id @default(uuid())
+  participationDataId String
+  participationData   ParticipationData @relation(fields: [participationDataId], references: [id], onDelete: Restrict)
+  evidenceReportId    String
+  evidenceReport      ActivityReport    @relation(fields: [evidenceReportId], references: [id], onDelete: Restrict)
+  categoryId          String
+  category            ProgramCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  action              ScoreHistoryAction
+  previousPercentage  Int?
+  newPercentage       Int
+  changeReason        String?
+  actorId             String?
+  actor               User?              @relation("ScoreHistoryActors", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName           String
+  createdAt           DateTime           @default(now())
+
+  @@index([participationDataId, createdAt])
+  @@index([evidenceReportId])
+  @@index([categoryId])
 }
 
 model ActivityReport {
@@ -196,6 +250,9 @@ model ActivityReport {
   photos ActivityPhoto[]
 
   logs ActivityLog[]
+
+  participationAssessment ParticipationData? @relation("ParticipationEvidence")
+  scoreHistories          ParticipationScoreHistory[]
 
   @@index([unitId])
   @@index([createdById])

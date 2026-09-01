@@ -17,6 +17,9 @@ export interface ActivityReportItem {
       id: string;
       name: string;
       color?: string | null;
+      targetUnit: "KEGIATAN" | "PARTISIPASI_PERSEN";
+      evidenceMode: "NONE" | "PHOTO_WITH_AI" | "PHOTO_WITHOUT_AI";
+      scoreInputMode: "NONE" | "EXCEL_IMPORT" | "DIRECT_ADMIN";
     } | null;
   } | null;
   createdBy?: { id: string; name: string } | null;

@@ -62,3 +62,7 @@ public/uploads
 opencode.jsonc
 brainstorm-skill.txt
 caveman-skill-output.txt
+
+.opencode/
+opencode.json
+prompts/
