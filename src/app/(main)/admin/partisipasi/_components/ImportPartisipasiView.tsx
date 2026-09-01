@@ -7,6 +7,8 @@ import UploadFileStep from "@/components/import/_components/UploadFileStep";
 import AppBar from "@/components/layout/Appbar";
 import { useCategoryList } from "@/hooks/useCategoryList";
 import { useImportPartisipasi } from "@/hooks/useImportPartisipasi";
+import { api } from "@/lib/api";
+import { CategoryWithStats } from "@/types/program-category";
 import { Button, Card, Label, ListBox, Select } from "@heroui/react";
 import { FiDownload } from "react-icons/fi";
 import { MdOutlineApartment, MdOutlinePercent } from "react-icons/md";
@@ -24,9 +26,12 @@ const PARTISIPASI_REQUIRED_COLUMNS = [
 ];
 
 export default function ImportPartisipasiView() {
-  const { categories } = useCategoryList();
-  const partisipasiCategories =
-    categories?.filter((c: any) => c.targetUnit === "PARTISIPASI_PERSEN") ?? [];
+  const { categories } = useCategoryList({
+    targetUnit: "PARTISIPASI_PERSEN",
+    evidenceMode: "NONE",
+    scoreInputMode: "EXCEL_IMPORT",
+  });
+  const partisipasiCategories: CategoryWithStats[] = categories;
 
   const {
     step,
@@ -46,12 +51,24 @@ export default function ImportPartisipasiView() {
     handleReset,
   } = useImportPartisipasi();
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     if (!categoryId) return;
-    window.open(
-      `/api/participation/template?categoryId=${categoryId}&tw=${tw}&year=${year}`,
-      "_blank",
-    );
+    let url: string | null = null;
+    try {
+      const response = await api.get(
+        `/participation/template?categoryId=${encodeURIComponent(categoryId)}&tw=${tw}&year=${year}`,
+        { responseType: "blob" },
+      );
+      url = URL.createObjectURL(response.data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "template-partisipasi.xlsx";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+    }
   };
 
   return (
@@ -100,7 +117,7 @@ export default function ImportPartisipasiView() {
                   </Select.Trigger>
                   <Select.Popover>
                     <ListBox>
-                      {partisipasiCategories.map((c: any) => (
+                      {partisipasiCategories.map((c: CategoryWithStats) => (
                         <ListBox.Item key={c.id} id={c.id} textValue={c.name}>
                           {c.name}
                           <ListBox.ItemIndicator />

@@ -9,11 +9,17 @@ export const participationFilterSchema = z.object({
 export const commitParticipationSchema = participationFilterSchema.extend({
   rows: z
     .array(
-      z.object({
-        unitId: z.string().uuid("Unit ID tidak valid"),
-        percentage: z.number().int().min(0, "Persentase minimal 0"),
-        overwrite: z.boolean().default(false),
-      }),
+      z
+        .object({
+          unitId: z.string().uuid("Unit ID tidak valid"),
+          percentage: z
+            .number("Persentase harus berupa angka JSON")
+            .int("Persentase harus bilangan bulat")
+            .min(0, "Persentase minimal 0")
+            .max(100, "Nilai Maksimal Persentase 100"),
+          overwrite: z.boolean().default(false),
+        })
+        .strict(),
     )
     .min(1, "Data commit tidak boleh kosong"),
 });

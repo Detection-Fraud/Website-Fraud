@@ -1,29 +1,36 @@
-import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
+import { ApiError, handleApiError, requireAdmin } from "@/lib/api/auth-guard";
+import { parseParticipationPercentage } from "@/lib/participation-import";
 import { prisma } from "@/lib/prisma";
+import { canImportParticipation } from "@/lib/program-capabilities";
 import { errorResponse, successResponse } from "@/lib/response";
 import {
   commitParticipationSchema,
   participationFilterSchema,
 } from "@/schemas/participation.schema";
-import {
+import type {
   ParticipationPreviewRow,
   ParticipationStatus,
 } from "@/types/participation.types";
 import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 
+async function getExcelParticipationCategory(categoryId: string) {
+  const category = await prisma.programCategory.findUnique({
+    where: { id: categoryId },
+    select: { targetUnit: true, evidenceMode: true, scoreInputMode: true },
+  });
+
+  return category && canImportParticipation(category) ? category : null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await requireAdmin();
+    const action = new URL(req.url).searchParams.get("action");
 
-    const { searchParams } = new URL(req.url);
-    const action = searchParams.get("action");
-
-    // ACTION: PREVIEW
     if (action === "preview") {
       const formData = await req.formData();
       const file = formData.get("file") as File;
-
       const parsed = participationFilterSchema.safeParse({
         categoryId: formData.get("categoryId"),
         tw: formData.get("tw"),
@@ -36,7 +43,6 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
-
       if (!file) {
         return NextResponse.json(
           errorResponse("File Excel wajib diunggah", 400),
@@ -47,120 +53,114 @@ export async function POST(req: NextRequest) {
       }
 
       const { categoryId, tw, year } = parsed.data;
-
+      if (!(await getExcelParticipationCategory(categoryId))) {
+        return NextResponse.json(
+          errorResponse(
+            "Kategori tidak tersedia untuk import Excel; gunakan kategori partisipasi dengan sumber Excel",
+            422,
+          ),
+          { status: 422 },
+        );
+      }
       const buffer = Buffer.from(await file.arrayBuffer());
-      const excelBook = new ExcelJS.Workbook();
-      await excelBook.xlsx.load(buffer as any);
-      const ws = excelBook.worksheets[0];
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer as any);
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        return NextResponse.json(
+          errorResponse("Sheet Excel tidak ditemukan", 400),
+          {
+            status: 400,
+          },
+        );
+      }
 
-      const allUnits = await prisma.unit.findMany({
+      const units = await prisma.unit.findMany({
         select: { id: true, name: true },
       });
-
       const unitMap = new Map(
-        allUnits.map((u) => [u.name.trim().toUpperCase(), u]),
+        units.map((unit) => [unit.name.trim().toUpperCase(), unit]),
       );
-      const existingData = await prisma.participationData.findMany({
+      const existing = await prisma.participationData.findMany({
         where: { categoryId, tw, year },
         select: { unitId: true, percentage: true },
       });
       const existingMap = new Map(
-        existingData.map((e) => [e.unitId, e.percentage]),
+        existing.map((row) => [row.unitId, row.percentage]),
       );
+      const rows: ParticipationPreviewRow[] = [];
+      let id = 0;
 
-      const previewRows: ParticipationPreviewRow[] = [];
-      let rowIndex = 0;
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber <= 3) return;
+        const unitName = String(
+          row.getCell(2).text || row.getCell(2).value || "",
+        ).trim();
+        if (!unitName || unitName.toUpperCase() === "UNIT KERJA") return;
 
-      ws.eachRow((row, rowNumber) => {
-        if (rowNumber <= 3) return; // Lewati Judul, Baris Kosong, & Header
-
-        const unitNameRaw = String(row.getCell(2).text || row.getCell(2).value || "").trim();
-        if (!unitNameRaw || unitNameRaw.toUpperCase() === "UNIT KERJA") return;
-
-        const percentageRaw = row.getCell(3).value;
-
-        const matchedUnit = unitMap.get(unitNameRaw.toUpperCase());
-
-        if (!matchedUnit) {
-          previewRows.push({
-            id: rowIndex++,
-            unitName: unitNameRaw,
+        const unit = unitMap.get(unitName.toUpperCase());
+        if (!unit) {
+          rows.push({
+            id: id++,
+            unitName,
             unitId: null,
             percentage: null,
-            status: "error" as ParticipationStatus,
+            status: "error",
             errorMsg: "Unit tidak ditemukan di database",
           });
           return;
         }
 
-        if (
-          percentageRaw === undefined ||
-          percentageRaw === null ||
-          String(percentageRaw).trim() === ""
-        ) {
-          previewRows.push({
-            id: rowIndex++,
-            unitName: matchedUnit.name,
-            unitId: matchedUnit.id,
+        const parsedPercentage = parseParticipationPercentage(
+          row.getCell(3).value,
+        );
+        if (!parsedPercentage.ok) {
+          rows.push({
+            id: id++,
+            unitName: unit.name,
+            unitId: unit.id,
             percentage: null,
-            status: "empty" as ParticipationStatus,
+            status: "error",
+            errorMsg:
+              parsedPercentage.reason === "empty"
+                ? "Nilai persentase wajib diisi"
+                : "Nilai persentase harus bilangan bulat 0 sampai 100",
           });
           return;
         }
 
-        const percentage = parseInt(String(percentageRaw), 10);
-        if (isNaN(percentage) || percentage < 0) {
-          previewRows.push({
-            id: rowIndex++,
-            unitName: matchedUnit.name,
-            unitId: matchedUnit.id,
-            percentage: null,
-            status: "error" as ParticipationStatus,
-            errorMsg: "Nilai persentase tidak valid (harus angka >= 0)",
-          });
-          return;
-        }
-
-        const existingPercentage = existingMap.get(matchedUnit.id);
-        const hasExisting = existingPercentage !== undefined;
-
-        let status: ParticipationStatus = "matched";
-        if (hasExisting) {
-          status = existingPercentage === percentage ? "unchanged" : "conflict";
-        }
-
-        previewRows.push({
-          id: rowIndex++,
-          unitName: matchedUnit.name,
-          unitId: matchedUnit.id,
-          percentage,
+        const oldPercentage = existingMap.get(unit.id);
+        const status: ParticipationStatus =
+          oldPercentage === undefined
+            ? "matched"
+            : oldPercentage === parsedPercentage.value
+              ? "unchanged"
+              : "conflict";
+        rows.push({
+          id: id++,
+          unitName: unit.name,
+          unitId: unit.id,
+          percentage: parsedPercentage.value,
           status,
-          existingPercentage: existingPercentage ?? null,
+          existingPercentage: oldPercentage ?? null,
         });
       });
 
       const stats = {
-        total: previewRows.length,
-        matched: previewRows.filter((r) => r.status === "matched").length,
-        conflict: previewRows.filter((r) => r.status === "conflict").length,
-        unchanged: previewRows.filter((r) => r.status === "unchanged").length,
-        error: previewRows.filter((r) => r.status === "error").length,
-        empty: previewRows.filter((r) => r.status === "empty").length,
+        total: rows.length,
+        matched: rows.filter((row) => row.status === "matched").length,
+        conflict: rows.filter((row) => row.status === "conflict").length,
+        unchanged: rows.filter((row) => row.status === "unchanged").length,
+        error: rows.filter((row) => row.status === "error").length,
+        empty: 0,
       };
-
       return NextResponse.json(
-        successResponse(
-          { stats, rows: previewRows },
-          "Preview partisipasi berhasil",
-        ),
+        successResponse({ stats, rows }, "Preview partisipasi berhasil"),
       );
     }
 
-    // ACTION: COMMIT
     if (action === "commit") {
-      const body = await req.json();
-      const parsed = commitParticipationSchema.safeParse(body);
-
+      const parsed = commitParticipationSchema.safeParse(await req.json());
       if (!parsed.success) {
         return NextResponse.json(
           errorResponse(parsed.error.issues[0].message, 400),
@@ -169,53 +169,62 @@ export async function POST(req: NextRequest) {
       }
 
       const { categoryId, tw, year, rows } = parsed.data;
+      if (!(await getExcelParticipationCategory(categoryId))) {
+        return NextResponse.json(
+          errorResponse(
+            "Kategori tidak tersedia untuk import Excel; gunakan kategori partisipasi dengan sumber Excel",
+            422,
+          ),
+          { status: 422 },
+        );
+      }
 
-      let createdCount = 0;
-      let updatedCount = 0;
-      let skippedCount = 0;
-
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
       await prisma.$transaction(async (tx) => {
         for (const row of rows) {
-          if (
-            !row.unitId ||
-            row.percentage === null ||
-            row.percentage === undefined
-          ) {
-            skippedCount++;
-            continue;
-          }
+          const unit = await tx.unit.findUnique({
+            where: { id: row.unitId },
+            select: { id: true },
+          });
+          if (!unit) throw new ApiError("Unit tidak ditemukan di database", 400);
 
-          const existing = await tx.participationData.findUnique({
+          const current = await tx.participationData.findUnique({
             where: {
               unitId_categoryId_tw_year: {
-                unitId: row.unitId,
+                unitId: unit.id,
                 categoryId,
                 tw,
                 year,
               },
             },
+            select: {
+              importedById: true,
+              evidenceReportId: true,
+              assessedById: true,
+              id: true,
+              percentage: true,
+            },
           });
 
-          if (existing) {
-            if (existing.percentage === row.percentage) {
-              skippedCount++;
-            } else if (row.overwrite) {
-              await tx.participationData.update({
-                where: { id: existing.id },
-                data: {
-                  percentage: row.percentage,
-                  importedById: session.user.id,
-                  importedAt: new Date(),
-                },
-              });
-              updatedCount++;
-            } else {
-              skippedCount++;
-            }
-          } else {
+          // Hanya row yang dibuat oleh Excel dan belum memiliki provenance lain yang kompatibel.
+          const isCompatibleExcelRow =
+            current !== null &&
+            current.importedById !== null &&
+            current.evidenceReportId === null &&
+            current.assessedById === null;
+          if (current && !isCompatibleExcelRow) {
+            throw new ApiError(
+              "Data dengan provenance yang tidak kompatibel tidak dapat ditimpa melalui Excel",
+              409,
+            );
+          }
+
+          if (!current) {
             await tx.participationData.create({
               data: {
-                unitId: row.unitId,
+                unitId: unit.id,
                 categoryId,
                 tw,
                 year,
@@ -223,18 +232,28 @@ export async function POST(req: NextRequest) {
                 importedById: session.user.id,
               },
             });
-            createdCount++;
+            created++;
+          } else if (current.percentage === row.percentage) {
+            skipped++;
+          } else if (row.overwrite) {
+            await tx.participationData.update({
+              where: { id: current.id },
+              data: {
+                percentage: row.percentage,
+                importedById: session.user.id,
+                importedAt: new Date(),
+              },
+            });
+            updated++;
+          } else {
+            skipped++;
           }
         }
       });
 
       return NextResponse.json(
         successResponse(
-          {
-            created: createdCount,
-            updated: updatedCount,
-            skipped: skippedCount,
-          },
+          { created, updated, skipped },
           "Import data partisipasi selesai",
         ),
       );

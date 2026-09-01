@@ -1,5 +1,6 @@
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { canImportParticipation } from "@/lib/program-capabilities";
 import { errorResponse } from "@/lib/response";
 import { participationFilterSchema } from "@/schemas/participation.schema";
 import ExcelJS from "exceljs";
@@ -27,16 +28,21 @@ export async function GET(req: NextRequest) {
 
     const category = await prisma.programCategory.findUnique({
       where: { id: categoryId },
-      select: { name: true, targetUnit: true },
+      select: {
+        name: true,
+        targetUnit: true,
+        evidenceMode: true,
+        scoreInputMode: true,
+      },
     });
 
-    if (!category || category.targetUnit !== "PARTISIPASI_PERSEN") {
+    if (!category || !canImportParticipation(category)) {
       return NextResponse.json(
         errorResponse(
-          "Kategori tidak ditemukan atau bukan jenis Partisipasi Persentase",
-          400,
+          "Kategori tidak tersedia untuk import Excel; gunakan kategori partisipasi dengan sumber Excel",
+          422,
         ),
-        { status: 400 },
+        { status: 422 },
       );
     }
 

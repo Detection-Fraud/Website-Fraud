@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/api/auth-guard";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { ParticipationRankingItem } from "@/types/participation.types";
@@ -13,7 +13,7 @@ const rankingQuerySchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    await requireAuth();
+    await requireAdmin();
 
     const { searchParams } = new URL(req.url);
     const parsed = rankingQuerySchema.safeParse({
@@ -72,6 +72,8 @@ export async function GET(req: NextRequest) {
     >();
 
     for (const row of participationRows) {
+      if (row.percentage === null) continue;
+
       if (!unitDataMap.has(row.unitId)) {
         unitDataMap.set(row.unitId, { percentages: [], categories: [] });
       }
@@ -88,6 +90,8 @@ export async function GET(req: NextRequest) {
     // Dipakai component untuk build dynamic columns (satu kolom per kategori)
     const categoryMap = new Map<string, string>();
     for (const row of participationRows) {
+      if (row.percentage === null) continue;
+
       if (!categoryMap.has(row.category.id)) {
         categoryMap.set(row.category.id, row.category.name);
       }
@@ -135,10 +139,6 @@ export async function GET(req: NextRequest) {
       ),
     );
   } catch (error) {
-    console.error("ERROR GET /api/participation/ranking:", error);
-    return NextResponse.json(
-      errorResponse("Gagal mengambil ranking partisipasi", 500),
-      { status: 500 },
-    );
+    return handleApiError(error, "GET /api/participation/ranking");
   }
 }
