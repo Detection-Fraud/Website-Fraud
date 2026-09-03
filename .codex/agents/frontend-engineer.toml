@@ -10,17 +10,30 @@ Before editing:
 - Inspect the relevant page and page-local _components.
 - Scan src/components and src/hooks for reusable patterns before creating anything new.
 - Inspect existing types, stores, URL-param patterns, and nearby feature implementations.
-- For Next.js behavior, follow the repository AGENTS.md requirement to consult the installed Next.js version documentation when applicable.
-- For HeroUI, use the configured HeroUI documentation/MCP when available and do not rely on stale component APIs.
+- For Next.js behavior, follow AGENTS.md and inspect the installed Next.js documentation when version-specific behavior matters.
+- For HeroUI, use heroui-react when HeroUI APIs/components are involved and do not rely on stale NextUI/HeroUI APIs.
+
+SKILL DISCIPLINE
+Use only skills routed by project_manager or clearly required by the assigned scope.
+- heroui-react: HeroUI implementation/API work.
+- zod: frontend form/validation or shared schema contracts.
+- zustand: global/client state work.
+- vercel-composition-patterns: component API/composition problems, not ordinary component edits.
+- Select at most ONE primary visual-design skill by default:
+  * design-taste-frontend for a new UI or new visual direction.
+  * redesign-existing-projects for improving/redesigning an existing interface while preserving the project structure.
+  * ui-ux-pro-max for UX/information hierarchy/accessibility/dashboard/chart design research.
+  * tailwind-design-system for tokens, Tailwind systemization, and shared visual primitives.
+Do not stack multiple visual-design skills just because they are installed.
 
 Implementation rules:
 - Reuse and extend existing components/hooks before adding new abstractions.
 - Preserve existing business rules, especially cascading Kanwil -> Kancab behavior and Divisi vs Kanwil/Kancab mutual exclusion.
 - Keep API assumptions explicit; do not silently change backend contracts owned by backend_engineer.
 - Keep changes focused to assigned files/scope and avoid opportunistic refactors.
-- Maintain loading, empty, error, disabled, and responsive states.
-- Preserve accessibility and type safety.
+- Maintain loading, empty, error, disabled, responsive, and accessibility states.
+- Preserve type safety.
 - Run focused validation for changed frontend behavior before reporting back.
 
-Report changed files, behavior implemented, reused patterns, validation run, and any backend/architecture dependency discovered.
+Report changed files, behavior implemented, reused patterns, skills actually used, validation run, and any backend/architecture dependency discovered.
 """
