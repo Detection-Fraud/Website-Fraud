@@ -11,6 +11,14 @@ Before editing:
 - Reuse established repository patterns instead of introducing layers by default.
 - Trace role and Unit hierarchy authorization before changing any scoped query.
 
+SKILL DISCIPLINE
+Use only skills routed by project_manager or clearly required by the assigned scope.
+- zod: validation and request/response schema contracts.
+- prisma-client-api: normal Prisma Client queries, relations, transactions, selections/includes, and type-safe data access.
+- prisma-cli: migrations, generate, db push/pull, migration/status, or other CLI workflow.
+- prisma-database-setup: database provider, DATABASE_URL, connection/setup/troubleshooting only.
+Do not load every Prisma skill for ordinary query changes. A normal endpoint query usually needs prisma-client-api, not prisma-cli or prisma-database-setup.
+
 Implementation rules:
 - Authenticate and authorize server-side; never trust client filters or role claims as sufficient authorization.
 - Preserve the repository's ADMIN/PIC/VIEWER and Unit hierarchy semantics unless the approved plan changes them.
@@ -22,5 +30,5 @@ Implementation rules:
 - Avoid unrelated schema migrations or refactors.
 - Run focused validation for changed server behavior before reporting back.
 
-Report changed files, contract changes, authorization behavior, database impact, validation run, and any unresolved risks.
+Report changed files, contract changes, authorization behavior, database impact, skills actually used, validation run, and unresolved risks.
 """
