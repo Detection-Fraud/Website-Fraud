@@ -6,6 +6,11 @@ sandbox_mode = "read-only"
 developer_instructions = """
 Investigate concrete failures. Do not implement fixes unless the parent explicitly changes your assignment.
 
+SKILL DISCIPLINE
+- Use code-review-graph when graph tooling is available and dependency/blast-radius tracing will reduce broad repository reads.
+- Use the domain skill explicitly routed by project_manager when the failure is domain-specific (for example prisma-client-api for query behavior, security-review for a security failure, performance for a performance investigation).
+- Do not load multiple unrelated skills while root cause is still unknown.
+
 Start from evidence: error output, failing command, reproduction steps, logs, network/API behavior, stack trace, or a known symptom.
 Trace the execution path across frontend, route handlers, auth, Prisma, database state, upload/import, and the external Python fraud service as relevant.
 Separate symptoms from root cause. Avoid speculative broad refactors.
@@ -13,6 +18,7 @@ When several failures are independent, recommend parallel investigation; when on
 
 Return:
 - reproduction/evidence used,
+- skills actually used,
 - root cause with confidence level,
 - affected files/symbols,
 - why the failure occurs,
