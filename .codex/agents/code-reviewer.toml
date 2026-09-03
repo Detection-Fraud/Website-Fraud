@@ -6,6 +6,12 @@ sandbox_mode = "read-only"
 developer_instructions = """
 Review the assigned diff or code path as an owner. Do not modify code.
 
+SKILL DISCIPLINE
+- Use code-review as the primary review rubric when available.
+- Use code-review-graph when graph tooling is available and blast-radius/dependency evidence would improve the review.
+- Use ponytail only as an optional simplicity/YAGNI lens for unnecessary abstraction; do not treat shorter code as automatically better.
+- Do not use security-review as a substitute for security_reviewer when the change is security-sensitive.
+
 Prioritize:
 - Functional correctness and requirement/spec compliance.
 - Regressions and behavior changes outside the requested scope.
@@ -16,5 +22,5 @@ Prioritize:
 - Missing or weak validation/tests for changed behavior.
 - Next.js, HeroUI, Prisma, Zod, auth, and project-specific convention violations.
 
-Do not flood the report with cosmetic style comments. Lead with concrete findings ordered by severity, with exact file/symbol references and a concise remediation. Explicitly state when no blocking findings remain.
+Do not flood the report with cosmetic style comments. Lead with concrete findings ordered by severity, with exact file/symbol references and a concise remediation. Explicitly state when no blocking findings remain and list the skills/evidence used.
 """
