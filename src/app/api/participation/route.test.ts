@@ -3,31 +3,73 @@ import { before, beforeEach, describe, it, mock } from "node:test";
 import { NextRequest } from "next/server";
 
 const authMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
-const categoryFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
-const unitFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(async () => []);
-const unitFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(async () => ({
-  id: "11111111-1111-4111-8111-111111111111",
-}));
-const participationFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(async () => []);
-const participationFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
-const participationCreateMock = mock.fn<(...args: any[]) => Promise<any>>(async () => ({
-  id: "participation-new",
-}));
-const participationUpdateMock = mock.fn<(...args: any[]) => Promise<any>>(async () => ({
-  id: "participation-existing",
-}));
+let currentAuthRole: "ADMIN" | "PIC" | "VIEWER" = "ADMIN";
+const userFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => ({
+    id: "admin-1",
+    name: "Admin Test",
+    username: "admin-test",
+    role: currentAuthRole,
+    authProvider: "LOCAL",
+    isActive: true,
+    unitId: currentAuthRole === "PIC" ? "unit-1" : null,
+    unit: null,
+    employee: null,
+  }),
+);
+const categoryFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => null,
+);
+const unitFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => [],
+);
+const unitFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => ({
+    id: "11111111-1111-4111-8111-111111111111",
+  }),
+);
+const participationFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => [],
+);
+const participationFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => null,
+);
+const participationCreateMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => ({
+    id: "participation-new",
+  }),
+);
+const participationUpdateMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => ({
+    id: "participation-existing",
+  }),
+);
+const participationCorrectionAuditCreateMock = mock.fn<
+  (...args: any[]) => Promise<any>
+>(async () => ({ id: "audit-1" }));
+const participationQueryRawMock = mock.fn<
+  (...args: any[]) => Promise<any>
+>(async () => []);
 const transactionMock = mock.fn<(...args: any[]) => Promise<any>>(
   async (callback: (tx: any) => Promise<unknown>) =>
     callback({
+      $queryRaw: participationQueryRawMock,
       unit: { findUnique: unitFindUniqueMock },
       participationData: {
         findUnique: participationFindUniqueMock,
+        findMany: participationFindManyMock,
         create: participationCreateMock,
         update: participationUpdateMock,
+        updateMany: participationUpdateMock,
+      },
+      participationCorrectionAudit: {
+        create: participationCorrectionAuditCreateMock,
       },
     }),
 );
-const workbookLoadMock = mock.fn<(...args: any[]) => Promise<any>>(async () => undefined);
+const workbookLoadMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => undefined,
+);
 const workbook = {
   worksheets: [{ eachRow: mock.fn<(...args: any[]) => any>() }],
   xlsx: { load: workbookLoadMock },
@@ -41,6 +83,7 @@ mock.module("@/lib/prisma", {
   namedExports: {
     prisma: {
       programCategory: { findUnique: categoryFindUniqueMock },
+      user: { findUnique: userFindUniqueMock },
       unit: { findMany: unitFindManyMock },
       participationData: { findMany: participationFindManyMock },
       $transaction: transactionMock,
@@ -61,6 +104,7 @@ before(async () => {
 });
 beforeEach(() => {
   authMock.mock.resetCalls();
+  userFindUniqueMock.mock.resetCalls();
   categoryFindUniqueMock.mock.resetCalls();
   unitFindManyMock.mock.resetCalls();
   unitFindUniqueMock.mock.resetCalls();
@@ -68,13 +112,21 @@ beforeEach(() => {
   participationFindUniqueMock.mock.resetCalls();
   participationCreateMock.mock.resetCalls();
   participationUpdateMock.mock.resetCalls();
+  participationCorrectionAuditCreateMock.mock.resetCalls();
+  participationQueryRawMock.mock.resetCalls();
   transactionMock.mock.resetCalls();
   workbookLoadMock.mock.resetCalls();
   workbookConstructorMock.mock.resetCalls();
   workbook.worksheets[0].eachRow.mock.resetCalls();
 
+  currentAuthRole = "ADMIN";
   authMock.mock.mockImplementation(async () => ({
-    user: { id: "admin-1", role: "ADMIN" },
+    user: {
+      id: "admin-1",
+      name: "Admin Test",
+      role: currentAuthRole,
+      authProvider: "LOCAL",
+    },
   }));
   categoryFindUniqueMock.mock.mockImplementation(async () => ({
     targetUnit: "PARTISIPASI_PERSEN",
@@ -111,10 +163,10 @@ function previewRequest() {
   body.set("categoryId", filter().categoryId);
   body.set("tw", "1");
   body.set("year", "2026");
-  return new NextRequest(
-    "http://localhost/api/participation?action=preview",
-    { method: "POST", body },
-  );
+  return new NextRequest("http://localhost/api/participation?action=preview", {
+    method: "POST",
+    body,
+  });
 }
 function commitRequest(rows: unknown[]) {
   return new NextRequest("http://localhost/api/participation?action=commit", {
@@ -145,9 +197,17 @@ describe("POST /api/participation", () => {
     ["VIEWER", 403],
   ] as const) {
     it(`${role} ditolak sebelum kerja file`, async () => {
-      authMock.mock.mockImplementationOnce(async () => ({
-        user: { id: "user-1", role },
-      }));
+      authMock.mock.mockImplementationOnce(async () => {
+        currentAuthRole = role;
+        return {
+          user: {
+            id: "user-1",
+            role,
+            name: role,
+            authProvider: "LOCAL",
+          },
+        };
+      });
       const result = await body(await POST(previewRequest()));
       assert.equal(result.status, status);
       assert.equal(workbookLoadMock.mock.callCount(), 0);
@@ -243,200 +303,112 @@ describe("POST /api/participation", () => {
     it(`commit menolak nilai strict ${String(percentage)}`, async () => {
       const result = await body(
         await POST(
-          commitRequest([{ unitId: validUnitId, percentage, overwrite: false }]),
+          commitRequest([
+            { unitId: validUnitId, percentage, overwrite: false },
+          ]),
         ),
       );
       assert.equal(result.status, 400);
       assert.equal(transactionMock.mock.callCount(), 0);
     });
   }
-  it("commit membuat row valid 0/80/100 dan tidak menyentuh Program/Report", async () => {
+
+  it("payload percentage-only legacy ditolak sebelum database bekerja", async () => {
     const result = await body(
       await POST(
         commitRequest([
-          { unitId: validUnitId, percentage: 0, overwrite: false },
-          { unitId: validUnitId, percentage: 80, overwrite: false },
-          { unitId: validUnitId, percentage: 100, overwrite: false },
+          {
+            unitId: validUnitId,
+            percentage: 80,
+            overwrite: true,
+          },
         ]),
       ),
     );
-    assert.equal(result.status, 200);
-    assert.equal(participationCreateMock.mock.callCount(), 3);
-    assert.equal(participationUpdateMock.mock.callCount(), 0);
-  });
-  it("commit create-safe saat existing row tidak ada dan hanya memanggil create", async () => {
-    participationFindUniqueMock.mock.mockImplementationOnce(async () => null);
-    const result = await body(
-      await POST(
-        commitRequest([
-          { unitId: validUnitId, percentage: 80, overwrite: false },
-        ]),
-      ),
-    );
-    assert.equal(result.status, 200);
-    assert.deepEqual(result.data, { created: 1, updated: 0, skipped: 0 });
-    assert.equal(participationCreateMock.mock.callCount(), 1);
-    assert.equal(participationUpdateMock.mock.callCount(), 0);
-  });
-  it("commit memvalidasi unit dari database sebelum write", async () => {
-    unitFindUniqueMock.mock.mockImplementationOnce(async () => null);
-    const result = await body(
-      await POST(
-        commitRequest([
-          { unitId: validUnitId, percentage: 80, overwrite: false },
-        ]),
-      ),
-    );
+
     assert.equal(result.status, 400);
+    assert.equal(transactionMock.mock.callCount(), 0);
     assert.equal(participationCreateMock.mock.callCount(), 0);
-  });
-  it("same-value pada row Excel kompatibel menjadi skip tanpa update", async () => {
-    participationFindUniqueMock.mock.mockImplementationOnce(async () => ({
-      importedById: "admin-importer",
-      evidenceReportId: null,
-      assessedById: null,
-      id: "p-1",
-      percentage: 80,
-    }));
-    const result = await body(
-      await POST(
-        commitRequest([
-          { unitId: validUnitId, percentage: 80, overwrite: false },
-        ]),
-      ),
-    );
-    assert.equal(result.status, 200);
-    assert.deepEqual(result.data, { created: 0, updated: 0, skipped: 1 });
-    assert.deepEqual(
-      (
-        participationFindUniqueMock.mock.calls[0].arguments[0] as {
-          select: Record<string, boolean>;
-        }
-      ).select,
-      {
-        importedById: true,
-        evidenceReportId: true,
-        assessedById: true,
-        id: true,
-        percentage: true,
-      },
-    );
     assert.equal(participationUpdateMock.mock.callCount(), 0);
   });
-  it("different value tanpa explicit overwrite tetap skip pada row Excel kompatibel", async () => {
-    participationFindUniqueMock.mock.mockImplementationOnce(async () => ({
-      importedById: "admin-importer",
-      evidenceReportId: null,
-      assessedById: null,
-      id: "p-1",
-      percentage: 70,
-    }));
+
+  it("overwrite tanpa alasan ditolak sebelum transaction", async () => {
     const result = await body(
       await POST(
         commitRequest([
-          { unitId: validUnitId, percentage: 80, overwrite: false },
+          {
+            unitId: validUnitId,
+            participantCount: 80,
+            overwrite: true,
+            reason: "   ",
+          },
         ]),
       ),
     );
-    assert.equal(result.data.skipped, 1);
-    assert.equal(participationUpdateMock.mock.callCount(), 0);
+
+    assert.equal(result.status, 400);
+    assert.equal(transactionMock.mock.callCount(), 0);
   });
-  it("different value dengan explicit overwrite melakukan update pada row Excel kompatibel", async () => {
-    participationFindUniqueMock.mock.mockImplementationOnce(async () => ({
-      importedById: "admin-importer",
-      evidenceReportId: null,
-      assessedById: null,
-      id: "p-1",
-      percentage: 70,
-    }));
-    const result = await body(
-      await POST(
-        commitRequest([
-          { unitId: validUnitId, percentage: 80, overwrite: true },
-        ]),
-      ),
-    );
-    assert.equal(result.data.updated, 1);
-    assert.equal(participationUpdateMock.mock.callCount(), 1);
-  });
-  it("unknown-origin menghasilkan ApiError 409 sebelum equality maupun update/create", async () => {
-    participationFindUniqueMock.mock.mockImplementationOnce(async () => ({
-      importedById: null,
-      evidenceReportId: null,
-      assessedById: null,
-      id: "p-1",
-      percentage: 80,
-    }));
-    const result = await body(
-      await POST(
-        commitRequest([
-          { unitId: validUnitId, percentage: 80, overwrite: true },
-        ]),
-      ),
-    );
-    assert.equal(result.status, 409);
-    assert.equal(participationUpdateMock.mock.callCount(), 0);
-    assert.equal(participationCreateMock.mock.callCount(), 0);
-  });
-  for (const provenance of [
-    { evidenceReportId: "report-1", assessedById: null },
-    { evidenceReportId: null, assessedById: "admin-2" },
-  ]) {
-    it("direct-admin/evidence provenance menghasilkan ApiError 409 sebelum equality maupun update/create", async () => {
-      participationFindUniqueMock.mock.mockImplementationOnce(async () => ({
-        importedById: null,
-        id: "p-1",
-        percentage: 80,
-        ...provenance,
-      }));
-      const result = await body(
-        await POST(
-          commitRequest([
-            { unitId: validUnitId, percentage: 80, overwrite: true },
-          ]),
-        ),
-      );
-      assert.equal(result.status, 409);
-      assert.equal(participationUpdateMock.mock.callCount(), 0);
-      assert.equal(participationCreateMock.mock.callCount(), 0);
+
+  it("koreksi tetap hanya dapat dilakukan oleh ADMIN", async () => {
+    authMock.mock.mockImplementationOnce(async () => {
+      currentAuthRole = "PIC";
+      return {
+        user: {
+          id: "pic-1",
+          name: "PIC",
+          role: "PIC",
+          authProvider: "LOCAL",
+        },
+      };
     });
-  }
-  for (const capability of [
-    {
-      targetUnit: "PARTISIPASI_PERSEN",
-      evidenceMode: "PHOTO_WITHOUT_AI",
-      scoreInputMode: "DIRECT_ADMIN",
-    },
-    {
-      targetUnit: "PARTISIPASI_PERSEN",
-      evidenceMode: "PHOTO_WITH_AI",
-      scoreInputMode: "NONE",
-    },
-  ]) {
-    it("commit manipulated direct-admin/evidence capability menghasilkan 422 sebelum transaction atau write", async () => {
-      categoryFindUniqueMock.mock.mockImplementationOnce(
-        async () => capability,
-      );
-      const result = await body(
-        await POST(
-          commitRequest([
-            { unitId: validUnitId, percentage: 80, overwrite: false },
-          ]),
-        ),
-      );
-      assert.equal(result.status, 422);
-      assert.equal(transactionMock.mock.callCount(), 0);
-      assert.equal(participationCreateMock.mock.callCount(), 0);
-      assert.equal(participationUpdateMock.mock.callCount(), 0);
-    });
-  }
+
+    const result = await body(
+      await POST(
+        commitRequest([
+          {
+            unitId: validUnitId,
+            participantCount: 80,
+            overwrite: true,
+            reason: "Koreksi oleh PIC",
+          },
+        ]),
+      ),
+    );
+
+    assert.equal(result.status, 403);
+    assert.equal(transactionMock.mock.callCount(), 0);
+  });
+
+  it("koreksi menolak unit duplikat", async () => {
+    const result = await body(
+      await POST(
+        commitRequest([
+          {
+            unitId: validUnitId,
+            participantCount: 80,
+            overwrite: false,
+          },
+          {
+            unitId: validUnitId,
+            participantCount: 81,
+            overwrite: true,
+            reason: "Koreksi duplikat",
+          },
+        ]),
+      ),
+    );
+
+    assert.equal(result.status, 400);
+    assert.equal(transactionMock.mock.callCount(), 0);
+  });
+
   it("action invalid menerima 400", async () => {
     const result = await body(
       await POST(
-        new NextRequest(
-          "http://localhost/api/participation?action=nope",
-          { method: "POST" },
-        ),
+        new NextRequest("http://localhost/api/participation?action=nope", {
+          method: "POST",
+        }),
       ),
     );
     assert.equal(result.status, 400);

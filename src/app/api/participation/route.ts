@@ -1,12 +1,12 @@
-import { ApiError, handleApiError, requireAdmin } from "@/lib/api/auth-guard";
+import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { parseParticipationPercentage } from "@/lib/participation-import";
 import { prisma } from "@/lib/prisma";
 import { canImportParticipation } from "@/lib/program-capabilities";
 import { errorResponse, successResponse } from "@/lib/response";
 import {
-  commitParticipationSchema,
   participationFilterSchema,
   participationSnapshotCommitSchema,
+  participationCorrectionSchema,
 } from "@/schemas/participation.schema";
 import type {
   ParticipationPreviewRow,
@@ -15,7 +15,8 @@ import type {
 import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 import { createParticipationSnapshots } from "@/lib/participation-snapshot";
-import { decimalFromNumber, decimalToNumber } from "@/lib/decimal-contract";
+import { correctParticipationSnapshots } from "@/lib/participation-correction";
+import { decimalToNumber } from "@/lib/decimal-contract";
 
 async function getExcelParticipationCategory(categoryId: string) {
   const category = await prisma.programCategory.findUnique({
@@ -190,7 +191,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "commit") {
-      const parsed = commitParticipationSchema.safeParse(await req.json());
+      const parsed = participationCorrectionSchema.safeParse(await req.json());
+
       if (!parsed.success) {
         return NextResponse.json(
           errorResponse(parsed.error.issues[0].message, 400),
@@ -199,95 +201,45 @@ export async function POST(req: NextRequest) {
       }
 
       const { categoryId, tw, year, rows } = parsed.data;
+
       if (!(await getExcelParticipationCategory(categoryId))) {
         return NextResponse.json(
           errorResponse(
-            "Kategori tidak tersedia untuk import Excel; gunakan kategori partisipasi dengan sumber Excel",
+            "Kategori tidak tersedia untuk koreksi partisipasi Excel",
             422,
           ),
           { status: 422 },
         );
       }
 
-      let created = 0;
-      let updated = 0;
-      let skipped = 0;
-      await prisma.$transaction(async (tx) => {
-        for (const row of rows) {
-          const unit = await tx.unit.findUnique({
-            where: { id: row.unitId },
-            select: { id: true },
-          });
-          if (!unit)
-            throw new ApiError("Unit tidak ditemukan di database", 400);
-
-          const current = await tx.participationData.findUnique({
-            where: {
-              unitId_categoryId_tw_year: {
-                unitId: unit.id,
-                categoryId,
-                tw,
-                year,
-              },
-            },
-            select: {
-              importedById: true,
-              evidenceReportId: true,
-              assessedById: true,
-              id: true,
-              percentage: true,
-            },
-          });
-
-          // Hanya row yang dibuat oleh Excel dan belum memiliki provenance lain yang kompatibel.
-          const isCompatibleExcelRow =
-            current !== null &&
-            current.importedById !== null &&
-            current.evidenceReportId === null &&
-            current.assessedById === null;
-          if (current && !isCompatibleExcelRow) {
-            throw new ApiError(
-              "Data dengan provenance yang tidak kompatibel tidak dapat ditimpa melalui Excel",
-              409,
-            );
-          }
-
-          if (!current) {
-            await tx.participationData.create({
-              data: {
-                unitId: unit.id,
-                categoryId,
-                tw,
-                year,
-                percentage: decimalFromNumber(row.percentage),
-                importedById: session.user.id,
-              },
-            });
-            created++;
-          } else if (
-            decimalToNumber(current.percentage) === row.percentage
-          ) {
-            skipped++;
-          } else if (row.overwrite) {
-            await tx.participationData.update({
-              where: { id: current.id },
-              data: {
-                percentage: decimalFromNumber(row.percentage),
-                importedById: session.user.id,
-                importedAt: new Date(),
-              },
-            });
-            updated++;
-          } else {
-            skipped++;
-          }
-        }
+      const results = await correctParticipationSnapshots({
+        categoryId,
+        tw,
+        year,
+        rows,
+        actorId: session.user.id,
+        actorName: session.user.name,
       });
+
+      const updated = results.filter(
+        (result) => result.status === "UPDATED",
+      ).length;
+
+      const skipped = results.filter(
+        (result) => result.status === "UNCHANGED",
+      ).length;
 
       return NextResponse.json(
         successResponse(
-          { created, updated, skipped },
-          "Import data partisipasi selesai",
+          {
+            updated,
+            skipped,
+            rows: results.map((result) => ({
+              ...result,
+              percentage: result.percentage.toNumber(),
+            })),
+          },
+          "Koreksi data partisipasi selesai",
         ),
       );
     }
