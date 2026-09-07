@@ -24,6 +24,37 @@ export const commitParticipationSchema = participationFilterSchema.extend({
     .min(1, "Data commit tidak boleh kosong"),
 });
 
+export const participationSnapshotCommitSchema = participationFilterSchema
+  .extend({
+    rows: z
+      .array(
+        z
+          .object({
+            unitId: z.string().uuid("Unit ID tidak valid"),
+            participantCount: z
+              .number("Jumlah partisipasi harus berupa angka")
+              .int("Jumlah partisipasi harus bilangan bulat")
+              .min(0, "Jumlah partisipasi tidak boleh negatif"),
+          })
+          .strict(),
+      )
+      .min(1, "Data snapshot tidak boleh kosong"),
+  })
+  .superRefine((value, context) => {
+    const unitIds = value.rows.map((row) => row.unitId);
+    if (new Set(unitIds).size !== unitIds.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rows"],
+        message: "Unit tidak boleh duplikat dalam satu commit",
+      });
+    }
+  });
+
+export type ParticipationSnapshotCommitInput = z.infer<
+  typeof participationSnapshotCommitSchema
+>;
+
 export type ParticipationFilterInput = z.infer<
   typeof participationFilterSchema
 >;

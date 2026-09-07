@@ -2,560 +2,486 @@
 
 Website-Fraud — Codex Multi-Agent Operating Rules
 
+These rules are repository-level operating policy. They are intended to survive new chats, model switches, and lost conversational context.
+
+0. SESSION BOOTSTRAP — MANDATORY
+
+0.1 Do not rely on chat memory
+
+At the start of a new chat, resumed task, named feature task, or when the user says "continue", "start Task N", "lanjut", or equivalent:
+
+DO NOT rely on remembered conversational context as the source of truth.
+
+Recover the working contract from repository evidence first.
+
+0.2 Read order
+
+For any non-trivial repository task, read this file first.
+
+For the Employee / User / Pentaho / PIC / Participation feature family, before inspecting, planning, implementing, reviewing, or classifying a task, read:
+
+AGENTS.md
+.codex/context/employee-pentaho-design-lock.md
+.codex/context/employee-pentaho-implementation-plan.md
+.codex/TASK-STATE-SEMANTICS.md
+.codex/TOKEN-EFFICIENT-ASSURANCE.md
+
+If collaboration mode is MANUAL APPLY, also read:
+
+.codex/MANUAL-APPLY-RESPONSE-FORMAT.md
+
+This read is mandatory even if the task sounds familiar from a previous conversation.
+
+0.3 Recover current state before work
+
+Before starting a persistent numbered task:
+
+READ LOCKED DESIGN
+→ READ IMPLEMENTATION PLAN
+→ INSPECT CURRENT REPOSITORY STATE
+→ RESOLVE CURRENT TASK + PREREQUISITES
+→ RESOLVE COLLABORATION MODE
+→ RESOLVE ASSURANCE MODE
+→ ONLY THEN ROUTE / EXPLORE / PLAN / IMPLEMENT
+
+Do not infer that a previous task is incomplete merely because a plan file contains an older status label. Current repository evidence and explicit user-provided completion/checkpoint information may be newer.
+
+Do not silently rewrite historical task state. Report discrepancies between plan status and actual applied repository state when material.
+
+0.4 Current-task gate
+
+Only the current task and already-completed prerequisites are acceptance scope.
+
+Do not inspect, plan, implement, or review the next numbered task unless:
+
+the user explicitly starts it; or
+
+the current locked implementation plan explicitly requires a bounded prerequisite inspection.
+
+Example:
+
+Task 6 complete
+Task 7 NOT_STARTED
+
+means Task 7 is not to be explored merely because its code is missing or TypeScript errors are known to belong to it.
+
+0.5 New-chat recovery output
+
+When a task is resumed in a new chat, internally establish at minimum:
+
+CURRENT FEATURE
+CURRENT TASK STATE
+COMPLETED PREREQUISITES
+COLLABORATION MODE
+ASSURANCE MODE
+DESIGN LOCK STATUS
+KNOWN BASELINE / ENVIRONMENT LIMITATIONS
+
+Do not ask the user to repeat information that is already recoverable from repository context files and source.
+
 1. Operating model
 
-For meaningful engineering work, follow this lifecycle:
+For meaningful engineering work:
 
-TRIAGE -> EXPLORE -> RE-SCOPE -> ARCHITECT IF NEEDED -> PLAN IF NEEDED -> IMPLEMENT/PROPOSE -> FOCUSED VALIDATE -> INTEGRATED ASSURANCE WHEN DUE -> DEBUG/FIX IF NEEDED -> FINAL VERIFY
+TRIAGE
+→ EXPLORE
+→ RE-SCOPE
+→ ARCHITECT IF NEEDED
+→ PLAN IF NEEDED
+→ IMPLEMENT / PROPOSE
+→ FOCUSED VALIDATE
+→ INTEGRATED ASSURANCE WHEN DUE
+→ DEBUG / FIX IF NEEDED
+→ FINAL VERIFY
 
 The primary Codex thread is the orchestrator.
 
-The primary thread owns:
+Primary owns:
 
-actual subagent spawning,
+actual subagent spawning;
 
-waiting and coordination,
+waiting and coordination;
 
-result synthesis,
+synthesis;
 
-workflow state,
+workflow state;
 
-collaboration-mode enforcement,
+collaboration-mode enforcement;
 
-assurance-mode enforcement.
+assurance-mode enforcement;
+
+final user-facing handoff.
 
 Role ownership:
 
-project_manager owns normal scope, routing, dependencies, agent selection, skill selection, concurrency planning, and planner/architect routing.
+project_manager: normal scope, routing, dependencies, agent/skill selection, concurrency, planner/architect routing.
 
-deep_project_manager owns deep requirement/design discussion.
+deep_project_manager: deep requirement/design discussion.
 
-built-in explorer owns repository evidence gathering and dependency/blast-radius mapping.
+built-in explorer: repository evidence and blast-radius mapping.
 
-architect owns material architecture/design judgment and design-lock status.
+architect: material architecture/design judgment and design-lock status.
 
-implementation_planner owns detailed executable implementation planning after design is locked.
+implementation_planner: detailed executable implementation planning after design is locked.
 
-implementation specialists own bounded implementation or proposal authoring.
+implementation specialists: bounded implementation or proposal authoring.
 
-reviewers/tester own independent assurance, not implementation.
+reviewers/tester: independent assurance, not implementation.
 
-debugger owns evidence-based root-cause investigation after concrete failures.
+debugger: evidence-based root-cause investigation after concrete failures.
 
 Do not spawn the whole roster.
-
-Do not load every installed skill for every task.
-
-Use the smallest set of agents and skills that materially improves correctness, speed, safety, or clarity.
+Do not load every installed skill.
+Use the smallest set that materially improves correctness, speed, safety, or clarity.
 
 2. Routing lanes
-
-Repository-aware work has two primary reasoning lanes.
 
 NORMAL ENGINEERING
 
 Use for:
 
-routine repository discussion,
+repository discussion;
 
-implementation planning,
+implementation planning;
 
-implementation,
+implementation;
 
-MANUAL APPLY proposals,
+MANUAL APPLY proposal authoring;
 
-bug fixing,
+bug fixes;
 
-review,
+review;
 
 verification.
 
-Default flow:
+Default:
 
-Primary Codex
-↓
-project_manager
-↓
-explorer if repository evidence is needed
-↓
-architect if design judgment is genuinely needed
-↓
-implementation_planner if detailed planning is justified
-↓
-implementation owner
+Primary
+→ project_manager
+→ explorer if evidence is needed
+→ architect only if genuine design judgment is needed
+→ implementation_planner only if detailed planning is justified
+→ implementation owner
 
 DEEP DISCUSSION
 
 Use when:
 
-the user explicitly requests DEEP DISCUSSION,
+user explicitly requests deep discussion;
 
-the desired architecture/flow is materially unknown,
+architecture/flow is materially unknown;
 
-the user wants assumptions aggressively challenged,
+assumptions must be aggressively challenged;
 
-the user asks to identify blind spots/celah,
+user asks for blind spots/celah;
 
-an early wrong decision would create substantial downstream rework.
+an early wrong decision would cause substantial rework.
 
-Default flow:
+Default:
 
-Primary Codex
-↓
-deep_project_manager
-├─ reasoning first
-├─ max 2 read-only explorers when needed
-└─ max 1 architect only if a distinct architecture problem remains
+Primary
+→ deep_project_manager
+   ├─ reasoning first
+   ├─ max 2 read-only explorers when useful
+   └─ max 1 architect only if a distinct architecture problem remains
 
-Do not invoke normal project_manager first when entering DEEP DISCUSSION.
+Do not invoke normal project_manager first in DEEP DISCUSSION.
 
-Default Deep Discussion delegation budget:
+Default delegation budget:
 
 deep_project_manager: 1
+explorers: max 2
+architect: max 1
 
-explorers: maximum 2
+Do not invoke implementation/review agents by default during deep discussion.
 
-architect: maximum 1
-
-Do NOT invoke by default during DEEP DISCUSSION:
-
-implementation_planner
-
-frontend_engineer
-
-backend_engineer
-
-migration_specialist
-
-code_reviewer
-
-security_reviewer
-
-tester
-
-debugger
-
-Deep PM may use:
-
-grilling
-
-brainstorming
-
-domain-modeling
-
-only when relevant.
-
-Technical questions that can be answered from repository evidence should not be pushed to the user.
-
-Once design is locked, exit DEEP DISCUSSION and return to normal PM orchestration.
+Once design is locked, exit DEEP DISCUSSION and return to normal engineering.
 
 3. Collaboration modes
 
 The active collaboration mode controls repository-write permission.
 
-The mode MUST be explicitly preserved in implementation assignments.
+The mode MUST be preserved explicitly in every implementation assignment.
 
-If a non-trivial task has no resolvable collaboration mode, do NOT silently assume AUTO.
+If a non-trivial task has no resolvable collaboration mode, do not silently assume AUTO.
 
 AUTO
 
-Use when the user explicitly wants Codex to implement changes directly.
+Use only when the user explicitly wants direct repository implementation.
 
-Implementation owners may modify repository files.
+AUTO may modify repository product files.
 
-AUTO does NOT authorize:
+AUTO does not automatically authorize:
 
-production deployment,
+production deployment;
 
-production/shared DB mutation,
+production/shared DB mutation;
 
-destructive database reset,
+destructive database reset;
 
-force push,
+force push;
 
-destructive Git operations,
+destructive Git operations;
 
-secrets modification,
+secrets changes;
 
-.env changes,
+.env changes.
 
-unless explicitly requested and authorized.
-
-Review/testing remains relevance-based.
-
-Do not automatically run every reviewer for every small task.
+Those remain explicit-approval actions.
 
 MANUAL APPLY
 
-Use when Codex designs/writes implementation but the user applies product-code changes manually.
+Use when Codex authors the implementation and the user applies product-code changes manually.
 
-In MANUAL APPLY:
+In MANUAL APPLY, primary and ALL subagents MUST NOT:
 
-Codex and ALL subagents MUST NOT:
+modify real repository product files;
 
-modify repository product files,
+create real repository product files;
 
-create repository product files,
+delete/rename/move real repository product files;
 
-delete repository product files,
+format product files;
 
-rename repository product files,
+apply patches to product files;
 
-move repository product files,
+mutate the real/shared database unless explicitly authorized.
 
-format repository product files,
-
-apply patches to repository product files.
-
-Implementation agents become proposal authors.
-
-Their normal WRITER role does not grant repository write permission.
+Implementation specialists become proposal authors, not repository writers.
 
 Allowed:
 
-repository inspection,
+repository inspection;
 
-read-only exploration,
+read-only exploration;
 
-dependency tracing,
+dependency tracing;
 
-design work,
+design;
 
-exact proposal code,
+exact proposal code;
 
-isolated scratch proposal validation,
+isolated scratch validation outside the real repository root;
 
 safe deterministic checks against scratch copies.
 
-Scratch MUST live outside the real repository root.
-
-Do not use a Git worktree as scratch if that would mutate real repository Git metadata.
-
-Never mutate the real/shared database during MANUAL APPLY unless explicitly authorized.
+Do not use a Git worktree as scratch if it mutates real repository Git metadata.
 
 MANUAL APPLY — DEFERRED ASSURANCE
 
-This is the preferred controlled-build workflow when the user wants to inspect implementation code before allowing broad automatic fixing.
-
-Purpose:
+Preferred controlled-build workflow:
 
 LOCKED DESIGN
-↓
-LOCKED IMPLEMENTATION PLAN
-↓
-Task N proposal
-↓
-cheap deterministic validation
-↓
-user manually applies
-↓
-next task
-↓
-...
-↓
-all implementation present
-↓
-INTEGRATED ASSURANCE
-↓
-AUTO REMEDIATION if findings exist
+→ LOCKED IMPLEMENTATION PLAN
+→ Task N proposal
+→ cheap deterministic proposal validation
+→ COMPLETE MANUAL HANDOFF
+→ user manually applies
+→ light applied verification
+→ next task
+→ ...
+→ milestone
+→ INTEGRATED ASSURANCE
+→ AUTO REMEDIATION if explicitly requested
 
-During each implementation task:
+Do not automatically run code reviewer + security reviewer + tester after every packet.
 
-Use only agents required to understand and author the implementation.
+Use cheap deterministic validation appropriate to the task:
 
-Do NOT automatically invoke:
+Prisma schema      → prisma validate
+TypeScript         → focused compile / tsc
+migration          → static SQL safety validation
+pure helper        → focused deterministic test/check
+parser/import      → scratch dry-run
+frontend contracts → TypeScript compile
 
-code_reviewer
+Deferred assurance means delayed broad assurance, not permanent skipping.
 
-security_reviewer
+4. MANUAL APPLY output contract — HARD GATE
 
-tester
+This section is a hard completion gate.
 
-for every task.
+4.1 Summary is NOT a handoff
 
-Use cheap deterministic validation instead.
+The following are NOT sufficient:
 
-Examples:
+"buat file X berisi service..."
+"ubah route agar..."
+"tambahkan parser..."
+"perbarui test..."
+"gunakan transaction..."
+"fix Decimal..."
 
-Prisma schema
-→ prisma validate
+Those are implementation summaries/plans.
 
-TypeScript
-→ focused compile / tsc
+They are not a complete MANUAL APPLY edit set.
 
-migration
-→ static SQL safety scan
+4.2 Existing files
 
-pure business helper
-→ focused deterministic test/check
+Default output is surgical.
 
-parser/import
-→ scratch dry-run
-
-frontend contracts
-→ TypeScript compile
-
-Cheap validation exists to prevent implementation errors from compounding across later tasks.
-
-Deferred assurance does NOT mean permanent assurance skipping.
-
-Security/code/test review MUST be performed during the appropriate integrated assurance phase.
-
-INTEGRATED ASSURANCE
-
-Use after a meaningful implementation set has been manually applied.
-
-Integrated assurance evaluates the REAL repository.
-
-Primary comparison:
-
-LOCKED DESIGN
-
-- IMPLEMENTATION PLAN
-  ↓
-  vs
-  ↓
-  ACTUAL REPOSITORY
-
-Review two dimensions.
-
-Implementation conformance
-
-Verify:
-
-every planned requirement exists,
-
-implementation order/contracts match the plan,
-
-no material requirement was skipped,
-
-ownership boundaries are preserved,
-
-business invariants remain correct,
-
-architecture did not drift unnecessarily.
-
-Engineering assurance
-
-Verify:
-
-correctness,
-
-regression risk,
-
-security,
-
-authorization,
-
-data integrity,
-
-migration safety,
-
-race/concurrency behavior where relevant,
-
-integration behavior,
-
-tests,
-
-lint/typecheck/build.
-
-Integrated findings should explain:
-
-EXPECTED FROM PLAN/DESIGN:
-<expected behavior>
-
-ACTUAL CODE:
-<actual behavior>
-
-WHY THIS MATTERS:
-<impact>
-
-REQUIRED CORRECTION:
-<fix direction>
-
-EVIDENCE:
-<file/symbol/test>
-
-Do NOT mark missing implementation of a future/unstarted task as a defect.
-
-AUTO REMEDIATION
-
-Use after integrated assurance when the user explicitly wants Codex to fix concrete findings automatically.
-
-AUTO REMEDIATION is narrower than greenfield AUTO implementation.
-
-Expected inputs:
-
-locked design
-
-- implementation plan
-- actual repository
-- concrete findings
-
-Flow:
-
-collect findings
-↓
-group by dependency/owner
-↓
-fix concrete findings
-↓
-run affected checks
-↓
-re-review affected surfaces
-↓
-final integrated verification
-
-AUTO REMEDIATION must not silently redesign locked product behavior.
-
-If remediation exposes a genuine unresolved product/business decision, return that bounded decision to PM/architect/user.
-
-Real/shared database mutation remains approval-gated.
-
-REVIEW
-
-Read-only repository inspection.
-
-Do not modify product files.
-
-Report findings.
-
-Do not fix findings unless collaboration mode changes.
-
-4. MANUAL APPLY output contract
-
-Default output is SURGICAL.
-
-Existing files
-
-Use:
-
-ADD
-
-REPLACE
-
-DELETE
-
-RENAME
-
-MOVE
-
-For every operation provide:
-
-exact path,
-
-containing symbol when useful,
-
-exact stable current-code anchor,
-
-exact position,
-
-exact replacement/addition code,
-
-reason.
-
-Example:
+For every existing-file operation use:
 
 File:
-src/example.ts
+<exact path>
 
 Action:
-ADD
+ADD | REPLACE | DELETE | RENAME | MOVE
 
 Containing symbol:
-function example()
+<symbol when useful>
 
 Find exact anchor:
-const value = getValue();
+<stable current source text>
 
 Instruction:
-ADD immediately after the anchor.
+<exact position/action>
 
 Apply code:
-<exact code>
+<exact final code>
+
+Reason:
+<short reason>
+
+Requirements:
+
+exact path;
+
+stable current-code anchor;
+
+exact location;
+
+exact final code;
+
+containing symbol when useful;
+
+enough anchor context to avoid ambiguity.
 
 Do not rely only on line numbers.
 
-If an anchor is ambiguous, expand it.
-
-Never use:
+Never use placeholders such as:
 
 ...
-
 rest unchanged
-
 update accordingly
+existing logic here
+same as above
+etc.
+fake function
+guessed signature
 
-fake functions
+4.3 New files
 
-guessed signatures.
-
-New file
-
-Use:
+For every new file:
 
 CREATE FILE
 path/to/file.ts
 
-Then provide COMPLETE file content.
+<COMPLETE FILE CONTENT>
 
-Delete file
+Complete means copy-pasteable from first line to last line with:
+
+all imports;
+
+all types;
+
+all functions;
+
+exports;
+
+error handling;
+
+no omitted blocks;
+
+no placeholders.
+
+4.4 Deleted files
 
 Use:
 
 DELETE FILE
 path/to/file.ts
 
-Include evidence explaining why deletion is safe.
+Include evidence why deletion is safe.
 
-Unified diff
+4.5 Full existing-file replacement
 
-Do NOT use unified diff by default.
-
-Use only when:
-
-explicitly requested,
-
-or surgical instructions would be materially less safe.
-
-Full existing file
-
-Do NOT output a full existing-file replacement by default.
+Do not output full existing-file replacement by default.
 
 Use only when:
 
-explicitly requested,
+user explicitly asks; or
 
-or surgical editing would be materially less safe.
+surgical edits would be materially less safe.
 
-5. Proposal validation
+4.6 Unified diff
 
-Distinguish:
+Do not use unified diff by default.
 
-PROPOSAL VALIDATION
-= validation performed against proposal/scratch before user applies
+Use only when explicitly requested or when it is materially safer than surgical instructions.
 
-APPLIED REPOSITORY VERIFICATION
-= validation performed against the real repository after manual application
+5. PROPOSAL_READY is an output state, not a planning label
 
-Never claim applied verification from proposal/scratch validation.
+This rule is mandatory.
 
-A validated handoff must reconstruct the material proposal that was actually validated.
+A task may be called:
 
-If emitted code changes after validation:
+PROPOSAL_READY
 
-previous validation
-→ STALE
-→ revalidation required
+only if the same user-facing delivery actually contains the complete validated manual edit handoff required by Section 4.
 
-Normal ready-state fields:
+The following combination is forbidden:
+
+implementation summary only
++
+TARGETED MANUAL EDIT SET: COMPLETE
+
+If the code was not actually emitted, the edit set is not complete.
+
+5.1 Required MANUAL APPLY ready state
+
+Before claiming PROPOSAL_READY, all must be true:
 
 PROPOSAL VALIDATION: PASS
 TARGETED MANUAL EDIT SET: COMPLETE
 VALIDATED HANDOFF CONSISTENCY: PASS
 APPLIED REPOSITORY VERIFICATION: NOT RUN
 
-In MANUAL APPLY — DEFERRED ASSURANCE, this does NOT require code/security/tester subagent passes per task.
+TARGETED MANUAL EDIT SET: COMPLETE means the user has actually received every required exact edit.
+
+5.2 Output-limit rule
+
+If output size/tool limits prevent emitting the complete handoff:
+
+Task N — PROPOSAL_IN_PROGRESS
+TARGETED MANUAL EDIT SET: INCOMPLETE
+
+Do not falsely claim PROPOSAL_READY.
+
+Continue the handoff in the workflow until complete.
+
+5.3 Validation/handoff consistency
+
+Proposal validation and final emitted handoff must represent the same material code.
+
+If emitted code changes after validation:
+
+previous validation → STALE
+→ revalidate changed proposal
+
+Do not claim validation for code that was never validated.
+
+5.4 Proposal vs applied verification
+
+Keep distinct:
+
+PROPOSAL VALIDATION
+= scratch/proposed code validation before user applies
+
+APPLIED REPOSITORY VERIFICATION
+= verification of the real repository after user applies
+
+Never infer applied verification from scratch validation.
 
 6. Task-state semantics
 
@@ -571,73 +497,77 @@ APPLIED_VERIFICATION_FAILED
 APPLIED_VERIFIED
 BLOCKED
 
-Hard rule:
-
-Missing implementation for a NOT_STARTED task
-≠
-PROPOSAL_VALIDATION_FAILED
-
 NOT_STARTED
 
-No concrete implementation proposal exists yet.
+No active concrete proposal exists.
 
 Missing code is expected.
 
 PROPOSAL_IN_PROGRESS
 
-Inspection, authoring, or correction is currently happening.
+Inspection, authoring, correction, or required validation is still happening.
 
-A concrete corrected proposal may not exist yet.
+This is active work, not a normal stopping point when recovery is actionable.
 
 PROPOSAL_VALIDATION_FAILED
 
 Use ONLY when:
 
-a concrete proposal exists for the CURRENT task,
+a concrete proposal exists for the CURRENT task;
 
-validation/review actually ran,
+validation/review actually ran;
 
 that proposal materially failed.
 
 PROPOSAL_READY
 
-Use when required current proposal gates pass.
+Use only when all proposal gates pass and complete MANUAL APPLY handoff has been emitted when MANUAL APPLY is active.
 
 APPLIED_VERIFICATION_FAILED
 
-Use when user applied a handoff but:
+Use when the handoff was applied but:
 
-real repository materially differs,
+real repository materially differs; or
 
-or deterministic applied validation fails.
+deterministic applied validation reveals a real current-task defect.
 
 APPLIED_VERIFIED
 
 Use when:
 
-material repository state matches intended implementation,
+material repository state matches intended implementation;
 
-required applied checks pass.
+required applied checks pass or unavoidable environment failures are correctly separated from implementation defects.
 
 BLOCKED
 
 Use only for genuine blockers such as:
 
-missing current-task business decision,
+missing current-task business/product decision;
 
-inaccessible required repository evidence,
+inaccessible required repository evidence;
 
-required external contract unavailable,
+required external contract unavailable;
 
-required infrastructure/tool unavailable with no safe fallback.
+required infrastructure/tool unavailable with no safe fallback;
 
-Do NOT use BLOCKED for:
+required explicit approval for a risky/destructive action.
 
-normal proposal bugs,
+Do not use BLOCKED for:
 
-future-task missing code,
+normal proposal bugs;
+
+future-task missing code;
+
+recoverable compile errors;
 
 deferred details irrelevant to current task.
+
+Hard rule:
+
+missing implementation for NOT_STARTED task
+!=
+PROPOSAL_VALIDATION_FAILED
 
 7. Finding classification
 
@@ -648,105 +578,71 @@ PROPOSAL DEFECT
 APPLIED-STATE DEFECT
 FUTURE-TASK CONSTRAINT
 GENUINE BLOCKER
+ENVIRONMENT_FAILURE
 
 Default review scope:
 
-active task
+CURRENT TASK
++ already-applied prerequisites
 
-- already-applied prerequisites
+Do not audit untouched future tasks as if they are implemented.
 
-Do NOT audit untouched future tasks as if they are already implemented.
+Environment failures must be separated from implementation defects when evidence supports it.
 
-8. Bounded retry
+Examples:
+
+uv_os_get_passwd returned ENOMEM
+external font/network fetch failure
+
+are environment failures only when the failing behavior is independently shown not to be a current-task code defect.
+
+8. Recoverable work and bounded retry
 
 First substantial concrete proposal failure:
 
 same owner
-↓
-ONE targeted evidence-based correction
+→ one targeted evidence-based correction
 
-If the corrected concrete proposal is actually produced and materially fails the SAME failure class again:
+If the corrected concrete proposal is actually produced and materially fails the same failure class again:
 
 STOP equivalent retries
-↓
-debugger
-↓
-root cause
+→ debugger
+→ root cause
 
 Then route:
 
-Prisma/migration/existing-data issue
-→ migration_specialist
+Prisma/migration/existing-data issue → migration_specialist
+genuine architecture decision        → architect
 
-genuine architecture/contract decision
-→ architect
+An interrupted/incomplete correction does not count as the second same-class failure.
 
-Do NOT count an interrupted/incomplete correction as the second failure if no corrected concrete proposal was produced and validated.
+PROPOSAL_IN_PROGRESS is not a normal stop condition when remaining work is actionable.
 
-## 8A. Recoverable work must continue
+Continue when no user decision/approval/external blocker is required:
 
-`PROPOSAL_IN_PROGRESS` is an active workflow state, not a normal stopping condition.
-
-For the CURRENT task, do not stop merely because:
-
-- the proposal is not yet `PROPOSAL_READY`;
-- a required validation step still needs to run;
-- a recoverable proposal defect was found;
-- a debugger/reviewer identified a root cause;
-- a correction still needs to be returned to the implementation owner;
-- handoff consistency has not yet been proven.
-
-If the remaining work is actionable and does NOT require:
-
-- a user/business/product decision;
-- explicit approval for a risky/destructive action;
-- unavailable external credentials/contracts/infrastructure;
-- inaccessible required repository evidence;
-- a required tool with no safe fallback;
-
-then continue the same task in the same workflow.
-
-Preferred continuation:
-
-```text
-proposal / validation
-↓
-recoverable defect
-↓
-correct implementation owner
-↓
-targeted correction
-↓
-required deterministic validation
-↓
-handoff consistency validation
-↓
-PROPOSAL_READY
+proposal
+→ recoverable defect
+→ owner correction
+→ targeted validation
+→ handoff consistency
+→ PROPOSAL_READY
 
 9. Mandatory workflow skills
 
-Expected workflow skills:
+Expected workflow skills when relevant:
 
 dispatching-parallel-agents
-
 subagent-driven-development
-
 verification-before-completion
 
-Conditional skills include:
+Conditional:
 
 grilling
-
 writing-plans
-
 tdd
-
 diagnosing-bugs
-
 domain-modeling
-
 codebase-design
-
 code-review-graph
 
 Do not load all skills automatically.
@@ -755,7 +651,7 @@ writing-plans belongs to implementation_planner.
 
 If a skill is unavailable:
 
-follow equivalent rules,
+follow equivalent operating rules;
 
 do not claim it was used.
 
@@ -763,22 +659,21 @@ do not claim it was used.
 
 Recommended allocation:
 
-Primary Codex Luna medium
+Primary Codex             Luna medium
+project_manager           Terra medium
+deep_project_manager      Sol high
+built-in explorer         Luna medium
+architect                 Sol high
+implementation_planner    Luna high
+frontend_engineer         Luna medium
+backend_engineer          Luna medium
+migration_specialist      Luna high
+code_reviewer             Luna medium
+security_reviewer         Terra high
+tester                    Luna medium
+debugger                  Terra high
 
-project_manager Terra medium
-deep_project_manager Sol high
-built-in explorer Luna medium
-architect Sol high
-implementation_planner Luna high
-
-frontend_engineer Luna medium
-backend_engineer Luna medium
-migration_specialist Luna high
-
-code_reviewer Luna medium
-security_reviewer Terra high
-tester Luna medium
-debugger Terra high
+The concurrency setting is a maximum, not a target.
 
 project_manager
 
@@ -786,35 +681,33 @@ READ ONLY.
 
 Owns:
 
-scope,
+scope;
 
-risk classification,
+current task;
 
-routing,
+risk;
 
-high-level task graph,
+routing;
 
-skills,
+high-level dependency graph;
 
-ownership,
+agent/skill selection;
 
-dependency planning,
+concurrency;
 
-assurance strategy,
-
-concurrency planning.
+assurance strategy.
 
 deep_project_manager
 
 READ ONLY.
 
-Owns deep design/requirement reasoning.
+Owns deep requirements/design reasoning.
 
-built-in explorer
+explorer
 
 READ ONLY.
 
-Owns repository understanding.
+Owns repository understanding, dependency evidence, callers/consumers, and blast radius.
 
 architect
 
@@ -822,15 +715,15 @@ READ ONLY.
 
 Owns:
 
-architecture,
+architecture;
 
-contracts,
+contracts;
 
-invariants,
+invariants;
 
-boundaries,
+boundaries;
 
-design gaps,
+design gaps;
 
 design lock.
 
@@ -840,17 +733,17 @@ READ ONLY.
 
 Owns:
 
-executable task ordering,
+executable task ordering;
 
-ownership,
+ownership;
 
-dependencies,
+interfaces;
 
-interfaces,
+dependencies;
 
-validation,
+validation;
 
-assurance classification,
+assurance classification;
 
 MANUAL APPLY order.
 
@@ -868,31 +761,27 @@ Proposal author in MANUAL APPLY.
 
 migration_specialist
 
-Dedicated DB/migration specialist.
-
 Use for materially complex:
 
-Prisma relations,
+Prisma relations/inverse relations;
 
-inverse relations,
+referential actions;
 
-referential actions,
+migration ordering;
 
-migration ordering,
+nullable → backfill → required;
 
-nullable → backfill → required,
+existing-data preservation;
 
-preserving existing data,
+unique/index rollout;
 
-unique/index rollout,
+Decimal schema conversions;
 
-Decimal conversions,
-
-SQL migration safety,
+SQL migration safety;
 
 repeated migration failures.
 
-Do not use for ordinary Prisma queries or trivial fields.
+Do not invoke for routine Prisma queries.
 
 code_reviewer
 
@@ -904,74 +793,65 @@ READ ONLY.
 
 tester
 
-Validation runner.
-
-Does not fix implementation.
+Validation runner. Does not fix implementation.
 
 debugger
 
-READ ONLY by default.
-
-Owns root-cause investigation.
+READ ONLY by default. Owns root-cause investigation.
 
 11. Project-manager routing
 
-For non-trivial work PM should generally use:
+For non-trivial work:
 
-Pass A
-→ triage
-
-Explorer
-→ evidence
-
-Pass B
-→ evidence-based re-scope
+Pass A → triage
+Explorer → source evidence
+Pass B → evidence-based re-scope
 
 Pass A identifies:
 
-complexity,
+complexity;
 
-risk,
+risk;
 
-current task state,
+current task state;
 
-active collaboration mode,
+collaboration mode;
 
-assurance mode,
+assurance mode;
 
-affected domains,
+affected domains;
 
-unknowns,
+unknowns;
 
-exploration requirement,
+exploration need;
 
-architecture requirement,
+architecture need;
 
-planner requirement.
+planner need.
 
 Pass B identifies:
 
-actual affected files/domains,
+actual files/domains;
 
-required agents,
+required agents;
 
-required skills,
+required skills;
 
-skills NOT to use,
+skills not to load;
 
-ownership,
+ownership;
 
-dependencies,
+dependencies;
 
-parallelism,
+parallelism;
 
-validation,
+validation;
 
-assurance relevance,
+assurance relevance;
 
 escalation conditions.
 
-PM output should include when relevant:
+PM should surface when relevant:
 
 CURRENT TASK STATE
 COLLABORATION MODE
@@ -984,421 +864,94 @@ PARALLEL DISPATCH
 
 12. Parallelism
 
-Prefer parallel work for independent READ-heavy work.
+Prefer parallel work for independent read-heavy tasks.
 
-Examples:
+Do not serialize independent sibling explorers unnecessarily.
 
-explorer frontend
+Parallel writers require proof of:
 
-- explorer backend
-- explorer auth
+non-overlapping file ownership;
 
-when genuinely independent.
+stable interfaces;
 
-PM plans concurrency.
+no sequential dependency;
 
-Primary thread performs actual spawning.
-
-Do not serialize independent sibling agents unnecessarily.
-
-Parallel writers require explicit proof of:
-
-non-overlapping file ownership,
-
-stable interfaces,
-
-no sequential dependency,
-
-no shared schema/auth invariant conflict,
+no shared schema/auth/business-invariant conflict;
 
 integration verification.
 
 Never concurrently edit:
 
-the same file,
+same file;
 
-Prisma schema/migration,
+Prisma schema/migration;
 
-auth rules,
+auth rules;
 
-shared contracts,
+shared contracts;
 
 shared business invariants.
-
-Concurrency limit is a limit, not a target.
 
 13. Explorer — graph-first, source-confirmed
 
 Explorer is READ ONLY.
 
-The built-in Codex explorer is preferred for repository evidence gathering.
+CRG is navigation/blast-radius evidence, not source of truth.
 
-The graph-first policy is an ORCHESTRATION rule, not an assumption that every subagent runtime can directly call every MCP tool.
-
-Before implementation, explorer should identify as relevant:
-
-entrypoints,
-
-architecture,
-
-neighboring patterns,
-
-reusable code,
-
-callers,
-
-consumers,
-
-dependencies,
-
-shared modules,
-
-frontend data flow,
-
-backend/API flow,
-
-Prisma/schema relationships,
-
-authorization flow,
-
-shared contracts,
-
-regression/blast-radius surface.
-
-code-review-graph availability
-
-The existence of:
-
-.code-review-graphignore
-SKILL.md
-AGENTS.md rules
-MCP listed as Enabled in UI
-
-does NOT by itself prove that every current subagent runtime can directly call CRG.
-
-CRG availability must be evaluated separately for:
+Evaluate availability separately:
 
 PRIMARY THREAD
-EXPLORER / SUBAGENT RUNTIME
+EXPLORER/SUBAGENT RUNTIME
 
 Possible states:
 
-A. Primary callable + Explorer callable
-B. Primary callable + Explorer NOT callable
-C. Primary NOT callable + Explorer callable
-D. Neither callable
+A. primary yes + explorer yes
+B. primary yes + explorer no
+C. primary no  + explorer yes
+D. neither
 
-Do not collapse these states into a single global available/unavailable assumption.
+Do not convert "explorer cannot call CRG" into "CRG unavailable globally."
 
-Graph-first ownership
+When healthy/fresh CRG is callable from any allowed runtime, use a targeted graph query before broad scanning where graph evidence is useful.
 
-For non-trivial unfamiliar code where dependency/blast-radius evidence is useful, CRG should be used before broad recursive repository scanning whenever it is callable from ANY active allowed runtime.
+State B required pattern:
 
-State A — Primary callable + Explorer callable
+PRIMARY calls CRG
+→ passes targeted evidence
+→ EXPLORER source-confirms
 
-Preferred flow:
+Source priority:
 
-primary thread
-↓
-decide CRG is useful
-↓
-explorer may call CRG directly
-↓
-targeted graph evidence
-↓
-minimal source reads
-↓
-source confirmation
-
-The primary thread does not need to duplicate the same CRG query unless it needs separate orchestration evidence.
-
-State B — Primary callable + Explorer NOT callable
-
-This state is explicitly supported.
-
-Explorer reporting:
-
-CRG not callable from explorer runtime
-
-MUST NOT be interpreted as:
-
-CRG unavailable globally
-
-Required flow:
-
-PRIMARY THREAD
-↓
-call CRG first
-↓
-obtain targeted minimal context / callers / consumers / blast radius
-↓
-pass relevant graph evidence to explorer
-↓
-EXPLORER
-↓
-inspect actual source
-↓
-confirm / correct graph evidence
-↓
-return source-confirmed report
-
-In this state, do NOT allow explorer to jump directly to a broad rg/recursive scan before the primary thread has attempted CRG.
-
-The primary thread owns CRG MCP invocation when MCP access is only exposed there.
-
-The explorer owns source confirmation.
-
-State C — Primary NOT callable + Explorer callable
-
-Explorer may call CRG directly.
-
-Flow:
-
-explorer
-↓
-targeted CRG query
-↓
-minimal source reads
-↓
-source confirmation
-
-State D — Neither callable
-
-Only in this state should normal fallback exploration be used immediately:
-
-rg
-targeted search
-file reads
-source tracing
-
-Do not claim CRG was used.
-
-CRG health / freshness
-
-Being callable is not enough.
-
-Before materially relying on CRG, use the available read-only CRG status/context evidence to determine whether the graph is healthy/fresh enough for the current repository state.
-
-Useful evidence may include:
-
-graph status is ok,
-
-graph has non-empty nodes/edges/files,
-
-graph build SHA matches current HEAD,
-
-head_matches_build or equivalent is true,
-
-current branch/HEAD corresponds to the graph being queried.
-
-Do NOT hard-code expected graph counts or SHAs in repository rules.
-
-If the graph is callable but materially stale for the current task:
-
-CRG STATUS: STALE
-
-Then use source-confirmed fallback as needed.
-
-A normal code-inspection request does NOT automatically authorize graph rebuild/update.
-
-Graph-first requirement
-
-When CRG is callable from primary and/or explorer AND the graph is healthy/fresh enough:
-
-Use a TARGETED graph query before broad repository scanning.
-
-Preferred evidence:
-
-minimal context around the requested symbol/file/route,
-
-callers,
-
-consumers,
-
-dependencies,
-
-relevant flows,
-
-changed-file blast radius,
-
-shared contracts/modules.
-
-Avoid dumping the entire graph into model context.
-
-The purpose of CRG is:
-
-reduce search surface
-NOT
-replace source inspection
-
-Graph output is not source of truth
-
-Priority:
-
-actual source code
-
-- locked project docs
-- schema/migrations
-- real tests/results
-  > CRG graph
-
-Treat graph results as navigation/blast-radius evidence.
-
-A missing graph edge does NOT prove no dependency exists.
-
-Potential incomplete areas include:
-
-dynamic dispatch,
-
-generated code,
-
-reflection,
-
-runtime imports,
-
-framework conventions,
-
-external integrations,
-
-shell/scripts.
-
-Always confirm material conclusions against actual source.
-
-Source-confirmation discipline
-
-After CRG narrows the surface:
-
-read the relevant real source files,
-
-inspect important callers/consumers,
-
-inspect relevant types/contracts/schema,
-
-inspect tests when they materially clarify behavior,
-
-reconcile graph evidence with repository reality.
+actual source
+locked project docs
+schema/migrations
+real tests/results
+> CRG
 
 If source contradicts CRG:
 
 SOURCE WINS
 
-Report the discrepancy when it affects planning or blast radius.
+Do not automatically rebuild/update/watch CRG merely to inspect code.
 
-Missing/stale graph
+Fallback to targeted rg/search/read when CRG is unavailable, stale, incomplete, or insufficient.
 
-A normal request to inspect code does NOT automatically authorize CRG graph maintenance.
-
-Do NOT automatically run:
-
-code-review-graph build
-
-code-review-graph update
-
-code-review-graph watch
-
-graph post-processing,
-
-semantic/cloud embedding jobs,
-
-merely because explorer wants context.
-
-Graph maintenance requires explicit permission or an established environment policy that authorizes it.
-
-Do not automatically enable cloud/semantic embeddings because they may transmit source-derived text or incur external cost.
-
-Fallback discipline
-
-Fallback to rg/search/read is allowed when:
-
-neither primary nor explorer can call CRG,
-
-CRG is stale/unhealthy and maintenance is not authorized,
-
-CRG does not cover the relevant dynamic/runtime behavior,
-
-targeted graph evidence is insufficient and source inspection must expand.
-
-Fallback should remain targeted.
-
-Do not turn a CRG limitation into an unnecessary whole-repository scan.
-
-Evidence handoff between primary and explorer
-
-When the primary thread calls CRG on behalf of explorer, pass only the relevant evidence needed to narrow inspection.
-
-Example handoff:
-
-CRG EVIDENCE FROM PRIMARY
-
-Entry point:
-<file/symbol>
-
-Likely affected files:
-<files>
-
-Callers / consumers:
-<symbols/files>
-
-Important dependencies:
-<symbols/files>
-
-Blast-radius notes:
-<notes>
-
-Graph status:
-<healthy/stale evidence>
-
-Explorer must independently confirm material conclusions from source.
-
-Do NOT tell explorer to pretend it invoked CRG itself.
-
-Explorer result format
-
-Return concise evidence such as:
+Explorer result should be concise:
 
 ENTRYPOINTS
-
 AFFECTED FILES
-
 CALLERS / CONSUMERS
-
 IMPORTANT DEPENDENCIES
-
 DATA FLOW
-
 AUTH / UNIT SCOPE
-
 SCHEMA IMPACT
-
 REUSE CANDIDATES
-
 BLAST RADIUS
-
 SOURCE-CONFIRMED FACTS
-
 UNCERTAINTIES
-
-CRG USED: YES | NO
-
-CRG CALLER:
-PRIMARY | EXPLORER | BOTH | NONE
-
-CRG STATUS:
-HEALTHY | STALE | MISSING | UNAVAILABLE | NOT_NEEDED
-
-Meaning:
-
-CRG USED: YES
-
-is allowed when CRG evidence was actually used by primary and/or explorer.
-
-But CRG CALLER MUST identify who actually invoked it.
-
-Never claim:
-
-Explorer used CRG
-
-when only the primary thread invoked the MCP tool.
+CRG USED
+CRG CALLER
+CRG STATUS
 
 Never invent CRG evidence.
 
@@ -1406,49 +959,30 @@ Never invent CRG evidence.
 
 Use architect for material:
 
-cross-module architecture,
+cross-module architecture;
 
-auth architecture,
+auth architecture;
 
-schema/data architecture,
+schema/data architecture;
 
-external integration,
+external integration;
 
-source-of-truth decisions,
+source-of-truth decisions;
 
-lifecycle semantics,
+lifecycle semantics;
 
-shared abstractions,
+shared abstractions;
 
 substantial refactors.
 
-Skill selection may include:
-
-code-review-graph
-→ dependency/blast-radius evidence
-
-codebase-design
-→ module/interface/seam design
-
-domain-modeling
-→ domain semantics/invariants
-
-grilling
-→ genuine user decisions
-
-vercel-composition-patterns
-→ React composition architecture
-
-Do not stack architecture skills unnecessarily.
-
-Architect must distinguish:
+Architect distinguishes:
 
 FACT
 INFERENCE
 DECISION
 UNKNOWN
 
-Architect owns design judgment, not the detailed implementation plan.
+Architect owns design judgment, not detailed implementation planning.
 
 Return:
 
@@ -1456,29 +990,27 @@ DESIGN LOCK STATUS: LOCKED | BLOCKED
 
 15. Implementation planner
 
-Invoke only AFTER material design decisions are locked.
+Invoke only after material design decisions are locked.
 
 Strong triggers:
 
-Large/Critical features,
+Large/Critical features;
 
-3+ dependent tasks,
+3+ dependent tasks;
 
-schema/migration work,
+schema/migration;
 
-auth-sensitive cross-file work,
+auth-sensitive cross-file work;
 
-external integration,
+external integrations;
 
-multiple implementation owners,
+multiple implementation owners;
 
-complex MANUAL APPLY order,
+complex MANUAL APPLY order;
 
-persistent multi-session features.
+persistent multi-session feature.
 
-Planner must perform:
-
-PLAN CONSISTENCY GATE
+Planner consistency gate:
 
 1. requirement coverage
 2. dependency topology
@@ -1487,180 +1019,142 @@ PLAN CONSISTENCY GATE
 5. verification coverage
 6. manual-apply order audit
 
-Planner responsibilities:
-
-preserve design lock,
-
-order tasks,
-
-assign owners,
-
-identify files/interfaces,
-
-define dependencies,
-
-define validation,
-
-define assurance relevance,
-
-define milestone/final assurance,
-
-define manual application order.
-
-Planner MUST NOT invent product/business decisions.
-
-If a design decision is missing:
-
-return to PM / architect
+Planner must not invent business/product decisions.
 
 For persistent features:
 
-Deep PM / Architect
-→ feature-design-lock.md
-
-Implementation Planner
-→ feature-implementation-plan.md
+design lock
+→ implementation plan
+→ numbered tasks/packets
 
 16. Frontend routing
 
-Use:
+Use project patterns first.
+
+Relevant skills:
 
 heroui-react
-→ HeroUI
-
 zod
-→ validation/contracts
-
 zustand
-→ client/global state
-
 vercel-composition-patterns
-→ component API/composition
 
-Choose ONE primary visual skill by default:
+Choose one primary visual skill by default rather than stacking all of them.
 
-new UI
-→ design-taste-frontend
+Project uses HeroUI v3.
+Do not assume old NextUI/HeroUI APIs.
 
-existing redesign
-→ redesign-existing-projects
+Project uses Next.js 16.2.x.
+For version-specific behavior, inspect installed/current docs when available.
 
-UX / accessibility / dashboard design
-→ ui-ux-pro-max
+Before creating reusable UI abstractions, inspect:
 
-Tailwind design system
-→ tailwind-design-system
+src/hooks/
+src/components/
+relevant page-local _components/
 
-Do not stack every visual-design skill.
+Avoid duplicate abstractions.
 
 17. Backend / Prisma routing
 
-Use:
+Relevant skills:
 
 zod
-→ validation/contracts
-
 prisma-client-api
-→ queries, relations, transactions
-
 prisma-cli
-→ migration/schema/generate/status
-
 prisma-database-setup
-→ provider/connection/setup
 
 Examples:
 
-findMany change
-→ prisma-client-api
-
-schema + migration
-→ prisma-client-api + prisma-cli
-
-DATABASE_URL/provider problem
-→ prisma-database-setup
+query/relation/transaction → prisma-client-api
+schema + migration         → prisma-client-api + prisma-cli
+provider/DATABASE_URL      → prisma-database-setup
 
 Do not load every Prisma skill automatically.
 
+For API/server/database work:
+
+authenticate before protected access;
+
+authorize before data access/mutation;
+
+validate input;
+
+validate IDs against authorized scope;
+
+use bounded pagination;
+
+prefer explicit Prisma select/include;
+
+use transactions for multi-write invariants;
+
+preserve audit logging when required;
+
+treat imports/uploads/external APIs as trust boundaries;
+
+do not expose secrets or unnecessary internal errors.
+
 18. Review relevance
 
-Reviewers are NOT ceremonial.
+Reviewers are not ceremonial.
 
-Simple text/copy/style
+Typical relevance:
 
-Usually:
+Simple copy/style:
+  code reviewer      NO
+  security reviewer  NO
+  tester             NO
 
-code reviewer: NO
-security reviewer: NO
-tester: NO
+Local UI:
+  code reviewer      OPTIONAL
+  security reviewer  NO
+  tester             OPTIONAL
 
-Local UI
+Business-rule helper:
+  code reviewer      assurance phase
+  focused tests      YES
+  security reviewer  usually NO
 
-Usually:
+Complex schema/migration:
+  code/migration review  YES
+  data-integrity checks  YES
 
-code reviewer: OPTIONAL
-security reviewer: NO
-tester: OPTIONAL
+Auth/SSO/authorization:
+  code reviewer      YES at assurance phase
+  security reviewer  YES
+  tester             YES
 
-Business-rule helper
+Untrusted import/external input:
+  code reviewer      YES
+  security reviewer  when trust boundary matters
+  tester             YES
 
-Usually:
-
-code reviewer: YES at assurance phase
-focused tests: YES
-security reviewer: usually NO
-
-Complex schema/migration
-
-Usually:
-
-code/migration review: YES
-data-integrity checks: YES
-security review: only when relevant
-
-Auth / SSO / authorization
-
-Required at assurance phase:
-
-code reviewer: YES
-security reviewer: YES
-tester: YES
-
-Imports / external untrusted input
-
-Usually:
-
-code reviewer: YES
-security reviewer: YES when trust boundary matters
-tester: YES
-
-Under MANUAL APPLY — DEFERRED ASSURANCE, these are normally DEFERRED until integrated assurance.
+Under deferred assurance, broad review is normally deferred to the relevant milestone.
 
 19. Security reviewer
 
-Security review is required when integrated changes materially affect:
+Use when integrated changes materially affect:
 
-authentication,
+authentication;
 
-authorization,
+authorization;
 
-role/scope,
+role/scope;
 
-SSO,
+SSO;
 
-sessions/tokens,
+sessions/tokens;
 
-IDOR/BOLA,
+IDOR/BOLA;
 
-privileged state,
+privileged state;
 
-untrusted input,
+untrusted input;
 
-uploads/imports,
+uploads/imports;
 
-sensitive data,
+sensitive data;
 
-trust boundaries,
+trust boundaries;
 
 secrets.
 
@@ -1668,45 +1162,30 @@ Do not use security reviewer as a style reviewer.
 
 20. Debugging
 
-Use diagnosing-bugs for difficult/non-obvious failures.
-
-Preferred flow:
+For difficult/non-obvious failures:
 
 symptom
-↓
-evidence
-↓
-reproducible feedback loop
-↓
-hypothesis
-↓
-smallest discriminating check
-↓
-root cause
-↓
-correct implementation owner
-↓
-fix
-↓
-verification
+→ evidence
+→ reproducible feedback loop
+→ hypothesis
+→ smallest discriminating check
+→ root cause
+→ correct implementation owner
+→ fix
+→ verification
 
-Use CRG only when dependency evidence helps.
+Use debugger after retry rules require it or when root-cause investigation is genuinely needed.
 
-Do not send every trivial syntax error to debugger.
+Do not send trivial syntax errors to debugger.
 
 21. Token-efficient assurance
 
-Follow .codex/TOKEN-EFFICIENT-ASSURANCE.md when present.
-
-Do not repeat expensive assurance without new evidence.
-
-Normal phases:
+Follow .codex/TOKEN-EFFICIENT-ASSURANCE.md.
 
 A — CONTROLLED BUILD
 
 implementation/proposal
-↓
-cheap deterministic validation
+→ cheap deterministic validation
 
 No full reviewer roster by default under deferred assurance.
 
@@ -1714,49 +1193,39 @@ B — LIGHT APPLIED VERIFICATION
 
 After user manually applies:
 
-inspect relevant actual files
-↓
-compare material handoff
-↓
-smallest relevant deterministic check
+inspect affected actual files
+→ compare with validated handoff
+→ smallest relevant deterministic check
 
-Do NOT automatically repeat:
-
-code_reviewer
-
-- security_reviewer
-- tester
-
-after every copied task.
+Do not automatically repeat every reviewer.
 
 C — INTEGRATED ASSURANCE
 
-At implementation completion or meaningful milestone:
+At meaningful milestone:
 
-plan/design conformance
+design/plan conformance
++ code review
++ security review when relevant
++ focused integration tests
++ lint/typecheck/build
 
-- code review
-- security review when relevant
-- integration tests
-- lint/typecheck/build
+Re-run broad assurance only when:
 
-Re-run broader assurance only when:
+material mismatch exists;
 
-material mismatch exists,
+deterministic validation fails;
 
-deterministic verification fails,
+user added extra code;
 
-user added extra code,
+new risk/evidence appears;
 
-new evidence/risk appears,
+milestone is reached;
 
-milestone is reached,
+user asks.
 
-user asks explicitly.
+22. Subagent assignment contract
 
-22. Subagent-driven implementation
-
-Every implementation assignment must explicitly contain:
+Every implementation assignment must explicitly include:
 
 COLLABORATION MODE
 ASSURANCE MODE
@@ -1770,54 +1239,17 @@ SKILLS
 VALIDATION
 STOP / ESCALATION CONDITION
 
-In MANUAL APPLY, the assignment MUST explicitly state:
+In MANUAL APPLY, also include:
 
 DO NOT MODIFY THE REAL REPOSITORY.
 PROPOSAL AUTHORING ONLY.
+FINAL OUTPUT MUST SATISFY AGENTS.md SECTION 4 AND 5.
 
-Missing mode must NOT be interpreted as AUTO.
+Missing collaboration mode must not be interpreted as AUTO.
 
-Reviewers/debugger must not opportunistically modify product code.
+Reviewers/debugger must not opportunistically edit product code.
 
-23. Next.js
-
-This project uses Next.js 16.2.x.
-
-For version-specific behavior:
-
-inspect installed Next.js docs when available,
-
-follow current repository patterns,
-
-do not rely on outdated Next.js training-memory behavior.
-
-24. HeroUI
-
-This project uses HeroUI v3.
-
-When modifying HeroUI:
-
-use heroui-react,
-
-use configured documentation/MCP when operational,
-
-do not assume old NextUI/HeroUI APIs,
-
-reuse existing project patterns first.
-
-25. No duplicate abstractions
-
-Before creating reusable hooks/components scan:
-
-src/hooks/
-src/components/
-relevant page-local \_components/
-
-Reuse/extend existing patterns when suitable.
-
-Do not create duplicate abstractions just to finish a task.
-
-26. Authorization and Unit hierarchy
+23. Authorization and Unit hierarchy
 
 Roles:
 
@@ -1825,177 +1257,197 @@ ADMIN
 PIC
 VIEWER
 
-Unit hierarchy includes:
+Unit hierarchy:
 
 DIVISI
 KANTOR_WILAYAH
 KANTOR_CABANG
 
-Authorization MUST be enforced server-side.
+Authorization must be server-side.
 
 Client IDs/filters are never proof of authorization.
 
-Verify PIC/VIEWER cannot escape their authorized Unit scope through request parameters.
+PIC/VIEWER must not escape authorized Unit scope through request parameters.
 
-27. Cascading wilayah filters
+Unless locked requirements explicitly replace it:
 
-Unless locked requirements explicitly replace the behavior:
+Kanwil → Kancab cascading
+Divisi ↔ mutually exclusive with Kanwil/Kancab
 
-Kanwil
-→ Kancab cascading
+These rules apply to both client state and server validation.
 
-Divisi
-↔ mutually exclusive with Kanwil/Kancab
-
-Selecting Divisi clears/disables Kanwil and Kancab.
-
-Selecting Kanwil/Kancab clears/disables Divisi appropriately.
-
-Rules apply to BOTH:
-
-client UI state,
-
-server validation.
-
-28. Compliance formula
+24. Compliance formula
 
 Per program/unit:
 
-(approved_submissions / program.frequency) \* 100
+(approved_submissions / program.frequency) * 100
 
-Filter = all:
+Filter all programs:
 
 average percentages across active programs
 
-Filter = one program:
+Filter one program:
 
 that program's percentage
 
 Status:
 
 On Track >= 50
-Behind = 25–49
+Behind 25–49
 At Risk < 25
 
 Over-achievement is allowed.
+Do not clamp to 100%.
 
-Do NOT clamp percentage to 100%.
+25. Employee / User / Pentaho / PIC / Participation — locked context
 
-29. Backend safety
+Before work in this feature family, Section 0 bootstrap is mandatory.
 
-For API/server/database work:
-
-authenticate before protected access,
-
-authorize before data access/mutation,
-
-validate input,
-
-validate IDs against authorized scope,
-
-use bounded pagination,
-
-prefer explicit Prisma select/include,
-
-use transactions for multi-write invariants,
-
-preserve audit logging when required,
-
-treat imports/uploads/external APIs as trust boundaries,
-
-never expose secrets/unnecessary internal errors.
-
-30. Locked Employee/User/Pentaho/PIC/Participation feature context
-
-When present, read:
+Locked target behavior lives in:
 
 .codex/context/employee-pentaho-design-lock.md
 .codex/context/employee-pentaho-implementation-plan.md
-.codex/TASK-STATE-SEMANTICS.md
-.codex/TOKEN-EFFICIENT-ASSURANCE.md
-.codex/MANUAL-APPLY-RESPONSE-FORMAT.md
 
-before re-opening design decisions or implementation planning.
-
-Locked context controls TARGET behavior.
-
-Current repository controls CURRENT paths/patterns/evidence.
+Current repository source controls current paths, patterns, and applied evidence.
 
 Do not reopen deferred Pentaho endpoint/auth/transport details unless they genuinely block the CURRENT task.
 
-Core distinction:
+Core distinctions:
 
-Employee
-= HR/Pentaho employee master
-
-User
-= application account
+Employee = HR/Pentaho employee master/facts
+User     = application account + authorization
 
 Do not conflate:
 
 employment active
 source presence
-application authorization
+application account status
 
-PIC eligibility must be derived centrally.
+PIC eligibility is derived centrally.
+Do not store a duplicate independent PIC-eligibility boolean.
 
-Do not store an independent PIC-eligibility boolean.
+Employee.unitId is HR/current placement.
+User.unitId is explicit application authorization scope.
 
-HR Unit movement must not silently reassign application authorization scope.
+HR unit movement must not silently reassign application authorization.
 
-Historical participation denominators/snapshots must remain frozen according to locked design.
+Historical participation denominators/snapshots remain frozen according to locked design.
 
-Normal Pentaho sync must not hard-delete historical records.
+Normal Pentaho synchronization must not hard-delete historical records.
 
-31. Final completion gate
+Participation task boundary
+
+For participation work, respect numbered ownership:
+
+Task 7 → first snapshot
+Task 8 → correction + audit
+Task 9 → workbook import/export
+
+Do not pull Task 8 overwrite/audit semantics into Task 7.
+Do not pull Task 9 workbook redesign into Task 7 unless required by the already-locked Task 7 contract.
+
+When Task 7 is current:
+
+preview ≠ frozen denominator
+first successful commit = frozen denominator + provenance
+existing same-period snapshot ≠ silent overwrite
+
+Known errors explicitly assigned to the current task are no longer baseline noise once that task starts.
+
+26. Task checkpoint discipline
+
+When a task reaches APPLIED_VERIFIED:
+
+record the checkpoint in the user-facing state;
+
+do not continue to the next numbered task unless explicitly instructed;
+
+preserve future-task notes without implementing them;
+
+classify unrelated known errors according to their owning future task.
+
+If the user says the task was pushed/committed, treat that as a checkpoint fact but do not infer CI success unless verified.
+
+When asked only for a checkpoint:
+
+confirm state
+record known environment limitations
+preserve deferred notes
+STOP
+
+Do not inspect the next task.
+
+27. Final completion gate
 
 Before claiming integrated implementation complete, use verification-before-completion.
 
-Normal baseline:
+Baseline:
 
 npm run lint
 npx tsc --noEmit
 npm run build
 
-Also run relevant focused/integration tests.
+plus relevant focused/integration tests.
 
 For bug fixes:
-
-verify original symptom
+verify original symptom.
 
 For auth/API/database:
-
-verify changed security/business behavior
+verify changed security/business behavior.
 
 For UI:
+verify relevant interaction/state when tooling permits.
 
-verify relevant interaction/state when tooling permits
+Do not treat as completion evidence:
 
-Do NOT treat as completion evidence:
+reviewer says LGTM;
 
-reviewer says LGTM,
+engineer says DONE;
 
-engineer says DONE,
+lint alone passes;
 
-lint alone passes,
+stale checks from before later edits.
 
-an old check from before later edits.
-
-If a required check cannot run, report it as unverified.
+If a required check cannot run, report it as unverified or as a proven environment failure; do not fabricate PASS.
 
 In MANUAL APPLY:
 
 proposal PASS
-≠
+!=
 applied repository PASS
 
-In MANUAL APPLY — DEFERRED ASSURANCE:
+In deferred assurance:
 
 per-task deterministic validation PASS
-≠
+!=
 integrated assurance PASS
 
-Integrated completion requires the final assurance phase appropriate to the implemented risk surface.
+Integrated completion requires the assurance phase appropriate to the implemented risk surface.
+
+28. User-facing response discipline
+
+For engineering task status, be explicit and internally consistent.
+
+Do not say:
+
+PROPOSAL_READY
+
+then provide only a high-level plan.
+
+Do not say:
+
+TARGETED MANUAL EDIT SET: COMPLETE
+
+unless every required exact edit is present in the response.
+
+Do not claim a subagent/tool was used unless it actually ran.
+
+Do not claim repository modifications in MANUAL APPLY.
+
+Do not claim real repository verification from scratch validation.
+
+When the user has asked for exact code, prefer deterministic copy-pasteable output over narrative explanation.
+
+When a persistent task is complete, stop at the requested boundary instead of opportunistically starting the next task.
 
 <!-- END:ai-agent-rules -->
-```

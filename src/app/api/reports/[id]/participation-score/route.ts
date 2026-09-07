@@ -89,7 +89,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       assessment: assessment
         ? {
             id: assessment.id,
-            percentage: assessment.percentage,
+            percentage: assessment.percentage?.toNumber() ?? null,
             tw: assessment.tw,
             year: assessment.year,
             unitId: assessment.unitId,
@@ -105,8 +105,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
             scoreHistories: assessment.scoreHistories.map((history) => ({
               id: history.id,
               action: history.action,
-              previousPercentage: history.previousPercentage,
-              newPercentage: history.newPercentage,
+              previousPercentage:
+                history.previousPercentage?.toNumber() ?? null,
+              newPercentage: history.newPercentage.toNumber(),
               changeReason: history.changeReason,
               actorId: history.actorId,
               actorName: history.actorName,

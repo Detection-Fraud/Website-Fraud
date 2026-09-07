@@ -6,6 +6,7 @@ import { errorResponse, successResponse } from "@/lib/response";
 import {
   commitParticipationSchema,
   participationFilterSchema,
+  participationSnapshotCommitSchema,
 } from "@/schemas/participation.schema";
 import type {
   ParticipationPreviewRow,
@@ -13,6 +14,8 @@ import type {
 } from "@/types/participation.types";
 import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
+import { createParticipationSnapshots } from "@/lib/participation-snapshot";
+import { decimalFromNumber, decimalToNumber } from "@/lib/decimal-contract";
 
 async function getExcelParticipationCategory(categoryId: string) {
   const category = await prisma.programCategory.findUnique({
@@ -27,6 +30,33 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireAdmin();
     const action = new URL(req.url).searchParams.get("action");
+
+    if (action === "snapshot-commit") {
+      const parsed = participationSnapshotCommitSchema.safeParse(
+        await req.json(),
+      );
+
+      if (!parsed.success) {
+        return NextResponse.json(
+          errorResponse(parsed.error.issues[0].message, 400),
+          { status: 400 },
+        );
+      }
+
+      const snapshots = await createParticipationSnapshots(parsed.data);
+
+      return NextResponse.json(
+        successResponse(
+          {
+            snapshots: snapshots.map((snapshot) => ({
+              ...snapshot,
+              percentage: snapshot.percentage.toNumber(),
+            })),
+          },
+          "Snapshot partisipasi berhasil disimpan",
+        ),
+      );
+    }
 
     if (action === "preview") {
       const formData = await req.formData();
@@ -86,7 +116,7 @@ export async function POST(req: NextRequest) {
         select: { unitId: true, percentage: true },
       });
       const existingMap = new Map(
-        existing.map((row) => [row.unitId, row.percentage]),
+        existing.map((row) => [row.unitId, decimalToNumber(row.percentage)]),
       );
       const rows: ParticipationPreviewRow[] = [];
       let id = 0;
@@ -188,7 +218,8 @@ export async function POST(req: NextRequest) {
             where: { id: row.unitId },
             select: { id: true },
           });
-          if (!unit) throw new ApiError("Unit tidak ditemukan di database", 400);
+          if (!unit)
+            throw new ApiError("Unit tidak ditemukan di database", 400);
 
           const current = await tx.participationData.findUnique({
             where: {
@@ -228,18 +259,20 @@ export async function POST(req: NextRequest) {
                 categoryId,
                 tw,
                 year,
-                percentage: row.percentage,
+                percentage: decimalFromNumber(row.percentage),
                 importedById: session.user.id,
               },
             });
             created++;
-          } else if (current.percentage === row.percentage) {
+          } else if (
+            decimalToNumber(current.percentage) === row.percentage
+          ) {
             skipped++;
           } else if (row.overwrite) {
             await tx.participationData.update({
               where: { id: current.id },
               data: {
-                percentage: row.percentage,
+                percentage: decimalFromNumber(row.percentage),
                 importedById: session.user.id,
                 importedAt: new Date(),
               },

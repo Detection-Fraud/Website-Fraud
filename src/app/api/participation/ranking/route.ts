@@ -4,6 +4,7 @@ import { errorResponse, successResponse } from "@/lib/response";
 import { ParticipationRankingItem } from "@/types/participation.types";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { decimalToNumber } from "@/lib/decimal-contract";
 
 const rankingQuerySchema = z.object({
   year: z.coerce.number().int().default(new Date().getFullYear()),
@@ -72,17 +73,18 @@ export async function GET(req: NextRequest) {
     >();
 
     for (const row of participationRows) {
-      if (row.percentage === null) continue;
+      const percentage = decimalToNumber(row.percentage);
+      if (percentage === null) continue;
 
       if (!unitDataMap.has(row.unitId)) {
         unitDataMap.set(row.unitId, { percentages: [], categories: [] });
       }
       const entry = unitDataMap.get(row.unitId)!;
-      entry.percentages.push(row.percentage);
+      entry.percentages.push(percentage);
       entry.categories.push({
         categoryId: row.category.id,
         categoryName: row.category.name,
-        percentage: row.percentage,
+        percentage,
       });
     }
 

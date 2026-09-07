@@ -1,6 +1,11 @@
 import { ApiError } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@generated/prisma";
+import {
+  decimalEqualsNumber,
+  decimalFromNumber,
+  decimalToNumber,
+} from "@/lib/decimal-contract";
 
 export type AssessmentInput = {
   reportId: string;
@@ -120,6 +125,7 @@ export async function assessParticipationScore(
   const year = report.program.startDate.getUTCFullYear();
   const unitId = report.unitId;
   const categoryId = category.id;
+  const decimalPercentage = decimalFromNumber(percentage);
 
   return database.$transaction(async (tx) => {
     await tx.$queryRaw`
@@ -156,11 +162,14 @@ export async function assessParticipationScore(
       }
     }
 
-    if (existing && existing.percentage === percentage) {
+    if (
+      existing &&
+      decimalEqualsNumber(existing.percentage, percentage)
+    ) {
       return {
         status: "UNCHANGED",
         participationDataId: existing.id,
-        percentage: existing.percentage,
+        percentage: decimalToNumber(existing.percentage)!,
       };
     }
 
@@ -173,7 +182,7 @@ export async function assessParticipationScore(
             categoryId,
             tw,
             year,
-            percentage,
+            percentage: decimalPercentage,
             evidenceReportId: report.id,
             assessedById: actorId,
             assessedAt: new Date(),
@@ -197,7 +206,7 @@ export async function assessParticipationScore(
           categoryId,
           action: "CREATED",
           previousPercentage: null,
-          newPercentage: percentage,
+          newPercentage: decimalPercentage,
           actorId,
           actorName,
         },
@@ -235,7 +244,7 @@ export async function assessParticipationScore(
         updatedAt: expectedVersion,
       },
       data: {
-        percentage,
+        percentage: decimalPercentage,
         assessedById: actorId,
         assessedAt: new Date(),
       },
@@ -255,7 +264,7 @@ export async function assessParticipationScore(
         categoryId,
         action: "UPDATED",
         previousPercentage: existing.percentage,
-        newPercentage: percentage,
+        newPercentage: decimalPercentage,
         changeReason: reason,
         actorId,
         actorName,

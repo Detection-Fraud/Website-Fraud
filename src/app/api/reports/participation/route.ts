@@ -209,7 +209,7 @@ export async function GET(request: Request) {
         const score =
           assessment && assessment.percentage !== null
             ? {
-                percentage: assessment.percentage,
+                percentage: assessment.percentage.toNumber(),
                 assessedBy: assessment.assessedBy,
                 assessedAt: assessment.assessedAt,
                 updatedAt: assessment.updatedAt,
