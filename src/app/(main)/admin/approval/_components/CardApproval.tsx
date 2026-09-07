@@ -1,5 +1,6 @@
 import { ActivityReportItem } from "@/types/report.types";
-import { Button, Card, Chip, Separator, Tooltip } from "@heroui/react";
+import { Button, Card, Chip, Modal, Separator, Tooltip } from "@heroui/react";
+import { useEffect, useRef, useState } from "react";
 import {
   FiCalendar,
   FiCheck,
@@ -41,6 +42,39 @@ export default function CardApproval({
     createdBy,
     photos,
   } = report;
+
+  const descriptionText = report.description.trim();
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
+  const [isDescriptionTruncated, setIsDescriptionTruncated] = useState(false);
+  const descriptionPreviewRef = useRef<HTMLParagraphElement>(null);
+  const descriptionTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const preview = descriptionPreviewRef.current;
+    if (!descriptionText || !preview) {
+      setIsDescriptionTruncated(false);
+      return;
+    }
+
+    const measureOverflow = () => {
+      setIsDescriptionTruncated(preview.scrollHeight > preview.clientHeight + 1);
+    };
+    const frame = window.requestAnimationFrame(measureOverflow);
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(preview);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [descriptionText]);
+
+  const handleDescriptionModalChange = (isOpen: boolean) => {
+    setIsDescriptionModalOpen(isOpen);
+    if (!isOpen) {
+      window.requestAnimationFrame(() => descriptionTriggerRef.current?.focus());
+    }
+  };
 
   const formattedDate = new Date(tanggalKegiatan).toLocaleDateString("id-ID", {
     day: "numeric",
@@ -90,7 +124,8 @@ export default function CardApproval({
   };
 
   return (
-    <Card className="p-0 rounded-2xl border border-slate-200/60 shadow-surface hover:shadow-surface-md transition-all duration-200 bg-white overflow-hidden flex flex-col justify-between h-full">
+    <>
+      <Card className="p-0 rounded-2xl border border-slate-200/60 shadow-surface hover:shadow-surface-md transition-all duration-200 bg-white overflow-hidden flex flex-col justify-between h-full">
       <div>
         <Card.Header className="p-0">
           <div className="flex flex-col sm:flex-row gap-2">
@@ -133,6 +168,31 @@ export default function CardApproval({
               <div className="flex items-center gap-1.5 text-xs text-blue-800 font-medium">
                 <FiFolder className="w-3.5 h-3.5 text-blue-700 shrink-0" />
                 <span className="line-clamp-1">{program.name}</span>
+              </div>
+            )}
+            {descriptionText && (
+              <div className="mt-2 border-l-[3px] border-[var(--brand-navy-600)] bg-[var(--brand-navy-50)] px-3 py-2.5 rounded-r-xl">
+                <p className="text-[11px] font-bold leading-4 text-[color:var(--brand-navy-900)]">
+                  Deskripsi kegiatan
+                </p>
+                <p
+                  ref={descriptionPreviewRef}
+                  className="mt-0.5 line-clamp-2 whitespace-pre-line break-words text-xs leading-relaxed text-slate-700"
+                >
+                  {descriptionText}
+                </p>
+                {isDescriptionTruncated && (
+                  <Button
+                    ref={descriptionTriggerRef}
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Baca deskripsi kegiatan lengkap untuk ${activityName}`}
+                    className="-ml-2 mt-1 min-h-11 px-2 text-xs font-semibold text-[color:var(--brand-navy-800)] hover:bg-blue-100/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:scale-[0.98]"
+                    onPress={() => setIsDescriptionModalOpen(true)}
+                  >
+                    Baca selengkapnya
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -252,6 +312,36 @@ export default function CardApproval({
           </Button>
         </div>
       </Card.Footer>
-    </Card>
+      </Card>
+      <Modal
+        isOpen={isDescriptionModalOpen}
+        onOpenChange={handleDescriptionModalChange}
+      >
+        <Modal.Backdrop>
+          <Modal.Container scroll="inside">
+            <Modal.Dialog
+              aria-labelledby="description-modal-heading"
+              aria-describedby="description-modal-body"
+              className="max-h-[calc(100dvh-2rem)] rounded-2xl border border-slate-200/60 bg-white shadow-xl sm:max-w-xl"
+            >
+              <Modal.CloseTrigger aria-label="Tutup deskripsi kegiatan">
+                <FiX aria-hidden="true" />
+              </Modal.CloseTrigger>
+              <Modal.Header>
+                <Modal.Heading id="description-modal-heading">
+                  Deskripsi kegiatan
+                </Modal.Heading>
+                <p className="text-xs text-slate-500">{activityName}</p>
+              </Modal.Header>
+              <Modal.Body id="description-modal-body">
+                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                  {descriptionText}
+                </p>
+              </Modal.Body>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+    </>
   );
 }

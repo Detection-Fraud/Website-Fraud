@@ -6,7 +6,9 @@ import { BsEye, BsFileCheck, BsShield, BsUpcScan } from "react-icons/bs";
 import LoginCarousel from "./LoginCarousel";
 import LoginForm from "./LoginForm";
 
-export default function LoginView() {
+type LoginViewMode = "sso" | "admin";
+
+export default function LoginView({ mode }: { mode: LoginViewMode }) {
   const { useGetBanners } = useBanners();
   const { data: banners = [] } = useGetBanners();
 
@@ -91,7 +93,7 @@ export default function LoginView() {
           )}
 
           {/* Login Form Card */}
-          <LoginForm />
+          <LoginForm mode={mode} />
 
           {/* Mobile-only mini carousel */}
           {banners.length > 0 && (

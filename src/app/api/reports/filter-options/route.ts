@@ -3,22 +3,27 @@ import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { prisma } from "@/lib/prisma";
 import { successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
+import { getAuthorizedUnitIds } from "@/lib/api/unit-scope";
 
 export async function GET() {
   try {
-    await requireAuth();
+    const session = await requireAuth();
+    const authorizedUnitIds = await getAuthorizedUnitIds(session.user);
+
+    const scopedUnitWhere =
+      authorizedUnitIds === null ? {} : { id: { in: authorizedUnitIds } };
 
     const currentYear = new Date().getFullYear();
 
     const [kanwilList, divisiList, categories, distinctDates] =
       await Promise.all([
         prisma.unit.findMany({
-          where: { type: "KANTOR_WILAYAH" },
+          where: { type: "KANTOR_WILAYAH", ...scopedUnitWhere },
           select: { id: true, name: true, kodeDolog: true },
           orderBy: [{ kodeDolog: "asc" }, { name: "asc" }],
         }),
         prisma.unit.findMany({
-          where: { type: "DIVISI" },
+          where: { type: "DIVISI", ...scopedUnitWhere },
           select: { id: true, name: true },
           orderBy: { name: "asc" },
         }),

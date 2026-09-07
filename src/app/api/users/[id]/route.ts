@@ -1,36 +1,24 @@
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
-import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { successResponse } from "@/lib/response";
+import { demoteUser } from "@/lib/user-management";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  _req: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{ id: string }>;
+  },
 ) {
   try {
     await requireAdmin();
 
-  const { id } = await params;
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await demoteUser((await params).id);
 
-    if (!user) {
-      return NextResponse.json(errorResponse("User tidak ditemukan", 404), {
-        status: 404,
-      });
-    }
-
-    await prisma.user.update({
-      where: { id },
-      data: {
-        role: "VIEWER",
-        isActive: false,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "User berhasil dihapus",
-    });
+    return NextResponse.json(
+      successResponse(user, "User diturunkan menjadi VIEWER dan dinonaktifkan"),
+    );
   } catch (error) {
     return handleApiError(error, "DELETE /api/users/[id]");
   }

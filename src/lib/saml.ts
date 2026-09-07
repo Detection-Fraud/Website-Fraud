@@ -1,5 +1,7 @@
 // src/lib/saml.ts
-import { SAML } from "@node-saml/node-saml";
+import { SAML, ValidateInResponseTo } from "@node-saml/node-saml";
+import { getSsoBaseUrl } from "./saml-transport";
+import { BoundedSamlRequestCache } from "./saml-request-cache";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -18,6 +20,10 @@ function formatPemCertificate(rawCert: string): string {
   return `-----BEGIN CERTIFICATE-----\n${formatted}\n-----END CERTIFICATE-----`;
 }
 
+const samlRequestCache = new BoundedSamlRequestCache({
+  capacity: 1024,
+  keyExpirationPeriodMs: 5 * 60 * 1000,
+});
 const rawCert = process.env.SAML_IDP_CERT || "";
 const idpCert = formatPemCertificate(rawCert);
 
@@ -44,11 +50,16 @@ if (isProd) {
 export const saml = new SAML({
   entryPoint: process.env.SAML_ENTRY_POINT || "",
   issuer: "aktivasi-budaya-app",
-  callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/sso/callback`,
+  callbackUrl: `${getSsoBaseUrl()}/api/auth/sso/callback`,
   idpCert: idpCert || "placeholder-dev-cert",
 
   wantAssertionsSigned: isProd,
   wantAuthnResponseSigned: isProd,
   audience: isProd ? "aktivasi-budaya-app" : false,
   acceptedClockSkewMs: isProd ? 300_000 : -1,
+
+  validateInResponseTo: ValidateInResponseTo.always,
+  cacheProvider: samlRequestCache,
+  requestIdExpirationPeriodMs: 5 * 60 * 1000,
+  maxAssertionAgeMs: 5 * 60 * 1000,
 });

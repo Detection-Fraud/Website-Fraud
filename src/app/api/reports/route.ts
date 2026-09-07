@@ -105,14 +105,13 @@ export async function GET(request: NextRequest) {
     }
 
     const skip = (page - 1) * limit;
-    const sortOrder =
-      searchParams.get("sortOrder") ||
-      (statusFilter === "PENDING" ? "asc" : "desc");
+    const requestedSortOrder = searchParams.get("sortOrder");
+    const sortOrder = requestedSortOrder === "desc" ? "desc" : "asc";
     const [total, reports] = await Promise.all([
       prisma.activityReport.count({ where: whereClause }),
       prisma.activityReport.findMany({
         where: whereClause,
-        orderBy: { createdAt: sortOrder as "asc" | "desc" },
+        orderBy: [{ createdAt: sortOrder }, { id: sortOrder }],
         include: {
           unit: {
             select: {

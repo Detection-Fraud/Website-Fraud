@@ -1,10 +1,9 @@
 import { z } from "zod";
 
 export const createUserSchema = z.object({
-  name: z.string().min(3, "Nama minimal 3 karakter"),
-  nip: z.string().min(5, "NIP minimal 5 karakter"),
-  role: z.enum(["ADMIN", "PIC", "VIEWER"]),
-  unitId: z.string().uuid("Unit ID tidak valid").optional(),
+  employeeId: z.string().uuid("Employee ID tidak valid"),
+  unitId: z.string().uuid("Unit ID tidak valid"),
+  role: z.enum(["PIC", "VIEWER"]).default("PIC"),
 });
 
 export const toggleUserStatusSchema = z.object({
@@ -40,5 +39,3 @@ export const changePasswordSchema = z
   });
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-
-

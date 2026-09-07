@@ -3,8 +3,11 @@ import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { programYearBounds } from "@/lib/program-period";
-import { successResponse } from "@/lib/response";
+import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+
+const complianceTwSchema = z.enum(["ALL", "1", "2", "3", "4"]);
 
 export async function GET(req: Request) {
   try {
@@ -12,6 +15,17 @@ export async function GET(req: Request) {
     const user = session.user;
 
     const { searchParams } = new URL(req.url);
+    const twResult = complianceTwSchema.safeParse(
+      searchParams.get("tw") ?? "ALL",
+    );
+    if (!twResult.success) {
+      return NextResponse.json(
+        errorResponse("Parameter tw tidak valid", 400),
+        { status: 400 },
+      );
+    }
+    const twFilter =
+      twResult.data === "ALL" ? undefined : Number(twResult.data);
     const programId = searchParams.get("programId") || "ALL";
     const kanwilId = searchParams.get("kanwilId") || "ALL";
     const kancabId = searchParams.get("kancabId") || "ALL";
@@ -22,7 +36,7 @@ export async function GET(req: Request) {
     );
 
     // ── Ambil unit aktif via shared helper ──
-    const { activeUnits } = await resolveScope(user, {
+    const { activeUnits, whereClause } = await resolveScope(user, {
       kanwilId,
       kancabId,
       divisiId,
@@ -37,7 +51,10 @@ export async function GET(req: Request) {
       },
       include: {
         programs: {
-          where: { startDate: programYearBounds(year) },
+          where: {
+            startDate: programYearBounds(year),
+            ...(twFilter !== undefined && { tw: twFilter }),
+          },
           select: { id: true, frequency: true, tw: true },
         },
       },
@@ -58,9 +75,14 @@ export async function GET(req: Request) {
       ? await prisma.activityReport.groupBy({
           by: ["unitId", "programId"],
           where: {
-            status: "APPROVED",
-            unitId: { not: null },
-            programId: { in: allProgramIds },
+            AND: [
+              whereClause,
+              {
+                status: "APPROVED",
+                unitId: { not: null },
+                programId: { in: allProgramIds },
+              },
+            ],
           },
           _count: { id: true },
         })

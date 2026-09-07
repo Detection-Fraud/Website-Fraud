@@ -1,34 +1,31 @@
 import { saml } from "@/lib/saml";
-import crypto from "crypto";
+import {
+  createRelayState,
+  getRelayStateCookieOptions,
+  SSO_RELAY_STATE_COOKIE,
+} from "@/lib/saml-transport";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const nonce = crypto.randomBytes(16).toString("hex");
-    const timestamp = Date.now().toString();
-    const payload = `${timestamp}:${nonce}`;
-    const signature = crypto
-      .createHmac("sha256", process.env.SSO_JWT_SECRET!)
-      .update(payload)
-      .digest("hex");
-    const state = `${payload}:${signature}`;
+    const relayState = createRelayState();
 
-    const authUrl = await saml.getAuthorizeUrlAsync(
-      state, // RelayState — CSRF nonce
-      "", // host — biarkan kosong, issuer sudah dikonfigurasi di saml.ts
-      {},
+    const authUrl = await saml.getAuthorizeUrlAsync(relayState, "", {});
+
+    const response = NextResponse.redirect(authUrl);
+
+    response.cookies.set(
+      SSO_RELAY_STATE_COOKIE,
+      relayState,
+      getRelayStateCookieOptions(),
     );
 
-    return NextResponse.redirect(authUrl);
-  } catch (error) {
-    const err = error as Error;
-    console.error(
-      "[SSO] Gagal generate SAML AuthRequest URL:",
-      err.message,
-      err.stack,
-    );
+    return response;
+  } catch {
+    console.error("[SSO] Failed to generate SAML authorization request");
+
     return NextResponse.json(
-      { error: "Gagal terhubung ke SSO Bulog", detail: err.message },
+      { error: "Gagal terhubung ke SSO Bulog" },
       { status: 500 },
     );
   }

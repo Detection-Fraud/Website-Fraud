@@ -1,4 +1,4 @@
-import { PrismaClient, UnitType } from "@generated/prisma";
+import { Prisma, UnitType, PrismaClient } from "@generated/prisma";
 import bcrypt from "bcryptjs";
 import ExcelJS from "exceljs";
 import path from "path";
@@ -25,17 +25,61 @@ function getUnitType(kodeDolog: string, kodeSubdolog: string): UnitType {
   return "KANTOR_CABANG";
 }
 
+type SeedUnitData = {
+  name: string;
+  type: UnitType;
+  kodeDolog: string;
+  kodeSubdolog: string;
+  kodeOrg: string;
+  kodeDivisi: string | null;
+  parentId?: string | null;
+};
+
+async function upsertUnit({ data }: { data: SeedUnitData }) {
+  const existing = await prisma.unit.findFirst({
+    where: {
+      type: data.type,
+      kodeDolog: data.kodeDolog,
+      kodeSubdolog: data.kodeSubdolog,
+      kodeOrg: data.kodeOrg,
+      parentId: data.parentId ?? null,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return prisma.unit.update({
+      where: { id: existing.id },
+      data,
+    });
+  }
+
+  return prisma.unit.create({ data });
+}
+
+async function ensureSeedUser({
+  data,
+}: {
+  data: Prisma.UserUncheckedCreateInput;
+}) {
+  if (data.username) {
+    const existing = await prisma.user.findUnique({
+      where: { username: data.username },
+      select: { id: true },
+    });
+
+    if (existing) return existing;
+  }
+
+  return prisma.user.create({ data });
+}
+
 // MAIN SEED FUNC
 
 async function main() {
-  console.log("🧹 Menghapus data lama...");
-  await prisma.activityPhoto.deleteMany();
-  await prisma.activityLog.deleteMany();
-  await prisma.activityReport.deleteMany();
-  await prisma.programBudaya.deleteMany();
-  await prisma.programCategory.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.unit.deleteMany();
+  console.log(
+    "Mempertahankan data existing; seed melakukan reconcile/upsert aman...",
+  );
 
   // BACA FILE EXCEL DATA KANWIL, KANCAB, DIVISI
   console.log("📊 Membaca File Excel...");
@@ -88,7 +132,7 @@ async function main() {
 
   console.log("🚀 Memulai Insert Divisi...");
   for (const row of divisiRows) {
-    await prisma.unit.create({
+    await upsertUnit({
       data: {
         name: row.NAMA_ORG.trim(),
         type: "DIVISI",
@@ -104,7 +148,7 @@ async function main() {
 
   console.log("Memuat data kanwil...");
   for (const row of kanwilRows) {
-    await prisma.unit.create({
+    await upsertUnit({
       data: {
         name: row.NAMA_ORG.trim(),
         type: "KANTOR_WILAYAH",
@@ -143,7 +187,7 @@ async function main() {
       );
     }
 
-    await prisma.unit.create({
+    await upsertUnit({
       data: {
         name: row.NAMA_ORG.trim(),
         type: "KANTOR_CABANG",
@@ -186,7 +230,7 @@ async function main() {
   });
 
   // ADMIN PUSAT — tidak terikat unit manapun
-  await prisma.user.create({
+  await ensureSeedUser({
     data: {
       name: "Budi Admin",
       username: "admin.pusat",
@@ -197,7 +241,7 @@ async function main() {
 
   // PIC KANWIL (JAWA BARAT)
   if (kanwilJabar) {
-    await prisma.user.create({
+    await ensureSeedUser({
       data: {
         name: "Siti Kanwil Jabar",
         username: "pic.jabar",
@@ -211,7 +255,7 @@ async function main() {
   // PIC KANCAB (BANDUNG)
   let picBandung: any = null;
   if (kancabBandung) {
-    picBandung = await prisma.user.create({
+    picBandung = await ensureSeedUser({
       data: {
         name: "Agus Kancab Bandung",
         username: "pic.bandung",
@@ -222,7 +266,7 @@ async function main() {
     });
 
     // VIEWER KANCAB BANDUNG
-    await prisma.user.create({
+    await ensureSeedUser({
       data: {
         name: "Rina Viewer Bandung",
         username: "viewer.bandung",
@@ -235,7 +279,7 @@ async function main() {
 
   // PIC DIVISI IT
   if (divisiIT) {
-    await prisma.user.create({
+    await ensureSeedUser({
       data: {
         name: "Putri PIC Divisi IT",
         username: "pic.divisi",
@@ -246,7 +290,7 @@ async function main() {
     });
 
     // VIEWER DIVISI IT
-    await prisma.user.create({
+    await ensureSeedUser({
       data: {
         name: "Budi Viewer Divisi IT",
         username: "viewer.divisi",

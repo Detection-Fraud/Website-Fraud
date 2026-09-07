@@ -9,6 +9,7 @@ import TableIndicators from "@/components/compliance/TableIndicators";
 import AppBar from "@/components/layout/Appbar";
 import { useComplianceReport } from "@/hooks/useComplianceReport";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { QuarterFilter } from "@/types/compliance.types";
 import { Tabs } from "@heroui/react";
 import { useCallback, useMemo, useState } from "react";
 
@@ -21,6 +22,7 @@ export default function ComplianceReportView() {
     divisiId,
     programId,
     year,
+    tw,
     options,
     data,
     isLoading,
@@ -29,11 +31,12 @@ export default function ComplianceReportView() {
     handleProgramChange,
     setKanwilId,
     handleYearChange,
+    handleTwChange,
   } = useComplianceReport();
 
   const filters = useMemo(
-    () => ({ kanwilId, kancabId, divisiId, programId, year }),
-    [kanwilId, kancabId, divisiId, programId, year],
+    () => ({ kanwilId, kancabId, divisiId, programId, year, tw }),
+    [kanwilId, kancabId, divisiId, programId, year, tw],
   );
 
   const { user } = useCurrentUser();
@@ -50,6 +53,7 @@ export default function ComplianceReportView() {
     filters.divisiId !== "ALL" ||
     filters.programId !== "ALL" ||
     filters.year !== new Date().getFullYear() ||
+    filters.tw !== "ALL" ||
     activeTab !== defaultTab;
 
   const cardComplianceData = data?.cards;
@@ -68,6 +72,7 @@ export default function ComplianceReportView() {
     try {
       const params = new URLSearchParams();
       params.append("year", String(filters.year));
+      if (filters.tw !== "ALL") params.append("tw", filters.tw);
       if (activeTab !== "NASIONAL") params.append("unitType", activeTab);
       if (filters.programId !== "ALL")
         params.append("programId", filters.programId);
@@ -122,6 +127,7 @@ export default function ComplianceReportView() {
           activeTab={activeTab}
           handleTabChange={handleTabChange}
           handleYearChange={handleYearChange}
+          handleTwChange={(value: QuarterFilter) => handleTwChange(value)}
           onExport={handleExport}
           isExporting={isExporting}
           isDataEmpty={!data || data.tableData.length === 0}

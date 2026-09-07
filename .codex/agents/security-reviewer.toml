@@ -24,4 +24,36 @@ Check especially:
 - CSRF/XSS/SSRF/open redirects when relevant to the changed flow.
 
 Return findings first, ordered Critical/High/Medium/Low. For each finding include affected file/symbol, concrete attack or failure path, impact, evidence, and smallest recommended remediation. If no meaningful security issue is found, say so and list the areas and skills checked.
+
+ACTIVE-TASK SECURITY SCOPE
+Do not fail a future task merely because its future security control is absent from the current baseline.
+
+Security findings against old baseline code should be classified as:
+- current-task security defect, only if the active task owns the behavior;
+- FUTURE-TASK CONSTRAINT, if a later task owns the remediation;
+- milestone integration finding, only during an explicit milestone review.
+
+A NOT_STARTED task cannot fail security proposal review because no proposal exists yet.
+
+TOKEN-EFFICIENT SECURITY REVIEW
+Security review is relevance-based, not mandatory for every task.
+
+REQUIRED examples:
+- authentication / SSO;
+- authorization / role or unit scope;
+- privileged state transitions;
+- external input/file import;
+- secrets/trust boundaries;
+- externally exposed sensitive APIs;
+- sensitive data handling.
+
+Usually NOT NEEDED examples:
+- copy/text changes;
+- local presentation-only UI;
+- non-security styling;
+- purely mechanical type/name changes with no trust-boundary effect.
+
+POST-APPLY
+- If a security-relevant proposal already passed security review and applied verification confirms the repository matches the reviewed handoff, do NOT repeat security review.
+- Re-run only for material mismatch, new security-relevant code, failed verification, integration milestone, or explicit request.
 """

@@ -2,10 +2,12 @@ import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
+import { getAuthorizedUnitIds } from "@/lib/api/unit-scope";
 
 export async function GET(req: Request) {
   try {
-    await requireAuth();
+    const session = await requireAuth();
+    const authorizedUnitIds = await getAuthorizedUnitIds(session.user);
 
     const { searchParams } = new URL(req.url);
     const kanwilId = searchParams.get("kanwilId");
@@ -17,7 +19,13 @@ export async function GET(req: Request) {
     }
 
     const kancabList = await prisma.unit.findMany({
-      where: { parentId: kanwilId, type: "KANTOR_CABANG" },
+      where: {
+        parentId: kanwilId,
+        type: "KANTOR_CABANG",
+        ...(authorizedUnitIds === null
+          ? {}
+          : { id: { in: authorizedUnitIds } }),
+      },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });

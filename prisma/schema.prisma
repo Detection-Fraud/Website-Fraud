@@ -1,7 +1,7 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Looking for ways to speed up your queries, or scale easily with PostgreSQL?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
@@ -63,6 +63,17 @@ enum UnitType {
   KANTOR_CABANG
 }
 
+enum EmployeeSyncRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum ParticipationProvenance {
+  LEGACY
+  EMPLOYEE_SNAPSHOT
+}
+
 // NEW MODEL UNIT
 model Unit {
   id   String   @id @default(uuid())
@@ -79,8 +90,10 @@ model Unit {
   children Unit[]  @relation("UnitHierarchy")
 
   users             User[]
+  employees         Employee[]
   activityReport    ActivityReport[]
   participationData ParticipationData[]
+  externalMappings  UnitExternalMapping[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -106,6 +119,9 @@ model User {
   unitId String?
   unit   Unit?   @relation(fields: [unitId], references: [id])
 
+  employeeId String? @unique
+  employee   Employee? @relation("EmployeeUser", fields: [employeeId], references: [id], onDelete: SetNull)
+
   passwordChangedAt DateTime? @default(now())
 
   createdReports         ActivityReport[]    @relation("CreatedReports")
@@ -116,6 +132,7 @@ model User {
 
   assessedParticipations ParticipationData[] @relation("ParticipationAssessors")
   scoreHistoryEntries    ParticipationScoreHistory[] @relation("ScoreHistoryActors")
+  correctionAudits       ParticipationCorrectionAudit[] @relation("ParticipationCorrectionActors")
 
   @@index([role])
   @@index([isActive])
@@ -135,7 +152,6 @@ model ProgramCategory {
   evidenceMode EvidenceMode @default(PHOTO_WITH_AI)
   scoreInputMode ScoreInputMode @default(NONE)
   scoreHistories ParticipationScoreHistory[]
-
 
   programs          ProgramBudaya[]
   participationData ParticipationData[]
@@ -176,12 +192,20 @@ model ProgramBudaya {
 model ParticipationData {
   id           String          @id @default(uuid())
   unitId       String
-  unit         Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit         Unit            @relation(fields: [unitId], references: [id], onDelete: Restrict)
   categoryId   String
-  category     ProgramCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category     ProgramCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   tw           Int
   year         Int
-  percentage   Int?
+  percentage   Decimal? @db.Decimal(5, 2)
+  headcount Int?
+  participantCount Int?
+  provenance ParticipationProvenance @default(LEGACY)
+  employeeSyncRunId String?
+  headcountCapturedAt DateTime?
+  unitNameSnapshot String?
+  parentUnitNameSnapshot String?
+  categoryNameSnapshot String?
   evidenceReportId String? @unique
   evidenceReport    ActivityReport? @relation("ParticipationEvidence", fields: [evidenceReportId], references: [id], onDelete: Restrict)
   assessedById     String?
@@ -191,12 +215,15 @@ model ParticipationData {
   scoreHistories   ParticipationScoreHistory[]
   importedAt   DateTime        @default(now())
   importedById String?
-  importedBy   User?           @relation(fields: [importedById], references: [id], onDelete: Cascade)
+  importedBy   User?           @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  employeeSyncRun EmployeeSyncRun? @relation("ParticipationEmployeeSyncRun", fields: [employeeSyncRunId], references: [id], onDelete: Restrict)
+  correctionAudits ParticipationCorrectionAudit[]
 
   @@unique([unitId, categoryId, tw, year])
   @@index([categoryId])
   @@index([year, tw])
   @@index([unitId])
+  @@index([employeeSyncRunId])
 }
 
 model ParticipationScoreHistory {
@@ -208,8 +235,8 @@ model ParticipationScoreHistory {
   categoryId          String
   category            ProgramCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   action              ScoreHistoryAction
-  previousPercentage  Int?
-  newPercentage       Int
+  previousPercentage  Decimal? @db.Decimal(5, 2)
+  newPercentage       Decimal @db.Decimal(5, 2)
   changeReason        String?
   actorId             String?
   actor               User?              @relation("ScoreHistoryActors", fields: [actorId], references: [id], onDelete: SetNull)
@@ -219,6 +246,81 @@ model ParticipationScoreHistory {
   @@index([participationDataId, createdAt])
   @@index([evidenceReportId])
   @@index([categoryId])
+}
+
+model EmployeeSyncRun {
+  id String @id @default(uuid())
+  sourceSystem String
+  sourceMetadata Json?
+  status EmployeeSyncRunStatus @default(RUNNING)
+  startedAt DateTime @default(now())
+  completedAt DateTime?
+  receivedCount Int @default(0)
+  processedCount Int @default(0)
+  missingCount Int @default(0)
+  errorMessage String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeesLastSeen Employee[] @relation("EmployeeLastSeenSyncRun")
+  participationSnapshots ParticipationData[] @relation("ParticipationEmployeeSyncRun")
+
+  @@index([status])
+  @@index([startedAt])
+  @@index([status, completedAt])
+}
+
+model Employee {
+  id String @id @default(uuid())
+  nip String @unique
+  name String
+  jenjang String
+  kodeStatpeg String
+  statKepeg String
+  unitId String?
+  unit Unit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  isPresentInSource Boolean @default(false)
+  lastSeenAt DateTime?
+  lastSeenSyncRunId String?
+  lastSeenSyncRun EmployeeSyncRun? @relation("EmployeeLastSeenSyncRun", fields: [lastSeenSyncRunId], references: [id], onDelete: SetNull)
+  user User? @relation("EmployeeUser")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([unitId])
+  @@index([isPresentInSource])
+  @@index([jenjang, kodeStatpeg, statKepeg, isPresentInSource])
+}
+
+model UnitExternalMapping {
+  id String @id @default(uuid())
+  sourceSystem String
+  externalUnitCode String
+  unitId String
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceSystem, externalUnitCode])
+  @@index([unitId])
+}
+
+model ParticipationCorrectionAudit {
+  id String @id @default(uuid())
+  participationDataId String
+  participationData ParticipationData @relation(fields: [participationDataId], references: [id], onDelete: Restrict)
+  previousParticipantCount Int?
+  newParticipantCount Int
+  previousPercentage Decimal? @db.Decimal(5, 2)
+  newPercentage Decimal @db.Decimal(5, 2)
+  reason String
+  actorId String?
+  actor User? @relation("ParticipationCorrectionActors", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName String
+  createdAt DateTime @default(now())
+
+  @@index([participationDataId, createdAt])
+  @@index([actorId])
 }
 
 model ActivityReport {
@@ -304,5 +406,25 @@ model LoginBanner {
   order     Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PicImportantInformation {
+  id         String   @id @default(uuid())
+  imageUrl   String
+  altText    String
+  width      Int
+  height     Int
+  order      Int      @default(0)
+  isActive   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([order, createdAt, id])
+  @@index([isActive, order, createdAt, id])
+}
+
+model PicImportantInformationOrderState {
+  id String @id
+  revision Int @default(0)
   updatedAt DateTime @updatedAt
 }

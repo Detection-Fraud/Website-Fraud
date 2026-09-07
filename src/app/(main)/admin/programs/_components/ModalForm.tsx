@@ -29,6 +29,13 @@ function toCalendarDate(value?: Date | string | null) {
   return parseDate(new Date(value).toISOString().slice(0, 10));
 }
 
+const TW_MONTH_RANGES = {
+  1: [1, 3],
+  2: [4, 6],
+  3: [7, 9],
+  4: [10, 12],
+} as const;
+
 interface ModalFormProps {
   isOpen: boolean;
   onClose: () => void;
@@ -98,18 +105,35 @@ export default function ModalForm({
   }, [isDirectAdmin]);
 
   const periodError = useMemo(() => {
-    if (!startDate || !endDate || !uploadDeadline) return null;
+    if (!startDate || !endDate) return null;
     if (startDate.compare(endDate) > 0) {
       return "Tanggal selesai harus sesudah tanggal mulai";
     }
     if (startDate.year !== endDate.year) {
       return "Periode kegiatan harus satu tahun";
     }
+
+    const tw = Number(selectedTw);
+    const twRange =
+      Number.isInteger(tw) && tw >= 1 && tw <= 4
+        ? TW_MONTH_RANGES[tw as keyof typeof TW_MONTH_RANGES]
+        : null;
+    if (twRange) {
+      const [firstMonth, lastMonth] = twRange;
+      if (startDate.month < firstMonth || startDate.month > lastMonth) {
+        return `Tanggal mulai harus berada dalam rentang bulan TW${tw}`;
+      }
+      if (endDate.month < firstMonth || endDate.month > lastMonth) {
+        return `Tanggal selesai harus berada dalam rentang bulan TW${tw}`;
+      }
+    }
+
+    if (!uploadDeadline) return null;
     if (endDate.compare(uploadDeadline) > 0) {
       return "Deadline upload harus sesudah tanggal selesai";
     }
     return null;
-  }, [endDate, startDate, uploadDeadline]);
+  }, [endDate, selectedTw, startDate, uploadDeadline]);
 
   const handleCategoryChange = (key: React.Key | null) => {
     const categoryId = key ? String(key) : null;
@@ -251,13 +275,17 @@ export default function ModalForm({
                             <p className="text-sm font-semibold">
                               Kuota bukti per unit: 1 per triwulan
                             </p>
-                            <Description>Persentase partisipasi 0-100%</Description>
+                            <Description>
+                              Persentase partisipasi 0-100%
+                            </Description>
                             <input name="frequency" type="hidden" value="1" />
                           </div>
                         ) : isExcelImport ? (
                           <div className="flex flex-col gap-1">
                             <Label>Sumber nilai</Label>
-                            <Description>Persentase partisipasi dimasukkan melalui Excel.</Description>
+                            <Description>
+                              Persentase partisipasi dimasukkan melalui Excel.
+                            </Description>
                           </div>
                         ) : (
                           <TextField
@@ -271,11 +299,19 @@ export default function ModalForm({
                           >
                             <Label>
                               <span className="flex items-center gap-1.5">
-                                <FiTarget className="size-4" /> Target frekuensi kegiatan
+                                <FiTarget className="size-4" /> Target frekuensi
+                                kegiatan
                               </span>
                             </Label>
-                            <Input className="h-11" min={1} type="number" variant="secondary" />
-                            <Description>Jumlah laporan kegiatan yang ditargetkan per TW.</Description>
+                            <Input
+                              className="h-11"
+                              min={1}
+                              type="number"
+                              variant="secondary"
+                            />
+                            <Description>
+                              Jumlah laporan kegiatan yang ditargetkan per TW.
+                            </Description>
                             <FieldError />
                           </TextField>
                         )}

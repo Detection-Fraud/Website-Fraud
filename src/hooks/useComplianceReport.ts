@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import {
   ComplianceFilterOptions,
   ComplianceResponse,
+  QuarterFilter,
   TabUnitType,
 } from "@/types/compliance.types";
 import { useQuery } from "@tanstack/react-query";
@@ -16,6 +17,7 @@ export function useComplianceReport() {
   const [activeTab, setActiveTab] = useState<TabUnitType>("NASIONAL");
   const [programId, setProgramId] = useState("ALL");
   const [year, setYear] = useState(new Date().getFullYear());
+  const [tw, setTw] = useState<QuarterFilter>("ALL");
 
   const handleTabChange = (v: TabUnitType) => {
     setActiveTab(v);
@@ -68,6 +70,7 @@ export function useComplianceReport() {
       wilayah.kancabId,
       wilayah.divisiId,
       year,
+      tw,
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -80,6 +83,7 @@ export function useComplianceReport() {
       if (wilayah.divisiId !== "ALL")
         params.append("divisiId", wilayah.divisiId);
       params.append("year", String(year));
+      if (tw !== "ALL") params.append("tw", tw);
 
       const res = await api.get(`/reports/compliance?${params.toString()}`);
       return res.data as ComplianceResponse;
@@ -91,9 +95,11 @@ export function useComplianceReport() {
     activeTab,
     programId,
     year,
+    tw,
     handleTabChange,
     handleProgramChange: setProgramId,
     handleYearChange: setYear,
+    handleTwChange: setTw,
 
     options: {
       kanwilList: options?.kanwilList ?? [],

@@ -37,10 +37,12 @@ export async function getRanking(params: RankingParams) {
     const kancab = await prisma.unit.findUnique({ where: { id: kancabId } });
     if (kancab) {
       const totalKegiatanRaw = await prisma.activityReport.count({
-        where: { ...fullWhereClause, unitId: kancabId },
+        where: { AND: [fullWhereClause, { unitId: kancabId }] },
       });
       const totalDisetujuiRaw = await prisma.activityReport.count({
-        where: { ...fullWhereClause, unitId: kancabId, status: "APPROVED" },
+        where: {
+          AND: [fullWhereClause, { unitId: kancabId }, { status: "APPROVED" }],
+        },
       });
       const approvalRate =
         totalKegiatanRaw > 0 ? (totalDisetujuiRaw / totalKegiatanRaw) * 100 : 0;
@@ -69,16 +71,20 @@ export async function getRanking(params: RankingParams) {
 
     const rankingRaw = await prisma.activityReport.groupBy({
       by: ["unitId"],
-      where: { ...fullWhereClause, unitId: { in: kancabs.map((k) => k.id) } },
+      where: {
+        AND: [fullWhereClause, { unitId: { in: kancabs.map((k) => k.id) } }],
+      },
       _count: { id: true },
     });
 
     const approvedRaw = await prisma.activityReport.groupBy({
       by: ["unitId"],
       where: {
-        ...fullWhereClause,
-        unitId: { in: kancabs.map((k) => k.id) },
-        status: "APPROVED",
+        AND: [
+          fullWhereClause,
+          { unitId: { in: kancabs.map((k) => k.id) } },
+          { status: "APPROVED" },
+        ],
       },
       _count: { id: true },
     });
@@ -113,10 +119,12 @@ export async function getRanking(params: RankingParams) {
     if (divisi) {
       const [totalKegiatanRaw, totalDisetujuiRaw] = await Promise.all([
         prisma.activityReport.count({
-          where: { ...fullWhereClause, unitId: divisiId },
+          where: { AND: [fullWhereClause, { unitId: divisiId }] },
         }),
         prisma.activityReport.count({
-          where: { ...fullWhereClause, unitId: divisiId, status: "APPROVED" },
+          where: {
+            AND: [fullWhereClause, { unitId: divisiId }, { status: "APPROVED" }],
+          },
         }),
       ]);
 

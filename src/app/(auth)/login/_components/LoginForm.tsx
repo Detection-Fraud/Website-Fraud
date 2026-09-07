@@ -35,7 +35,9 @@ const SSO_ERROR_MESSAGES: Record<string, string> = {
     "Token SSO sudah digunakan. Silakan login ulang dari halaman utama.",
 };
 
-export default function LoginForm() {
+type LoginFormMode = "sso" | "admin";
+
+export default function LoginForm({ mode }: { mode: LoginFormMode }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -115,108 +117,106 @@ export default function LoginForm() {
             </p>
           </div>
         )}
-        <Form
-          className="space-y-5"
-          onSubmit={handleSubmit}
-          validationBehavior="aria"
-          method="post"
-        >
-          <TextField
-            isRequired
-            name="username"
-            type="text"
-            isDisabled={isPending}
+        {mode === "admin" && (
+          <Form
+            className="space-y-5"
+            onSubmit={handleSubmit}
+            validationBehavior="aria"
+            method="post"
           >
-            {/* 4. Label harus terang */}
-            <Label className="text-white/90 mb-1">Username</Label>
-            {/* 5. Input Box gaya Glassmorphism */}
-            <InputGroup className="bg-white/5 border border-white/20 text-white shadow-inner">
-              <InputGroup.Prefix className="text-white/60">
-                <FaRegUser />
-              </InputGroup.Prefix>
-              <InputGroup.Input
-                placeholder="Masukkan Username"
-                autoFocus
-                className="bg-transparent text-white placeholder:text-white/40 outline-none"
-              />
-            </InputGroup>
-            <FieldError className="text-red-400 mt-1" />
-          </TextField>
+            <TextField
+              isRequired
+              name="username"
+              type="text"
+              isDisabled={isPending}
+            >
+              {/* 4. Label harus terang */}
+              <Label className="text-white/90 mb-1">Username</Label>
+              {/* 5. Input Box gaya Glassmorphism */}
+              <InputGroup className="bg-white/5 border border-white/20 text-white shadow-inner">
+                <InputGroup.Prefix className="text-white/60">
+                  <FaRegUser />
+                </InputGroup.Prefix>
+                <InputGroup.Input
+                  placeholder="Masukkan Username"
+                  autoFocus
+                  className="bg-transparent text-white placeholder:text-white/40 outline-none"
+                />
+              </InputGroup>
+              <FieldError className="text-red-400 mt-1" />
+            </TextField>
 
-          <TextField
-            isRequired
-            name="password"
-            type="password"
-            isDisabled={isPending}
-          >
-            <Label className="text-white/90 mb-1">Password</Label>
-            <InputGroup className="bg-white/5 border border-white/20 text-white shadow-inner">
-              <InputGroup.Prefix className="text-white/60">
-                <CiLock />
-              </InputGroup.Prefix>
-              <InputGroup.Input
-                placeholder="Masukkan Password"
-                type={isVisible ? "text" : "password"}
-                className="bg-transparent text-white placeholder:text-white/40 outline-none"
-              />
-              <InputGroup.Suffix>
-                <button
-                  type="button"
-                  onClick={toggleVisibility}
-                  className="text-white/60 hover:text-white transition-colors"
-                >
-                  {isVisible ? <BsEyeSlash /> : <BsEye />}
-                </button>
-              </InputGroup.Suffix>
-            </InputGroup>
-            <FieldError className="text-red-400 mt-1" />
-          </TextField>
+            <TextField
+              isRequired
+              name="password"
+              type="password"
+              isDisabled={isPending}
+            >
+              <Label className="text-white/90 mb-1">Password</Label>
+              <InputGroup className="bg-white/5 border border-white/20 text-white shadow-inner">
+                <InputGroup.Prefix className="text-white/60">
+                  <CiLock />
+                </InputGroup.Prefix>
+                <InputGroup.Input
+                  placeholder="Masukkan Password"
+                  type={isVisible ? "text" : "password"}
+                  className="bg-transparent text-white placeholder:text-white/40 outline-none"
+                />
+                <InputGroup.Suffix>
+                  <button
+                    type="button"
+                    onClick={toggleVisibility}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    {isVisible ? <BsEyeSlash /> : <BsEye />}
+                  </button>
+                </InputGroup.Suffix>
+              </InputGroup>
+              <FieldError className="text-red-400 mt-1" />
+            </TextField>
 
-          {/* Tombol Login Biru Solid biar menonjol */}
+            {/* Tombol Login Biru Solid biar menonjol */}
+            <Button
+              type="submit"
+              fullWidth
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg border-none font-semibold mt-2"
+              isPending={isPending}
+            >
+              {!isPending && <CiLogin className="mr-2 text-xl" />}
+              {isPending ? (
+                <div className="flex items-center gap-2">
+                  <Spinner size="sm" className="text-white" />
+                  <span>Memeriksa...</span>
+                </div>
+              ) : (
+                "Masuk"
+              )}
+            </Button>
+          </Form>
+        )}
+
+        {/* Tombol SSO gaya outline kaca */}  
+        {mode === "sso" && (
           <Button
-            type="submit"
             fullWidth
             size="lg"
-            className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg border-none font-semibold mt-2"
-            isPending={isPending}
+            variant="outline"
+            className="border border-white/20 text-white bg-white/5 hover:bg-white/10 font-medium transition-all"
+            onPress={() => {
+              window.location.href = "/api/auth/sso/login";
+            }}
           >
-            {!isPending && <CiLogin className="mr-2 text-xl" />}
-            {isPending ? (
-              <div className="flex items-center gap-2">
-                <Spinner size="sm" className="text-white" />
-                <span>Memeriksa...</span>
-              </div>
-            ) : (
-              "Masuk"
-            )}
+            <Image
+              src="/assets/images/logo-bulog.png"
+              width={20}
+              height={20}
+              className="object-contain mr-2"
+              alt="Bulog"
+            />
+            Masuk dengan SSO
           </Button>
-        </Form>
-
-        <div className="flex items-center justify-center gap-4 mt-8 mb-6">
-          <Separator className="flex-1 bg-white/20" />
-          <span className="text-sm text-white/50 font-medium">Atau</span>
-          <Separator className="flex-1 bg-white/20" />
-        </div>
-
-        {/* Tombol SSO gaya outline kaca */}
-        <Button
-          fullWidth
-          size="lg"
-          variant="outline"
-          className="border border-white/20 text-white bg-white/5 hover:bg-white/10 font-medium transition-all"
-          onPress={() => {
-            window.location.href = "/api/auth/sso/login";
-          }}
-        >
-          <Image
-            src="/assets/images/logo-bulog.png"
-            width={20}
-            height={20}
-            className="object-contain mr-2"
-            alt="Bulog"
-          />
-          Masuk dengan SSO
-        </Button>
+        )}
       </Card.Content>
     </Card>
   );

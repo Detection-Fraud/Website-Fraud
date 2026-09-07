@@ -7,6 +7,17 @@ export const api = axios.create({
   },
 });
 
+api.interceptors.request.use((config) => {
+  if (
+    typeof FormData !== "undefined" &&
+    config.data instanceof FormData
+  ) {
+    delete config.headers?.["Content-Type"];
+  }
+
+  return config;
+});
+
 // INTERCEPTOR
 api.interceptors.response.use(
   (response) => {

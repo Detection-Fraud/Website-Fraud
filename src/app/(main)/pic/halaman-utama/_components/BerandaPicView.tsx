@@ -1,8 +1,13 @@
 "use client";
 
 import {
-  type PicPeriodStatus,
+  getImportantInformationError,
+  usePicImportantInformation,
+} from "@/hooks/useImportantInformation";
+import {
+  RecentActivity,
   usePicDashboard,
+  type PicPeriodStatus,
 } from "@/hooks/usePicDashboard";
 import {
   Button,
@@ -25,6 +30,7 @@ import {
 } from "react-icons/fi";
 import { MdPendingActions } from "react-icons/md";
 import BannerCarousel from "./BannerCarousel";
+import ImportantInformationCarousel from "./ImportantInformationCarousel";
 
 const PERIOD_STATUS_LABEL: Record<PicPeriodStatus, string> = {
   ACTIVITY_ACTIVE: "Sedang berjalan",
@@ -73,6 +79,15 @@ export default function BerandaPicView() {
 
   const { data, isLoading, isFetching, isError, refetch } =
     usePicDashboard(selectedInput);
+
+  const {
+    data: importantInfoData,
+    isLoading: isImportantInfoLoading,
+    isError: isImportantInfoError,
+    error: importantInfoError,
+    refetch: refetchImportantInfo,
+  } = usePicImportantInformation();
+  const importantInfoItems = importantInfoData?.items ?? [];
 
   const periods = data?.periods ?? [];
   const selectedPeriod = data?.selectedPeriod;
@@ -136,8 +151,9 @@ export default function BerandaPicView() {
                 </span>
                 <Chip size="sm" variant="secondary">
                   <Chip.Label>
-                    {PERIOD_STATUS_LABEL[selectedPeriod.status] ??
-                      selectedPeriod.status}
+                    {PERIOD_STATUS_LABEL[
+                      selectedPeriod.status as PicPeriodStatus
+                    ] ?? selectedPeriod.status}
                   </Chip.Label>
                 </Chip>
               </>
@@ -162,7 +178,7 @@ export default function BerandaPicView() {
               </Select.Trigger>
               <Select.Popover>
                 <ListBox>
-                  {periods.map((period) => (
+                  {periods.map((period: any) => (
                     <ListBox.Item
                       key={`${period.year}-${period.tw}`}
                       id={`${period.year}-${period.tw}`}
@@ -178,6 +194,49 @@ export default function BerandaPicView() {
           </div>
         )}
       </header>
+
+      {/* Section Informasi Penting (IPIC-14) */}
+      <section
+        aria-labelledby="informasi-penting-heading"
+        className="space-y-3"
+      >
+        <h2
+          id="informasi-penting-heading"
+          className="text-base font-bold text-slate-800"
+        >
+          Informasi Penting
+        </h2>
+
+        {isImportantInfoLoading ? (
+          <Card className="border border-slate-200 shadow-sm rounded-lg overflow-hidden bg-white p-0">
+            <Skeleton className="aspect-2/1 w-full" />
+          </Card>
+        ) : isImportantInfoError ? (
+          <Card className="border border-red-200 bg-red-50/50 shadow-sm rounded-lg p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-red-600 font-medium">
+                {getImportantInformationError(importantInfoError).message}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onPress={() => void refetchImportantInfo()}
+                className="shrink-0"
+              >
+                Coba lagi
+              </Button>
+            </div>
+          </Card>
+        ) : importantInfoItems.length === 0 ? (
+          <Card className="border border-slate-200 shadow-sm rounded-lg bg-white p-8">
+            <p className="text-center text-xs text-slate-400">
+              Belum ada informasi penting yang ditampilkan saat ini.
+            </p>
+          </Card>
+        ) : (
+          <ImportantInformationCarousel items={importantInfoItems} />
+        )}
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* BENTO CELL 1 */}
@@ -293,7 +352,7 @@ export default function BerandaPicView() {
                     </p>
                   </div>
                 ) : (
-                  recentActivities.map((act, index) => (
+                  recentActivities.map((act: RecentActivity, index: number) => (
                     <div key={act.id} className="relative pl-8">
                       {/* Timeline Vertical Line */}
                       {index !== recentActivities.length - 1 && (
@@ -382,7 +441,7 @@ export default function BerandaPicView() {
                     </p>
                   </div>
                 ) : (
-                  leaderboard.map((pic, idx) => {
+                  leaderboard.map((pic, idx: number) => {
                     const picTheme = getComplianceColor(pic.compliance);
                     return (
                       <div

@@ -101,6 +101,12 @@ export const SidebarMenuAdmin: SidebarMenuItem[] = [
     href: "/admin/banners",
     icon: <PiImage />,
   },
+  {
+    key: "important-information",
+    label: "Informasi Penting",
+    href: "/admin/informasi-penting",
+    icon: <PiImage />,
+  },
 ];
 
 export const SidebarMenuPIC: SidebarMenuItem[] = [

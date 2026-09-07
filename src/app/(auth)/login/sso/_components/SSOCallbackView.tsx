@@ -18,8 +18,12 @@ export default function SSOCallbackView() {
   async function handleSSOLogin() {
     try {
       const res = await fetch("/api/auth/sso/token", {
-        method: "GET",
+        method: "POST",
         credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
       });
 
       if (!res.ok) {

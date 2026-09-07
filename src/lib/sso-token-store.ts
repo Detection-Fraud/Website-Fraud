@@ -14,6 +14,11 @@ import crypto from "crypto";
  */
 
 const consumedTokens = new Map<string, number>();
+const issuedCredentials = new Map<string, number>();
+
+const MAX_CONSUMED_TOKENS = 1024;
+const MAX_ISSUED_CREDENTIALS = 1024;
+const CREDENTIAL_TTL_MS = 60 * 1000;
 
 const CLEANUP_INTERVAL_MS = 60 * 1000;
 const TOKEN_TTL_MS = 2 * 60 * 1000;
@@ -48,6 +53,48 @@ function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+function pruneIssuedCredentials(now: number): void {
+  for (const [hash, expiresAt] of issuedCredentials) {
+    if (now >= expiresAt) {
+      issuedCredentials.delete(hash);
+    }
+  }
+}
+
+export function registerCredential(
+  credential: string,
+  ttlMs: number = CREDENTIAL_TTL_MS,
+): boolean {
+  const now = Date.now();
+  pruneIssuedCredentials(now);
+
+  if (issuedCredentials.size >= MAX_ISSUED_CREDENTIALS) {
+    return false;
+  }
+
+  const hash = hashToken(credential);
+
+  if (issuedCredentials.has(hash)) {
+    return false;
+  }
+
+  issuedCredentials.set(hash, now + Math.min(ttlMs, CREDENTIAL_TTL_MS));
+  return true;
+}
+
+export function consumeCredential(credential: string): boolean {
+  const now = Date.now();
+  pruneIssuedCredentials(now);
+
+  const hash = hashToken(credential);
+
+  if (!issuedCredentials.has(hash)) {
+    return false;
+  }
+
+  issuedCredentials.delete(hash);
+  return true;
+}
 /**
  * Coba consume token. Return `true` jika token belum pernah dipakai (first use).
  * Return `false` jika token sudah pernah di-consume sebelumnya (replay attempt).
@@ -56,13 +103,24 @@ function hashToken(token: string): string {
  */
 
 export function consumeToken(token: string): boolean {
+  const now = Date.now();
+  for (const [hash, timestamp] of consumedTokens) {
+    if (now - timestamp > TOKEN_TTL_MS) {
+      consumedTokens.delete(hash);
+    }
+  }
+
   const hash = hashToken(token);
 
   if (consumedTokens.has(hash)) {
     return false;
   }
 
-  consumedTokens.set(hash, Date.now());
+  if (consumedTokens.size >= MAX_CONSUMED_TOKENS) {
+    return false;
+  }
+
+  consumedTokens.set(hash, now);
   startCleanupIfNeeded();
   return true;
 }

@@ -1,6 +1,18 @@
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { FilterOption, TabUnitType } from "@/types/compliance.types";
-import { Button, Card, Tag, TagGroup } from "@heroui/react";
+import {
+  FilterOption,
+  QuarterFilter,
+  TabUnitType,
+} from "@/types/compliance.types";
+import {
+  Button,
+  Card,
+  Label,
+  ListBox,
+  Select,
+  Tag,
+  TagGroup,
+} from "@heroui/react";
 import { FiDownload, FiX } from "react-icons/fi";
 import FilterCategory from "../ui/FilterCategory";
 import SelectKancab from "../ui/SelectKancab";
@@ -14,6 +26,7 @@ interface FilterSectionProps {
     divisiId: string;
     programId: string;
     year: number;
+    tw: QuarterFilter;
   };
   options: {
     kanwilList: FilterOption[];
@@ -27,6 +40,7 @@ interface FilterSectionProps {
   handleDivisiChange: (value: string) => void;
   handleProgramChange: (value: string) => void;
   handleYearChange: (value: number) => void;
+  handleTwChange: (value: QuarterFilter) => void;
   isFilterActive: boolean;
   activeTab: TabUnitType;
   handleTabChange: (key: TabUnitType) => void;
@@ -42,6 +56,7 @@ export default function FilterSection({
   handleProgramChange,
   handleKanwilChange,
   handleYearChange,
+  handleTwChange,
   isFilterActive,
   activeTab,
   handleTabChange,
@@ -105,6 +120,45 @@ export default function FilterSection({
             years={options?.yearList}
             className="w-full"
           />
+          <Select
+            aria-label="Filter Triwulan"
+            className="w-full"
+            value={filters.tw}
+            placeholder="Semua Triwulan"
+            onChange={(value) =>
+              handleTwChange((value ?? "ALL") as QuarterFilter)
+            }
+          >
+            <Label>Triwulan</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="ALL" textValue="Semua Triwulan">
+                  Semua Triwulan
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+                <ListBox.Item id="1" textValue="TW1">
+                  TW1
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+                <ListBox.Item id="2" textValue="TW2">
+                  TW2
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+                <ListBox.Item id="3" textValue="TW3">
+                  TW3
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+                <ListBox.Item id="4" textValue="TW4">
+                  TW4
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              </ListBox>
+            </Select.Popover>
+          </Select>
           <FilterCategory
             value={filters.programId}
             categories={options?.programList || []}
@@ -147,6 +201,7 @@ export default function FilterSection({
                 handleKanwilChange("ALL");
                 handleTabChange(defaultTab);
                 handleYearChange(new Date().getFullYear());
+                handleTwChange("ALL");
               }}
             >
               <FiX />

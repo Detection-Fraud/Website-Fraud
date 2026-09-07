@@ -6,12 +6,21 @@ interface RateLimitStore {
 const store = new Map<string, RateLimitStore>();
 
 if (typeof setInterval !== "undefined") {
-  setInterval(() => {
+  const cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [key, val] of store.entries()) {
       if (val.resetAt <= now) store.delete(key);
     }
   }, 60_000);
+
+  if (
+    typeof cleanupTimer === "object" &&
+    cleanupTimer !== null &&
+    "unref" in cleanupTimer &&
+    typeof cleanupTimer.unref === "function"
+  ) {
+    cleanupTimer.unref();
+  }
 }
 
 export interface RateLimitOptions {
@@ -35,7 +44,7 @@ export function checkRateLimit(
   const prefix = options.keyPrefix ?? "default";
 
   const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim ??
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "unknown";
 

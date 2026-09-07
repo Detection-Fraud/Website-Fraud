@@ -53,13 +53,29 @@ export async function resolveScope(
       const childIds = await getChildUnitIds(user.unitId);
       const allScopeIds = [user.unitId, ...childIds];
 
-      if (kc && allScopeIds.includes(kc)) {
+      const requestedUnitIds = [kw, kc, dv].filter(
+        (id): id is string => Boolean(id),
+      );
+      const hasUnauthorizedFilter = requestedUnitIds.some(
+        (id) => !allScopeIds.includes(id),
+      );
+      const hasContradictoryFilter =
+        Boolean(kc && kw && !childIds.includes(kc)) || Boolean((kw || kc) && dv);
+
+      if (hasUnauthorizedFilter || hasContradictoryFilter) {
+        scopeUnitIds = ["BLOCKED"];
+      } else if (kc) {
         scopeUnitIds = [kc];
       } else {
         scopeUnitIds = allScopeIds;
       }
     } else {
-      scopeUnitIds = [user.unitId];
+      const requestedUnitIds = [kw, kc, dv].filter(
+        (id): id is string => Boolean(id),
+      );
+      scopeUnitIds = requestedUnitIds.every((id) => id === user.unitId)
+        ? [user.unitId]
+        : ["BLOCKED"];
     }
   } else {
     scopeUnitIds = ["BLOCKED"];
@@ -76,7 +92,9 @@ export async function resolveScope(
 
   if (scopeUnitIds === null) {
     const units = await prisma.unit.findMany({
-      where: { users: { some: { role: "PIC" } } },
+      where: {
+        users: { some: { role: "PIC", authProvider: "SSO", isActive: true } },
+      },
       include: { parent: true },
     });
     activeUnits = units.map((u) => ({
@@ -95,7 +113,9 @@ export async function resolveScope(
     const units = await prisma.unit.findMany({
       where: {
         id: { in: scopeUnitIds.filter((id) => id !== "BLOCKED") },
-        users: { some: { role: "PIC" } },
+        users: {
+          some: { role: "PIC", authProvider: "SSO", isActive: true },
+        },
       },
       include: { parent: true },
     });
@@ -133,6 +153,25 @@ export async function resolveScope(
   }
 
   return { whereClause, activeUnits };
+}
+
+export async function getAuthorizedUnitIds(
+  user: ScopeUser,
+): Promise<string[] | null> {
+  if (user.role === "ADMIN") {
+    return null;
+  }
+
+  if (!user.unitId) {
+    return [];
+  }
+
+  if (user.unitType === "KANTOR_WILAYAH") {
+    const childIds = await getChildUnitIds(user.unitId);
+    return [user.unitId, ...childIds];
+  }
+
+  return [user.unitId];
 }
 
 export async function getChildUnitIds(parentId: string): Promise<string[]> {

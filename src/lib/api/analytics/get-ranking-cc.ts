@@ -17,6 +17,35 @@ export interface RankingCCItem {
   status: string;
 }
 
+interface RankingSortItem {
+  approvalRate: number;
+  approved: number;
+  submitted: number;
+  earliestApprovedAt: Date | null;
+}
+
+export function sortRankingCC<T extends RankingSortItem>(items: T[]) {
+  return [...items].sort((a, b) => {
+    // Semua pencapaian >= 100% berada di atas yang belum mencapai target.
+    const aReachedTarget = a.approvalRate >= 100 ? 1 : 0;
+    const bReachedTarget = b.approvalRate >= 100 ? 1 : 0;
+    if (aReachedTarget !== bReachedTarget) return bReachedTarget - aReachedTarget;
+
+    // Di dalam kelompok yang sama, approval admin paling awal menjadi prioritas.
+    // Yang belum pernah di-approve ditempatkan setelah yang sudah di-approve.
+    if (a.earliestApprovedAt && b.earliestApprovedAt) {
+      const approvalOrder =
+        a.earliestApprovedAt.getTime() - b.earliestApprovedAt.getTime();
+      if (approvalOrder !== 0) return approvalOrder;
+    } else if (a.earliestApprovedAt || b.earliestApprovedAt) {
+      return a.earliestApprovedAt ? -1 : 1;
+    }
+
+    // Fallback deterministik untuk data lama tanpa log approval atau timestamp sama.
+    return b.approvalRate - a.approvalRate || b.approved - a.approved || b.submitted - a.submitted;
+  });
+}
+
 export async function getRankingCC(params: RankingCCParams) {
   const {
     whereClause,
@@ -88,6 +117,35 @@ export async function getRankingCC(params: RankingCCParams) {
     approvedCounts.map((a) => [a.createdById, a._count.id]),
   );
 
+  // Ambil approval pertama admin per CC sebagai tie-break ranking.
+  const approvedReports = await prisma.activityReport.findMany({
+    where: {
+      AND: [
+        ccWhereClause,
+        { status: "APPROVED", createdById: { in: createdByIds } },
+      ],
+    },
+    select: {
+      createdById: true,
+      logs: {
+        where: { action: "APPROVED" },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  });
+
+  const earliestApprovedMap = new Map<string, Date>();
+  for (const report of approvedReports) {
+    const approvedAt = report.logs[0]?.createdAt;
+    if (!report.createdById || !approvedAt) continue;
+    const current = earliestApprovedMap.get(report.createdById);
+    if (!current || approvedAt < current) {
+      earliestApprovedMap.set(report.createdById, approvedAt);
+    }
+  }
+
   // 3. Fetch user info (nama + unit)
   const users = await prisma.user.findMany({
     where: { id: { in: createdByIds } },
@@ -101,13 +159,13 @@ export async function getRankingCC(params: RankingCCParams) {
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   // 4. Susun ranking — sort: compliancePercent (kedisiplinan individu) DESC, approved DESC, approvalRate DESC
-  const allRankings = submitCounts
-    .map((item) => {
+  const allRankings = sortRankingCC(
+    submitCounts.map((item) => {
       const user = userMap.get(item.createdById!);
       const submitted = item._count.id;
       const approved = approvedMap.get(item.createdById!) ?? 0;
       const compliancePercent = Number(
-        (Math.min(approved / effectiveTarget, 1.2) * 100).toFixed(1),
+        (Math.min(approved / effectiveTarget, 1) * 100).toFixed(1),
       );
 
       return {
@@ -120,14 +178,10 @@ export async function getRankingCC(params: RankingCCParams) {
         target: Math.round(effectiveTarget),
         approvalRate: compliancePercent,
         status: getApprovalStatusText(compliancePercent),
+        earliestApprovedAt: earliestApprovedMap.get(item.createdById!) ?? null,
       };
-    })
-    .sort(
-      (a, b) =>
-        b.approvalRate - a.approvalRate ||
-        b.approved - a.approved ||
-        b.submitted - a.submitted,
-    );
+    }),
+  );
 
   // 5. Pagination
   const rankingCCTotal = allRankings.length;
@@ -136,8 +190,16 @@ export async function getRankingCC(params: RankingCCParams) {
   const rankingCC: RankingCCItem[] = allRankings
     .slice((page - 1) * limit, page * limit)
     .map((item, idx) => ({
-      ...item,
       rank: (page - 1) * limit + idx + 1,
+      userId: item.userId,
+      name: item.name,
+      unitName: item.unitName,
+      unitType: item.unitType,
+      submitted: item.submitted,
+      approved: item.approved,
+      target: item.target,
+      approvalRate: item.approvalRate,
+      status: item.status,
     }));
 
   return {

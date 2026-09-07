@@ -10,6 +10,8 @@ export type TabUnitType =
   | "KANCAB"
   | "DIVISI";
 
+export type QuarterFilter = "ALL" | "1" | "2" | "3" | "4";
+
 export interface ProgramFilterOption extends FilterOption {
   color: string;
 }
@@ -79,4 +81,5 @@ export interface ComplianceExportParams {
   divisiId: string;
   programId: string;
   unitType: string;
+  tw: QuarterFilter;
 }

@@ -3,14 +3,30 @@ import { MONTHS_NAMES_ID } from "@/lib/api/constants";
 import { resolveScope, type ActiveUnit } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
 import { programYearBounds } from "@/lib/program-period";
+import { errorResponse } from "@/lib/response";
 import { Prisma } from "@generated/prisma";
 import ExcelJS from "exceljs";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+const complianceTwSchema = z.enum(["ALL", "1", "2", "3", "4"]);
 
 export async function GET(req: Request) {
   try {
     const session = await requireAuth();
 
     const { searchParams } = new URL(req.url);
+    const twResult = complianceTwSchema.safeParse(
+      searchParams.get("tw") ?? "ALL",
+    );
+    if (!twResult.success) {
+      return NextResponse.json(
+        errorResponse("Parameter tw tidak valid", 400),
+        { status: 400 },
+      );
+    }
+    const twFilter =
+      twResult.data === "ALL" ? undefined : Number(twResult.data);
     const year = parseInt(
       searchParams.get("year") || String(new Date().getFullYear()),
     );
@@ -35,7 +51,10 @@ export async function GET(req: Request) {
       },
       include: {
         programs: {
-          where: { startDate: programYearBounds(year) },
+          where: {
+            startDate: programYearBounds(year),
+            ...(twFilter !== undefined && { tw: twFilter }),
+          },
           select: {
             id: true,
             tw: true,
@@ -78,6 +97,12 @@ export async function GET(req: Request) {
     ];
 
     for (const period of sheetPeriods) {
+      if (
+        twFilter !== undefined &&
+        (period.tw.length !== 1 || period.tw[0] !== twFilter)
+      )
+        continue;
+
       const months = getMonthsForTw(periodCategories, period.tw);
       if (months.length === 0) continue;
       buildSheet(workbook, {
