@@ -252,7 +252,7 @@ export async function searchActivePics(
     throw new UserManagementError("Query minimal 2 karakter", 400);
   }
 
-  return db.user.findMany({
+  const users = await db.user.findMany({
     where: {
       role: "PIC",
       authProvider: "SSO",
@@ -263,11 +263,51 @@ export async function searchActivePics(
         contains: query,
         mode: "insensitive",
       },
+      employee: {
+        is: {
+          jenjang: { in: ["4", "5"] },
+          kodeStatpeg: "01",
+          statKepeg: "02",
+          isPresentInSource: true,
+          ...(input.unitId && input.unitId !== "ALL"
+            ? { unitId: input.unitId }
+            : { unitId: { not: null } }),
+        },
+      },
     },
     take: 10,
     orderBy: { name: "asc" },
-    select: userSelect,
+    select: {
+      ...userSelect,
+      employee: {
+        select: {
+          jenjang: true,
+          kodeStatpeg: true,
+          statKepeg: true,
+          isPresentInSource: true,
+          unitId: true,
+        },
+      },
+    },
   });
+
+  return users
+    .filter(
+      (user) =>
+        user.employee !== null &&
+        user.unitId === user.employee.unitId &&
+        isPicEligible(user.employee),
+    )
+    .map(({ employee: employeeRecord, ...user }) => {
+      if (!employeeRecord) {
+        throw new UserManagementError(
+          "PIC belum tertaut ke Employee",
+          409,
+        );
+      }
+
+      return user;
+    });
 }
 
 export async function createOrLinkUser(

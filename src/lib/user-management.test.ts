@@ -179,6 +179,59 @@ describe("user management service", () => {
     assert.equal(result.id, "user-1");
   });
 
+  it("searchActivePics returns only linked, eligible, unit-consistent SSO PICs", async () => {
+    const records = [
+      {
+        ...employee(),
+        id: "user-1",
+        role: "PIC",
+        authProvider: "SSO",
+        isActive: true,
+        employee: employee(),
+      },
+      {
+        ...employee({ jenjang: "3" }),
+        id: "user-2",
+        role: "PIC",
+        authProvider: "SSO",
+        isActive: true,
+        employee: employee({ jenjang: "3" }),
+      },
+      {
+        ...employee({ unitId: "other-unit" }),
+        id: "user-3",
+        role: "PIC",
+        authProvider: "SSO",
+        isActive: true,
+        unitId: "unit-1",
+        employee: employee({ unitId: "other-unit" }),
+      },
+    ];
+    let receivedArgs: any;
+    const db = {
+      user: {
+        findMany: async (args: any) => {
+          receivedArgs = args;
+          return records;
+        },
+      },
+    };
+
+    const result = await management.searchActivePics(
+      { query: "user", unitId: "unit-1" },
+      db as never,
+    );
+
+    assert.deepEqual(result.map((item) => item.id), ["user-1"]);
+    assert.deepEqual(receivedArgs.where.employee.is, {
+      jenjang: { in: ["4", "5"] },
+      kodeStatpeg: "01",
+      statKepeg: "02",
+      isPresentInSource: true,
+      unitId: "unit-1",
+    });
+  });
+
   it("rejects reactivation after Employee unit movement", async () => {
     const tx = {
       user: {

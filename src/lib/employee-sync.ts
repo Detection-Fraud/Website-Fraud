@@ -9,6 +9,7 @@ import {
   type NormalizedEmployee,
   type NormalizedEmployeeSnapshot,
 } from "@/lib/employee-sync-contract";
+import { ZodError } from "zod";
 
 export type ExistingEmployeeForSync = {
   unitId: string | null;
@@ -58,6 +59,55 @@ function toSourceMetadata(
   return snapshot.sourceMetadata as Prisma.InputJsonValue;
 }
 
+function failureSourceSystem(input: unknown): string {
+  if (typeof input !== "object" || input === null) return "UNKNOWN";
+
+  const candidate =
+    "sourceSystem" in input && typeof input.sourceSystem === "string"
+      ? input.sourceSystem.trim()
+      : "";
+
+  return /^[A-Za-z0-9._:-]{1,64}$/.test(candidate) ? candidate : "UNKNOWN";
+}
+
+function failureReceivedCount(input: unknown): number {
+  if (typeof input !== "object" || input === null) return 0;
+
+  return "employees" in input && Array.isArray(input.employees)
+    ? input.employees.length
+    : 0;
+}
+
+function sanitizedErrorMessage(error: unknown): string {
+  const message =
+    error instanceof ZodError
+      ? `Employee snapshot validation failed: ${error.issues
+          .map((issue) => {
+            const location = issue.path.join(".") || "snapshot";
+            return `${location}: ${issue.message}`;
+          })
+          .join("; ")}`
+      : error instanceof Error
+        ? error.message
+        : "Employee snapshot reconciliation failed";
+
+  return message.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 2_000);
+}
+
+async function recordFailedSnapshotRun(input: unknown, error: unknown) {
+  return prisma.employeeSyncRun.create({
+    data: {
+      sourceSystem: failureSourceSystem(input),
+      status: "FAILED",
+      receivedCount: failureReceivedCount(input),
+      processedCount: 0,
+      missingCount: 0,
+      errorMessage: sanitizedErrorMessage(error),
+    },
+    select: { id: true },
+  });
+}
+
 export async function syncEmployeeSnapshot(input: unknown): Promise<{
   runId: string;
   sourceSystem: string;
@@ -66,7 +116,13 @@ export async function syncEmployeeSnapshot(input: unknown): Promise<{
   missingCount: number;
   deactivatedCount: number;
 }> {
-  const snapshot = parseEmployeeSnapshot(input);
+  let snapshot: NormalizedEmployeeSnapshot;
+  try {
+    snapshot = parseEmployeeSnapshot(input);
+  } catch (error) {
+    await recordFailedSnapshotRun(input, error);
+    throw error;
+  }
   const sourceMetadata = toSourceMetadata(snapshot);
 
   const run = await prisma.employeeSyncRun.create({
@@ -269,10 +325,7 @@ export async function syncEmployeeSnapshot(input: unknown): Promise<{
       ...result,
     };
   } catch (error) {
-    const errorMessage =
-      error instanceof Error
-        ? error.message.slice(0, 2_000)
-        : "Employee snapshot reconciliation failed";
+    const errorMessage = sanitizedErrorMessage(error);
 
     await prisma.employeeSyncRun.update({
       where: {
