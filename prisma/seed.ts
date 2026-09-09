@@ -2,6 +2,7 @@ import { Prisma, UnitType, PrismaClient } from "@generated/prisma";
 import bcrypt from "bcryptjs";
 import ExcelJS from "exceljs";
 import path from "path";
+import { assertDevelopmentSeedInvocation } from "../scripts/seed-guard";
 
 const prisma = new PrismaClient();
 
@@ -77,6 +78,8 @@ async function ensureSeedUser({
 // MAIN SEED FUNC
 
 async function main() {
+  assertDevelopmentSeedInvocation(process.env, process.argv);
+
   console.log(
     "Mempertahankan data existing; seed melakukan reconcile/upsert aman...",
   );

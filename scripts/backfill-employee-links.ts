@@ -1,10 +1,12 @@
 import { PrismaClient } from "@generated/prisma";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 const prisma = new PrismaClient();
 const APPLY_FLAG = "--apply";
 const CONFIRM_FLAG = "--confirm-backfill";
 
-type CandidateUser = {
+export type CandidateUser = {
   id: string;
   name: string;
   username: string | null;
@@ -13,6 +15,54 @@ type CandidateUser = {
   employeeId: string | null;
   role: "ADMIN" | "PIC" | "VIEWER";
 };
+
+export type EmployeeCandidate = {
+  id: string;
+  nip: string;
+  user?: { id: string; name: string } | null;
+};
+
+export type PlannedEmployeeLink = {
+  userId: string;
+  employeeId: string;
+  nip: string;
+};
+
+export function findConflictingEmployeeCandidates(
+  users: readonly CandidateUser[],
+  employeesByNip: ReadonlyMap<string, EmployeeCandidate>,
+): string[] {
+  const conflicts: string[] = [];
+
+  for (const user of users) {
+    const nips = new Set(
+      [normalizedNip(user.username), normalizedNip(user.samlNameId)].filter(
+        (nip): nip is string => nip !== null,
+      ),
+    );
+    const matchedEmployees = [...nips]
+      .map((nip) => ({ nip, employee: employeesByNip.get(nip) }))
+      .filter(
+        (
+          match,
+        ): match is { nip: string; employee: EmployeeCandidate } =>
+          match.employee !== undefined,
+      );
+    const distinctEmployeeIds = new Set(
+      matchedEmployees.map(({ employee }) => employee.id),
+    );
+
+    if (distinctEmployeeIds.size > 1) {
+      conflicts.push(
+        `User ${user.id} has distinct username/samlNameId NIPs mapping to different Employees: ${matchedEmployees
+          .map(({ nip, employee }) => `${nip} -> ${employee.id}`)
+          .join(", ")}`,
+      );
+    }
+  }
+
+  return conflicts;
+}
 
 function hasFlag(flag: string) {
   return process.argv.includes(flag);
@@ -23,31 +73,10 @@ function normalizedNip(value: string | null) {
   return nip.length > 0 ? nip : null;
 }
 
-async function main() {
-  const apply = hasFlag(APPLY_FLAG);
-  const confirmed = hasFlag(CONFIRM_FLAG);
-  const dryRun = !apply;
-
-  if (apply && !confirmed) {
-    throw new Error(`Refusing to write without ${CONFIRM_FLAG}.`);
-  }
-  if (apply && process.env.NODE_ENV === "production") {
-    throw new Error("Refusing backfill writes when NODE_ENV=production.");
-  }
-
-  const users = (await prisma.user.findMany({
-    where: { authProvider: "SSO" },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      samlNameId: true,
-      authProvider: true,
-      employeeId: true,
-      role: true,
-    },
-  })) as CandidateUser[];
-
+export function planEmployeeLinks(
+  users: readonly CandidateUser[],
+  employeesByNip: ReadonlyMap<string, EmployeeCandidate>,
+): { conflicts: string[]; links: PlannedEmployeeLink[] } {
   const candidatesByNip = new Map<string, CandidateUser[]>();
 
   for (const user of users) {
@@ -64,21 +93,11 @@ async function main() {
     }
   }
 
-  const nips = [...candidatesByNip.keys()];
-  const employees = await prisma.employee.findMany({
-    where: { nip: { in: nips } },
-    select: {
-      id: true,
-      nip: true,
-      user: { select: { id: true, name: true } },
-    },
-  });
-
-  const employeesByNip = new Map(
-    employees.map((employee) => [employee.nip, employee]),
+  const conflicts = findConflictingEmployeeCandidates(
+    users,
+    employeesByNip,
   );
-  const conflicts: string[] = [];
-  const links: Array<{ userId: string; employeeId: string; nip: string }> = [];
+  const links: PlannedEmployeeLink[] = [];
 
   for (const [nip, candidates] of candidatesByNip) {
     if (candidates.length > 1) {
@@ -115,6 +134,60 @@ async function main() {
     }
   }
 
+  return { conflicts, links };
+}
+
+async function main() {
+  const apply = hasFlag(APPLY_FLAG);
+  const confirmed = hasFlag(CONFIRM_FLAG);
+  const dryRun = !apply;
+
+  if (apply && !confirmed) {
+    throw new Error(`Refusing to write without ${CONFIRM_FLAG}.`);
+  }
+  if (apply && process.env.NODE_ENV === "production") {
+    throw new Error("Refusing backfill writes when NODE_ENV=production.");
+  }
+
+  const users = (await prisma.user.findMany({
+    where: { authProvider: "SSO" },
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      samlNameId: true,
+      authProvider: true,
+      employeeId: true,
+      role: true,
+    },
+  })) as CandidateUser[];
+
+  const nips = [
+    ...new Set(
+      users.flatMap((user) =>
+        [normalizedNip(user.username), normalizedNip(user.samlNameId)].filter(
+          (nip): nip is string => nip !== null,
+        ),
+      ),
+    ),
+  ];
+  const employees = await prisma.employee.findMany({
+    where: { nip: { in: nips } },
+    select: {
+      id: true,
+      nip: true,
+      user: { select: { id: true, name: true } },
+    },
+  });
+
+  const employeesByNip = new Map(
+    employees.map((employee) => [employee.nip, employee]),
+  );
+  const { conflicts, links } = planEmployeeLinks(
+    users,
+    employeesByNip,
+  );
+
   const legacyParticipationCount = await prisma.participationData.count({
     where: { provenance: "LEGACY" },
   });
@@ -148,9 +221,14 @@ async function main() {
   console.log(`Created ${links.length} User.employeeId links.`);
 }
 
-main()
-  .catch((error) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-  })
-  .finally(async () => prisma.$disconnect());
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main()
+    .catch((error) => {
+      console.error(error instanceof Error ? error.message : error);
+      process.exitCode = 1;
+    })
+    .finally(async () => prisma.$disconnect());
+}
