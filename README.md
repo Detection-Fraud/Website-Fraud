@@ -16,6 +16,15 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## SSO ingress configuration
+
+SSO initiation requires an explicit `Origin` or `Referer` matching
+`NEXT_PUBLIC_APP_URL`. In production, configure `TRUSTED_INGRESS_IDENTITY_HEADER`
+to the header that your authenticated ingress/WAF sets after stripping any
+client-supplied copy (for example, `x-ingress-client-id`). Requests without
+that ingress-attested identity are rejected; `x-forwarded-for` and `x-real-ip`
+are never used as trusted SSO client identity headers.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
