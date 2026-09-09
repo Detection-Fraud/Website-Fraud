@@ -5,6 +5,7 @@ import {
   createRelayState,
   extractNip,
   getSsoBaseUrl,
+  isConfiguredSsoOrigin,
   relayStateMatches,
 } from "./saml-transport";
 
@@ -121,6 +122,53 @@ describe("SAML transport helpers", () => {
       );
     } finally {
       setEnv("NODE_ENV", previousNodeEnv);
+      setEnv("NEXT_PUBLIC_APP_URL", previousAppUrl);
+    }
+  });
+
+  it("locks SSO initiation to the configured origin", () => {
+    const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    setEnv("NEXT_PUBLIC_APP_URL", "https://fraud.example.test");
+
+    try {
+      assert.equal(
+        isConfiguredSsoOrigin(
+          new Request("https://internal.example.test/api/auth/sso/login", {
+            headers: {
+              host: "fraud.example.test",
+              origin: "https://fraud.example.test",
+            },
+          }),
+        ),
+        true,
+      );
+      assert.equal(
+        isConfiguredSsoOrigin(
+          new Request("https://internal.example.test/api/auth/sso/login", {
+            headers: {
+              origin: "https://attacker.example.test",
+            },
+          }),
+        ),
+        false,
+      );
+      assert.equal(
+        isConfiguredSsoOrigin(
+          new Request("https://fraud.example.test/api/auth/sso/login", {
+            headers: { host: "fraud.example.test" },
+          }),
+        ),
+        false,
+      );
+      assert.equal(
+        isConfiguredSsoOrigin(
+          new Request("https://internal.example.test/api/auth/sso/login", {
+            headers: { referer: "https://fraud.example.test/login" },
+          }),
+        ),
+        true,
+      );
+    } finally {
       setEnv("NEXT_PUBLIC_APP_URL", previousAppUrl);
     }
   });

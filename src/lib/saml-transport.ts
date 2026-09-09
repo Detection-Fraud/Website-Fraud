@@ -73,6 +73,24 @@ export function getSsoBaseUrl(request?: Request): string {
   return "http://localhost:3000";
 }
 
+export function isConfiguredSsoOrigin(request: Request): boolean {
+  const expectedOrigin = getSsoBaseUrl();
+  const receivedOrigin = request.headers.get("origin")?.trim();
+
+  if (receivedOrigin) return receivedOrigin === expectedOrigin;
+
+  const referer = request.headers.get("referer")?.trim();
+  if (referer) {
+    try {
+      return new URL(referer).origin === expectedOrigin;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
 export function extractNip(profile: Profile): string | null {
   const candidates = [
     profile.nip,

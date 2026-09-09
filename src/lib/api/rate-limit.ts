@@ -27,6 +27,7 @@ export interface RateLimitOptions {
   windowMs?: number;
   max?: number;
   keyPrefix?: string;
+  clientIdentity?: string;
 }
 
 export interface RateLimitResult {
@@ -43,10 +44,7 @@ export function checkRateLimit(
   const max = options.max ?? 30;
   const prefix = options.keyPrefix ?? "default";
 
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown";
+  const ip = options.clientIdentity ?? getClientIdentity(request) ?? "unknown";
 
   const key = `${prefix}:${ip}`;
   const now = Date.now();
@@ -68,6 +66,30 @@ export function checkRateLimit(
     remaining: max - existing.count,
     resetAt: existing.resetAt,
   };
+}
+
+function getClientIdentity(request: Request): string | null {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const forwardedClient = forwardedFor?.split(",", 1)[0]?.trim();
+  if (forwardedClient) return forwardedClient;
+
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  return realIp || null;
+}
+
+/**
+ * Returns the identity supplied by the trusted ingress/WAF. Callers that
+ * expose an unauthenticated public operation should reject requests without
+ * this identity before invoking a per-client limiter.
+ */
+export function getTrustedClientIdentity(request: Request): string | null {
+  const configuredHeader = process.env.TRUSTED_INGRESS_IDENTITY_HEADER?.trim();
+  if (!configuredHeader) return null;
+  if (["x-forwarded-for", "x-real-ip"].includes(configuredHeader.toLowerCase())) {
+    return null;
+  }
+
+  return request.headers.get(configuredHeader)?.trim() || null;
 }
 
 export function rateLimitResponse(resetAt: number) {

@@ -53,6 +53,9 @@ describe("BoundedSamlRequestCache", () => {
 
     assert.notEqual(await cache.saveAsync("request-1", "created-at"), null);
 
-    assert.equal(await cache.saveAsync("request-2", "created-at"), null);
+    await assert.rejects(
+      cache.saveAsync("request-2", "created-at"),
+      { message: "SAML request cache capacity reached" },
+    );
   });
 });
