@@ -2,415 +2,565 @@ import assert from "node:assert/strict";
 import { before, beforeEach, describe, it, mock } from "node:test";
 import { NextRequest } from "next/server";
 
-const authMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
-let currentAuthRole: "ADMIN" | "PIC" | "VIEWER" = "ADMIN";
-const userFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => ({
-    id: "admin-1",
-    name: "Admin Test",
-    username: "admin-test",
-    role: currentAuthRole,
-    authProvider: "LOCAL",
-    isActive: true,
-    unitId: currentAuthRole === "PIC" ? "unit-1" : null,
-    unit: null,
-    employee: null,
-  }),
-);
-const categoryFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => null,
-);
-const unitFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => [],
-);
-const unitFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => ({
-    id: "11111111-1111-4111-8111-111111111111",
-  }),
-);
-const participationFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => [],
-);
-const participationFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => null,
-);
-const participationCreateMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => ({
-    id: "participation-new",
-  }),
-);
-const participationUpdateMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => ({
-    id: "participation-existing",
-  }),
-);
-const participationCorrectionAuditCreateMock = mock.fn<
-  (...args: any[]) => Promise<any>
->(async () => ({ id: "audit-1" }));
-const participationQueryRawMock = mock.fn<
-  (...args: any[]) => Promise<any>
->(async () => []);
-const transactionMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async (callback: (tx: any) => Promise<unknown>) =>
-    callback({
-      $queryRaw: participationQueryRawMock,
-      unit: { findUnique: unitFindUniqueMock },
-      participationData: {
-        findUnique: participationFindUniqueMock,
-        findMany: participationFindManyMock,
-        create: participationCreateMock,
-        update: participationUpdateMock,
-        updateMany: participationUpdateMock,
-      },
-      participationCorrectionAudit: {
-        create: participationCorrectionAuditCreateMock,
-      },
-    }),
-);
-const workbookLoadMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => undefined,
-);
-const workbook = {
-  worksheets: [{ eachRow: mock.fn<(...args: any[]) => any>() }],
-  xlsx: { load: workbookLoadMock },
-};
-const workbookConstructorMock = mock.fn(function () {
-  return workbook;
-});
+import {
+  generateParticipationWorkbook,
+  serializeParticipationWorkbook,
+} from "@/lib/participation-workbook";
 
-mock.module("@/auth", { namedExports: { auth: authMock } });
-mock.module("@/lib/prisma", {
-  namedExports: {
-    prisma: {
-      programCategory: { findUnique: categoryFindUniqueMock },
-      user: { findUnique: userFindUniqueMock },
-      unit: { findMany: unitFindManyMock },
-      participationData: { findMany: participationFindManyMock },
-      $transaction: transactionMock,
-    },
-  },
-});
-mock.module("exceljs", {
-  defaultExport: { Workbook: workbookConstructorMock },
-  namedExports: {
-    default: { Workbook: workbookConstructorMock },
-    Workbook: workbookConstructorMock,
-  },
-});
+class TestApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+  }
+}
 
-let POST: (request: NextRequest) => Promise<Response>;
-before(async () => {
-  ({ POST } = await import("./route"));
-});
-beforeEach(() => {
-  authMock.mock.resetCalls();
-  userFindUniqueMock.mock.resetCalls();
-  categoryFindUniqueMock.mock.resetCalls();
-  unitFindManyMock.mock.resetCalls();
-  unitFindUniqueMock.mock.resetCalls();
-  participationFindManyMock.mock.resetCalls();
-  participationFindUniqueMock.mock.resetCalls();
-  participationCreateMock.mock.resetCalls();
-  participationUpdateMock.mock.resetCalls();
-  participationCorrectionAuditCreateMock.mock.resetCalls();
-  participationQueryRawMock.mock.resetCalls();
-  transactionMock.mock.resetCalls();
-  workbookLoadMock.mock.resetCalls();
-  workbookConstructorMock.mock.resetCalls();
-  workbook.worksheets[0].eachRow.mock.resetCalls();
-
-  currentAuthRole = "ADMIN";
-  authMock.mock.mockImplementation(async () => ({
+const requireAdminMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => ({
     user: {
       id: "admin-1",
       name: "Admin Test",
-      role: currentAuthRole,
-      authProvider: "LOCAL",
+      role: "ADMIN",
     },
-  }));
-  categoryFindUniqueMock.mock.mockImplementation(async () => ({
-    targetUnit: "PARTISIPASI_PERSEN",
-    evidenceMode: "NONE",
-    scoreInputMode: "EXCEL_IMPORT",
-  }));
-  unitFindManyMock.mock.mockImplementation(async () => [
-    { id: "11111111-1111-4111-8111-111111111111", name: "Unit A" },
-  ]);
-  workbook.worksheets[0].eachRow.mock.mockImplementation(
-    (callback: (row: any, rowNumber: number) => void) =>
-      callback(
+  }),
+);
+
+const previewParticipationWorkbookMock = mock.fn<
+  (...args: any[]) => Promise<any>
+>(async () => ({
+  stats: {
+    total: 1,
+    first: 1,
+    unchanged: 0,
+    correction: 0,
+    empty: 0,
+    error: 0,
+  },
+  rows: [
+    {
+      id: 0,
+      sheetKey: "SUMMARY",
+      rowNumber: 2,
+      unitCode: "UNIT-A",
+      unitId: "unit-a",
+      unitName: "Unit A",
+      participantCount: 80,
+      headcount: 100,
+      percentage: 80,
+      existingParticipantCount: null,
+      existingPercentage: null,
+      expectedUpdatedAt: null,
+      warning: null,
+      status: "FIRST",
+    },
+  ],
+}));
+
+const commitParticipationWorkbookMock = mock.fn<
+  (...args: any[]) => Promise<any>
+>(async () => ({
+  created: 1,
+  updated: 0,
+  skipped: 0,
+  rows: [
+    {
+      unitCode: "UNIT-A",
+      unitId: "unit-a",
+      status: "FIRST",
+      participantCount: 80,
+      percentage: 80,
+      warning: null,
+    },
+  ],
+}));
+
+let nextAuthError: TestApiError | null = null;
+let nextPreviewError: TestApiError | null = null;
+let nextCommitError: TestApiError | null = null;
+
+mock.module("@/lib/api/auth-guard", {
+  namedExports: {
+    ApiError: TestApiError,
+    requireAdmin: requireAdminMock,
+    handleApiError: (error: unknown) => {
+      if (error instanceof TestApiError) {
+        return Response.json(
+          {
+            status: error.status,
+            error: true,
+            message: error.message,
+            data: null,
+          },
+          { status: error.status },
+        );
+      }
+
+      return Response.json(
         {
-          getCell: (column: number) =>
-            column === 2
-              ? { text: "Unit A", value: "Unit A" }
-              : { text: "80", value: 80 },
+          status: 500,
+          error: true,
+          message: "internal",
+          data: null,
         },
-        4,
-      ),
-  );
+        { status: 500 },
+      );
+    },
+  },
 });
 
-function filter() {
-  return {
-    categoryId: "22222222-2222-4222-8222-222222222222",
-    tw: "1",
-    year: "2026",
-  };
-}
-function previewRequest() {
-  const body = new FormData();
-  body.set("file", new File([], "data.xlsx"));
-  body.set("categoryId", filter().categoryId);
-  body.set("tw", "1");
-  body.set("year", "2026");
-  return new NextRequest("http://localhost/api/participation?action=preview", {
-    method: "POST",
-    body,
+mock.module("@/lib/participation-workbook/service", {
+  namedExports: {
+    previewParticipationWorkbook: previewParticipationWorkbookMock,
+    commitParticipationWorkbook: commitParticipationWorkbookMock,
+  },
+});
+
+let POST: typeof import("./route")["POST"];
+
+before(async () => {
+  ({ POST } = await import("./route"));
+});
+
+beforeEach(() => {
+  requireAdminMock.mock.resetCalls();
+  previewParticipationWorkbookMock.mock.resetCalls();
+  commitParticipationWorkbookMock.mock.resetCalls();
+
+  nextAuthError = null;
+  nextPreviewError = null;
+  nextCommitError = null;
+
+  requireAdminMock.mock.mockImplementation(async () => {
+    if (nextAuthError) {
+      throw nextAuthError;
+    }
+
+    return {
+      user: {
+        id: "admin-1",
+        name: "Admin Test",
+        role: "ADMIN",
+      },
+    };
   });
-}
-function commitRequest(rows: unknown[]) {
-  return new NextRequest("http://localhost/api/participation?action=commit", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...filter(), rows }),
+
+  previewParticipationWorkbookMock.mock.mockImplementation(async () => {
+    if (nextPreviewError) {
+      throw nextPreviewError;
+    }
+
+    return {
+      stats: {
+        total: 1,
+        first: 1,
+        unchanged: 0,
+        correction: 0,
+        empty: 0,
+        error: 0,
+      },
+      rows: [
+        {
+          id: 0,
+          sheetKey: "SUMMARY",
+          rowNumber: 2,
+          unitCode: "UNIT-A",
+          unitId: "unit-a",
+          unitName: "Unit A",
+          participantCount: 80,
+          headcount: 100,
+          percentage: 80,
+          existingParticipantCount: null,
+          existingPercentage: null,
+          expectedUpdatedAt: null,
+          warning: null,
+          status: "FIRST",
+        },
+      ],
+    };
   });
+
+  commitParticipationWorkbookMock.mock.mockImplementation(async () => {
+    if (nextCommitError) {
+      throw nextCommitError;
+    }
+
+    return {
+      created: 1,
+      updated: 0,
+      skipped: 0,
+      rows: [
+        {
+          unitCode: "UNIT-A",
+          unitId: "unit-a",
+          status: "FIRST",
+          participantCount: 80,
+          percentage: 80,
+          warning: null,
+        },
+      ],
+    };
+  });
+});
+
+const filter = {
+  categoryId: "22222222-2222-4222-8222-222222222222",
+  tw: 1,
+  year: 2026,
+};
+
+async function workbookBytes() {
+  const workbook = generateParticipationWorkbook({
+    summary: [
+      {
+        unitCode: "UNIT-A",
+        unitName: "Unit A",
+        parentUnitName: null,
+        headcount: 100,
+        participantCount: 80,
+        percentage: 80,
+      },
+    ],
+    kanwil: [],
+    kancab: [],
+    divisi: [],
+  });
+
+  return serializeParticipationWorkbook(workbook);
 }
-async function body(response: Response) {
+
+async function multipartRequest(
+  action: "preview" | "commit",
+  options: {
+    categoryId?: string;
+    tw?: string;
+    year?: string;
+    corrections?: unknown[];
+    includeFile?: boolean;
+    fileName?: string;
+    fileType?: string;
+  } = {},
+) {
+  const form = new FormData();
+
+  if (options.includeFile !== false) {
+    form.set(
+      "file",
+      new File([await workbookBytes()], options.fileName ?? "data.xlsx", {
+        type:
+          options.fileType ??
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    );
+  }
+
+  form.set("categoryId", options.categoryId ?? filter.categoryId);
+  form.set("tw", options.tw ?? String(filter.tw));
+  form.set("year", options.year ?? String(filter.year));
+
+  if (options.corrections) {
+    form.set("corrections", JSON.stringify(options.corrections));
+  }
+
+  return new NextRequest(
+    `http://localhost/api/participation?action=${action}`,
+    {
+      method: "POST",
+      body: form,
+    },
+  );
+}
+
+async function responseBody(response: Response) {
   return response.json() as Promise<{
     status: number;
     error: boolean;
-    data: any;
     message: string;
+    data: any;
   }>;
 }
-const validUnitId = "11111111-1111-4111-8111-111111111111";
 
 describe("POST /api/participation", () => {
-  it("Admin exact tuple preview berhasil dan memakai standard envelope", async () => {
-    const result = await body(await POST(previewRequest()));
-    assert.equal(result.status, 200);
-    assert.equal(result.error, false);
-    assert.equal(result.data.rows[0].percentage, 80);
+  it("Admin preview accepts the current multipart workbook contract", async () => {
+    const response = await POST(await multipartRequest("preview"));
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 200);
+    assert.equal(json.status, 200);
+    assert.equal(json.error, false);
+    assert.equal(json.data.rows[0].status, "FIRST");
+    assert.equal(json.data.rows[0].unitCode, "UNIT-A");
+
+    const call =
+      previewParticipationWorkbookMock.mock.calls[0]?.arguments[0];
+
+    assert.equal(Buffer.isBuffer(call.buffer), true);
+    assert.deepEqual(
+      {
+        categoryId: call.categoryId,
+        tw: call.tw,
+        year: call.year,
+      },
+      filter,
+    );
   });
-  for (const [role, status] of [
+
+  it("Admin FIRST commit succeeds with empty corrections", async () => {
+    const response = await POST(await multipartRequest("commit"));
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 200);
+    assert.equal(json.status, 200);
+    assert.equal(json.error, false);
+    assert.equal(json.data.created, 1);
+    assert.equal(json.data.rows[0].status, "FIRST");
+
+    const call =
+      commitParticipationWorkbookMock.mock.calls[0]?.arguments[0];
+
+    assert.deepEqual(call.corrections, []);
+    assert.equal(call.actorId, "admin-1");
+    assert.equal(call.actorName, "Admin Test");
+    assert.equal(Buffer.isBuffer(call.buffer), true);
+  });
+
+  it("Admin correction commit forwards current unitCode metadata", async () => {
+    const corrections = [
+      {
+        unitCode: "UNIT-A",
+        overwrite: true,
+        reason: "Verified correction",
+        expectedUpdatedAt: "2026-09-02T00:00:00.000Z",
+      },
+    ];
+
+    commitParticipationWorkbookMock.mock.mockImplementationOnce(async () => ({
+      created: 0,
+      updated: 1,
+      skipped: 0,
+      rows: [
+        {
+          unitCode: "UNIT-A",
+          unitId: "unit-a",
+          status: "CORRECTION",
+          participantCount: 81,
+          percentage: 81,
+          warning: null,
+          auditId: "audit-1",
+        },
+      ],
+    }));
+
+    const response = await POST(
+      await multipartRequest("commit", { corrections }),
+    );
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 200);
+    assert.equal(json.status, 200);
+    assert.equal(json.error, false);
+    assert.equal(json.data.updated, 1);
+    assert.equal(json.data.rows[0].status, "CORRECTION");
+
+    const call =
+      commitParticipationWorkbookMock.mock.calls[0]?.arguments[0];
+
+    assert.deepEqual(call.corrections, corrections);
+  });
+
+  it("rejects correction metadata that uses unitId instead of unitCode", async () => {
+    const response = await POST(
+      await multipartRequest("commit", {
+        corrections: [
+          {
+            unitId: "unit-a",
+            overwrite: true,
+            reason: "Invalid identity field",
+            expectedUpdatedAt: "2026-09-02T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 400);
+    assert.equal(json.error, true);
+    assert.equal(commitParticipationWorkbookMock.mock.callCount(), 0);
+  });
+
+  it("rejects malformed corrections JSON before service work", async () => {
+    const form = new FormData();
+
+    form.set(
+      "file",
+      new File([await workbookBytes()], "data.xlsx", {
+        type:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    );
+    form.set("categoryId", filter.categoryId);
+    form.set("tw", String(filter.tw));
+    form.set("year", String(filter.year));
+    form.set("corrections", "{invalid-json");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/participation?action=commit", {
+        method: "POST",
+        body: form,
+      }),
+    );
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 400);
+    assert.equal(json.error, true);
+    assert.equal(commitParticipationWorkbookMock.mock.callCount(), 0);
+  });
+
+  for (const [label, status] of [
     ["PIC", 403],
     ["VIEWER", 403],
+    ["unauthenticated", 401],
   ] as const) {
-    it(`${role} ditolak sebelum kerja file`, async () => {
-      authMock.mock.mockImplementationOnce(async () => {
-        currentAuthRole = role;
-        return {
-          user: {
-            id: "user-1",
-            role,
-            name: role,
-            authProvider: "LOCAL",
-          },
-        };
-      });
-      const result = await body(await POST(previewRequest()));
-      assert.equal(result.status, status);
-      assert.equal(workbookLoadMock.mock.callCount(), 0);
-      assert.equal(unitFindManyMock.mock.callCount(), 0);
-      assert.equal(transactionMock.mock.callCount(), 0);
-    });
-  }
-  it("unauthenticated menerima 401", async () => {
-    authMock.mock.mockImplementationOnce(async () => null);
-    const result = await body(await POST(previewRequest()));
-    assert.equal(result.status, 401);
-  });
-  it("filter invalid menerima 400", async () => {
-    const request = new NextRequest(
-      "http://localhost/api/participation?action=preview",
-      { method: "POST", body: new FormData() },
-    );
-    const result = await body(await POST(request));
-    assert.equal(result.status, 400);
-    assert.equal(categoryFindUniqueMock.mock.callCount(), 0);
-  });
-  it("direct-admin/unsupported capability berhenti sebelum arrayBuffer, workbook, unit, transaction", async () => {
-    categoryFindUniqueMock.mock.mockImplementationOnce(async () => ({
-      targetUnit: "PARTISIPASI_PERSEN",
-      evidenceMode: "PHOTO_WITHOUT_AI",
-      scoreInputMode: "DIRECT_ADMIN",
-    }));
-    const result = await body(await POST(previewRequest()));
-    assert.equal(result.status, 422);
-    assert.equal(workbookLoadMock.mock.callCount(), 0);
-    assert.equal(workbookConstructorMock.mock.callCount(), 0);
-    assert.equal(unitFindManyMock.mock.callCount(), 0);
-    assert.equal(transactionMock.mock.callCount(), 0);
-  });
-  it("preview menandai 0, 80, 100 dan seluruh input strict invalid sebagai error", async () => {
-    const values = [
-      0,
-      80,
-      100,
-      "",
-      "80.5",
-      -1,
-      101,
-      "80abc",
-      "80%",
-      "1e2",
-      Infinity,
-      NaN,
-    ];
-    workbook.worksheets[0].eachRow.mock.mockImplementation((callback: any) =>
-      values.forEach((value, index) =>
-        callback(
-          {
-            getCell: (column: number) =>
-              column === 2
-                ? { text: `Unit ${index}`, value: `Unit ${index}` }
-                : { text: String(value), value },
-          },
-          index + 4,
-        ),
-      ),
-    );
-    unitFindManyMock.mock.mockImplementationOnce(async () =>
-      values.map((_, index) => ({
-        id: `11111111-1111-4111-8111-11111111111${index}`,
-        name: `Unit ${index}`,
-      })),
-    );
-    const result = await body(await POST(previewRequest()));
-    const rows = result.data.rows as Array<{
-      percentage: number | null;
-      status: string;
-    }>;
-    assert.deepEqual(
-      rows.slice(0, 3).map((row) => row.percentage),
-      [0, 80, 100],
-    );
-    assert.equal(
-      rows.slice(3).every((row) => row.status === "error"),
-      true,
-    );
-    assert.equal(transactionMock.mock.callCount(), 0);
-  });
-  for (const percentage of [
-    "80",
-    80.5,
-    -1,
-    101,
-    "80abc",
-    "80%",
-    "1e2",
-  ] as unknown[]) {
-    it(`commit menolak nilai strict ${String(percentage)}`, async () => {
-      const result = await body(
-        await POST(
-          commitRequest([
-            { unitId: validUnitId, percentage, overwrite: false },
-          ]),
-        ),
+    it(`${label} is rejected before workbook/service work`, async () => {
+      nextAuthError = new TestApiError(
+        status === 401
+          ? "Unauthorized"
+          : "Hanya Admin yang dapat mengakses",
+        status,
       );
-      assert.equal(result.status, 400);
-      assert.equal(transactionMock.mock.callCount(), 0);
+
+      const response = await POST(await multipartRequest("preview"));
+      const json = await responseBody(response);
+
+      assert.equal(response.status, status);
+      assert.equal(json.status, status);
+      assert.equal(json.error, true);
+      assert.equal(previewParticipationWorkbookMock.mock.callCount(), 0);
+      assert.equal(commitParticipationWorkbookMock.mock.callCount(), 0);
     });
   }
 
-  it("payload percentage-only legacy ditolak sebelum database bekerja", async () => {
-    const result = await body(
-      await POST(
-        commitRequest([
-          {
-            unitId: validUnitId,
-            percentage: 80,
-            overwrite: true,
-          },
-        ]),
-      ),
+  it("invalid multipart filter returns 400 before service work", async () => {
+    const response = await POST(
+      await multipartRequest("preview", {
+        categoryId: "not-a-uuid",
+        tw: "9",
+        year: "2026",
+      }),
     );
+    const json = await responseBody(response);
 
-    assert.equal(result.status, 400);
-    assert.equal(transactionMock.mock.callCount(), 0);
-    assert.equal(participationCreateMock.mock.callCount(), 0);
-    assert.equal(participationUpdateMock.mock.callCount(), 0);
+    assert.equal(response.status, 400);
+    assert.equal(json.error, true);
+    assert.equal(previewParticipationWorkbookMock.mock.callCount(), 0);
   });
 
-  it("overwrite tanpa alasan ditolak sebelum transaction", async () => {
-    const result = await body(
-      await POST(
-        commitRequest([
-          {
-            unitId: validUnitId,
-            participantCount: 80,
-            overwrite: true,
-            reason: "   ",
-          },
-        ]),
-      ),
+  it("invalid action returns 400 before multipart parsing", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/participation?action=nope", {
+        method: "POST",
+      }),
     );
+    const json = await responseBody(response);
 
-    assert.equal(result.status, 400);
-    assert.equal(transactionMock.mock.callCount(), 0);
+    assert.equal(response.status, 400);
+    assert.equal(json.error, true);
+    assert.equal(previewParticipationWorkbookMock.mock.callCount(), 0);
+    assert.equal(commitParticipationWorkbookMock.mock.callCount(), 0);
   });
 
-  it("koreksi tetap hanya dapat dilakukan oleh ADMIN", async () => {
-    authMock.mock.mockImplementationOnce(async () => {
-      currentAuthRole = "PIC";
-      return {
-        user: {
-          id: "pic-1",
-          name: "PIC",
-          role: "PIC",
-          authProvider: "LOCAL",
-        },
-      };
+  it("missing file returns 400 before service work", async () => {
+    const response = await POST(
+      await multipartRequest("preview", { includeFile: false }),
+    );
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 400);
+    assert.equal(json.error, true);
+    assert.equal(previewParticipationWorkbookMock.mock.callCount(), 0);
+  });
+
+  it("non-XLSX file returns 400 before service work", async () => {
+    const response = await POST(
+      await multipartRequest("preview", {
+        fileName: "data.csv",
+        fileType: "text/csv",
+      }),
+    );
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 400);
+    assert.equal(json.error, true);
+    assert.equal(previewParticipationWorkbookMock.mock.callCount(), 0);
+  });
+
+  it("rejects an oversized XLSX before reading it or invoking the service", async () => {
+    const form = new FormData();
+    const file = new File(
+      [new Uint8Array(2 * 1024 * 1024 + 1)],
+      "oversized.xlsx",
+      {
+        type:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+    );
+    Object.defineProperty(file, "arrayBuffer", {
+      value: mock.fn(async () => {
+        throw new Error("arrayBuffer must not be called");
+      }),
     });
+    form.set("file", file);
+    form.set("categoryId", filter.categoryId);
+    form.set("tw", String(filter.tw));
+    form.set("year", String(filter.year));
 
-    const result = await body(
-      await POST(
-        commitRequest([
-          {
-            unitId: validUnitId,
-            participantCount: 80,
-            overwrite: true,
-            reason: "Koreksi oleh PIC",
-          },
-        ]),
-      ),
+    const response = await POST(
+      new NextRequest("http://localhost/api/participation?action=preview", {
+        method: "POST",
+        body: form,
+      }),
     );
+    const json = await responseBody(response);
 
-    assert.equal(result.status, 403);
-    assert.equal(transactionMock.mock.callCount(), 0);
+    assert.equal(response.status, 400);
+    assert.equal(json.error, true);
+    assert.equal(json.message, "File maksimal 2MB");
+    assert.equal(previewParticipationWorkbookMock.mock.callCount(), 0);
+    assert.equal(commitParticipationWorkbookMock.mock.callCount(), 0);
   });
 
-  it("koreksi menolak unit duplikat", async () => {
-    const result = await body(
-      await POST(
-        commitRequest([
-          {
-            unitId: validUnitId,
-            participantCount: 80,
-            overwrite: false,
-          },
-          {
-            unitId: validUnitId,
-            participantCount: 81,
-            overwrite: true,
-            reason: "Koreksi duplikat",
-          },
-        ]),
-      ),
+  it("propagates a current preview service error through the route contract", async () => {
+    nextPreviewError = new TestApiError(
+      "Kategori tidak tersedia untuk import Excel",
+      422,
     );
 
-    assert.equal(result.status, 400);
-    assert.equal(transactionMock.mock.callCount(), 0);
+    const response = await POST(await multipartRequest("preview"));
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 422);
+    assert.equal(json.status, 422);
+    assert.equal(json.error, true);
+    assert.equal(
+      json.message,
+      "Kategori tidak tersedia untuk import Excel",
+    );
+    assert.equal(previewParticipationWorkbookMock.mock.callCount(), 1);
   });
 
-  it("action invalid menerima 400", async () => {
-    const result = await body(
-      await POST(
-        new NextRequest("http://localhost/api/participation?action=nope", {
-          method: "POST",
-        }),
-      ),
+  it("propagates a current commit service error through the route contract", async () => {
+    nextCommitError = new TestApiError(
+      "Import partisipasi gagal",
+      422,
     );
-    assert.equal(result.status, 400);
+
+    const response = await POST(await multipartRequest("commit"));
+    const json = await responseBody(response);
+
+    assert.equal(response.status, 422);
+    assert.equal(json.status, 422);
+    assert.equal(json.error, true);
+    assert.equal(json.message, "Import partisipasi gagal");
+    assert.equal(commitParticipationWorkbookMock.mock.callCount(), 1);
   });
 });

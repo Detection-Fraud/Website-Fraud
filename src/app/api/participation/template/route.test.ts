@@ -2,82 +2,111 @@ import assert from "node:assert/strict";
 import { before, beforeEach, describe, it, mock } from "node:test";
 import { NextRequest } from "next/server";
 
-const authMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
-const categoryFindUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
-const unitFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(async () => []);
-const worksheet = {
-  addRow: mock.fn(),
-  getRow: mock.fn(() => ({ font: {} })),
-  getColumn: mock.fn(() => ({ width: 0 })),
-};
-const writeBufferMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => new Uint8Array([0x50, 0x4b, 0x03, 0x04]),
-);
-const addWorksheetMock = mock.fn(() => worksheet);
-const workbook = {
-  addWorksheet: addWorksheetMock,
-  xlsx: { writeBuffer: writeBufferMock },
-};
-const workbookConstructorMock = mock.fn(function () {
-  return workbook;
-});
+class TestApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+  }
+}
 
-mock.module("@/auth", { namedExports: { auth: authMock } });
-mock.module("@/lib/prisma", {
+const requireAdminMock = mock.fn<(...args: any[]) => Promise<any>>(
+  async () => ({
+    user: {
+      id: "admin-1",
+      role: "ADMIN",
+    },
+  }),
+);
+
+const buildParticipationTemplateMock = mock.fn<
+  (...args: any[]) => Promise<ArrayBuffer>
+>(async () => new Uint8Array([0x50, 0x4b, 0x03, 0x04]).buffer);
+
+let nextAuthError: TestApiError | null = null;
+let nextTemplateError: TestApiError | null = null;
+
+mock.module("@/lib/api/auth-guard", {
   namedExports: {
-    prisma: {
-      programCategory: { findUnique: categoryFindUniqueMock },
-      unit: { findMany: unitFindManyMock },
+    requireAdmin: requireAdminMock,
+    handleApiError: (error: unknown) => {
+      if (error instanceof TestApiError) {
+        return Response.json(
+          {
+            status: error.status,
+            error: true,
+            message: error.message,
+            data: null,
+          },
+          { status: error.status },
+        );
+      }
+
+      return Response.json(
+        {
+          status: 500,
+          error: true,
+          message: "internal",
+          data: null,
+        },
+        { status: 500 },
+      );
     },
   },
 });
-mock.module("exceljs", {
-  defaultExport: { Workbook: workbookConstructorMock },
+
+mock.module("@/lib/participation-workbook/service", {
   namedExports: {
-    default: { Workbook: workbookConstructorMock },
-    Workbook: workbookConstructorMock,
+    buildParticipationTemplate: buildParticipationTemplateMock,
   },
 });
 
-let GET: (request: NextRequest) => Promise<Response>;
+let GET: typeof import("./route")["GET"];
 
 before(async () => {
   ({ GET } = await import("./route"));
 });
 
 beforeEach(() => {
-  authMock.mock.resetCalls();
-  categoryFindUniqueMock.mock.resetCalls();
-  unitFindManyMock.mock.resetCalls();
-  addWorksheetMock.mock.resetCalls();
-  workbookConstructorMock.mock.resetCalls();
-  writeBufferMock.mock.resetCalls();
-  worksheet.addRow.mock.resetCalls();
-  worksheet.getRow.mock.resetCalls();
-  worksheet.getColumn.mock.resetCalls();
-  authMock.mock.mockImplementation(async () => ({
-    user: { id: "admin-1", role: "ADMIN" },
-  }));
-  categoryFindUniqueMock.mock.mockImplementation(async () => ({
-    name: "TOGA Excel",
-    targetUnit: "PARTISIPASI_PERSEN",
-    evidenceMode: "NONE",
-    scoreInputMode: "EXCEL_IMPORT",
-  }));
-  unitFindManyMock.mock.mockImplementation(async () => [
-    { name: "Unit A" },
-    { name: "Unit B" },
-  ]);
+  requireAdminMock.mock.resetCalls();
+  buildParticipationTemplateMock.mock.resetCalls();
+
+  nextAuthError = null;
+  nextTemplateError = null;
+
+  requireAdminMock.mock.mockImplementation(async () => {
+    if (nextAuthError) {
+      throw nextAuthError;
+    }
+
+    return {
+      user: {
+        id: "admin-1",
+        role: "ADMIN",
+      },
+    };
+  });
+
+  buildParticipationTemplateMock.mock.mockImplementation(async () => {
+    if (nextTemplateError) {
+      throw nextTemplateError;
+    }
+
+    return new Uint8Array([0x50, 0x4b, 0x03, 0x04]).buffer;
+  });
 });
 
 function request(
   query = "?categoryId=22222222-2222-4222-8222-222222222222&tw=2&year=2026",
 ) {
-  return new NextRequest(`http://localhost/api/participation/template${query}`);
+  return new NextRequest(
+    `http://localhost/api/participation/template${query}`,
+  );
 }
 
 describe("GET /api/participation/template", () => {
-  it("mengembalikan template binary untuk Admin dengan tuple exact", async () => {
+  it("Admin receives XLSX binary with the validated filter", async () => {
     const response = await GET(request());
 
     assert.equal(response.status, 200);
@@ -87,107 +116,62 @@ describe("GET /api/participation/template", () => {
     );
     assert.equal(
       response.headers.get("Content-Disposition"),
-      'attachment; filename="Template_Partisipasi_TOGA_Excel_TW2_2026.xlsx"',
+      'attachment; filename="Template_Partisipasi_TW2_2026.xlsx"',
     );
     assert.deepEqual(
       Array.from(new Uint8Array(await response.arrayBuffer())),
       [0x50, 0x4b, 0x03, 0x04],
     );
-    assert.equal(categoryFindUniqueMock.mock.callCount(), 1);
-    assert.equal(unitFindManyMock.mock.callCount(), 1);
-    assert.equal(workbookConstructorMock.mock.callCount(), 1);
-    assert.equal(writeBufferMock.mock.callCount(), 1);
-    assert.deepEqual(categoryFindUniqueMock.mock.calls[0].arguments[0], {
-      where: { id: "22222222-2222-4222-8222-222222222222" },
-      select: {
-        name: true,
-        targetUnit: true,
-        evidenceMode: true,
-        scoreInputMode: true,
+    assert.deepEqual(
+      buildParticipationTemplateMock.mock.calls[0]?.arguments[0],
+      {
+        categoryId: "22222222-2222-4222-8222-222222222222",
+        tw: 2,
+        year: 2026,
       },
-    });
-    assert.deepEqual(worksheet.addRow.mock.calls[2].arguments[0], [
-      "NO",
-      "UNIT KERJA",
-      "PERSENTASE (%)",
-    ]);
+    );
   });
 
-  for (const [role, expectedStatus] of [
-    ["PIC", 403],
-    ["VIEWER", 403],
-  ] as const) {
-    it(`${role} ditolak sebelum query category, unit, dan workbook`, async () => {
-      authMock.mock.mockImplementationOnce(async () => ({
-        user: { id: `${role.toLowerCase()}-1`, role },
-      }));
-
-      const response = await GET(request());
-
-      assert.equal(response.status, expectedStatus);
-      assert.equal(categoryFindUniqueMock.mock.callCount(), 0);
-      assert.equal(unitFindManyMock.mock.callCount(), 0);
-      assert.equal(workbookConstructorMock.mock.callCount(), 0);
-    });
-  }
-
-  it("request tanpa session menerima 401 sebelum pekerjaan lain", async () => {
-    authMock.mock.mockImplementationOnce(async () => null);
-
-    const response = await GET(request());
-
-    assert.equal(response.status, 401);
-    assert.equal(categoryFindUniqueMock.mock.callCount(), 0);
-    assert.equal(unitFindManyMock.mock.callCount(), 0);
-    assert.equal(workbookConstructorMock.mock.callCount(), 0);
-  });
-
-  it("filter invalid menerima 400 sebelum lookup category", async () => {
+  it("rejects an invalid filter with 400 before template generation", async () => {
     const response = await GET(
       request("?categoryId=not-a-uuid&tw=9&year=2026"),
     );
 
     assert.equal(response.status, 400);
-    assert.equal(categoryFindUniqueMock.mock.callCount(), 0);
-    assert.equal(unitFindManyMock.mock.callCount(), 0);
-    assert.equal(workbookConstructorMock.mock.callCount(), 0);
+    assert.equal(buildParticipationTemplateMock.mock.callCount(), 0);
   });
 
-  it("missing capability menerima 422 sebelum unit query dan generation", async () => {
-    categoryFindUniqueMock.mock.mockImplementationOnce(async () => null);
-
-    const response = await GET(request());
-
-    assert.equal(response.status, 422);
-    assert.equal(unitFindManyMock.mock.callCount(), 0);
-    assert.equal(workbookConstructorMock.mock.callCount(), 0);
-    assert.equal(writeBufferMock.mock.callCount(), 0);
-  });
-
-  for (const capability of [
-    {
-      targetUnit: "PARTISIPASI_PERSEN",
-      evidenceMode: "PHOTO_WITHOUT_AI",
-      scoreInputMode: "DIRECT_ADMIN",
-    },
-    {
-      targetUnit: "KEGIATAN",
-      evidenceMode: "PHOTO_WITH_AI",
-      scoreInputMode: "NONE",
-    },
-  ]) {
-    it(`unsupported capability ${capability.scoreInputMode} menerima 422 sebelum pekerjaan mahal`, async () => {
-      categoryFindUniqueMock.mock.mockImplementationOnce(async () => ({
-        name: "Unsupported",
-        ...capability,
-      }));
+  for (const [label, status, message] of [
+    ["PIC", 403, "Hanya Admin yang dapat mengakses"],
+    ["VIEWER", 403, "Hanya Admin yang dapat mengakses"],
+    ["unauthenticated", 401, "Unauthorized"],
+  ] as const) {
+    it(`${label} is rejected before template generation`, async () => {
+      nextAuthError = new TestApiError(message, status);
 
       const response = await GET(request());
 
-      assert.equal(response.status, 422);
-      assert.equal(unitFindManyMock.mock.callCount(), 0);
-      assert.equal(workbookConstructorMock.mock.callCount(), 0);
-      assert.equal(writeBufferMock.mock.callCount(), 0);
+      assert.equal(response.status, status);
+      assert.equal(buildParticipationTemplateMock.mock.callCount(), 0);
     });
   }
+
+  it("returns a service error through the current API error contract", async () => {
+    nextTemplateError = new TestApiError(
+      "Kategori tidak tersedia untuk import Excel",
+      422,
+    );
+
+    const response = await GET(request());
+    const json = await response.json();
+
+    assert.equal(response.status, 422);
+    assert.equal(json.status, 422);
+    assert.equal(json.error, true);
+    assert.equal(
+      json.message,
+      "Kategori tidak tersedia untuk import Excel",
+    );
+    assert.equal(buildParticipationTemplateMock.mock.callCount(), 1);
+  });
 });

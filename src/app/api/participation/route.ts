@@ -1,255 +1,174 @@
-import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
-import { parseParticipationPercentage } from "@/lib/participation-import";
-import { prisma } from "@/lib/prisma";
-import { canImportParticipation } from "@/lib/program-capabilities";
-import { errorResponse, successResponse } from "@/lib/response";
 import {
-  participationFilterSchema,
-  participationSnapshotCommitSchema,
-  participationCorrectionSchema,
-} from "@/schemas/participation.schema";
-import type {
-  ParticipationPreviewRow,
-  ParticipationStatus,
-} from "@/types/participation.types";
-import ExcelJS from "exceljs";
+  ApiError,
+  handleApiError,
+  requireAdmin,
+} from "@/lib/api/auth-guard";
+import {
+  commitParticipationWorkbook,
+  previewParticipationWorkbook,
+} from "@/lib/participation-workbook/service";
+import { errorResponse, successResponse } from "@/lib/response";
+import { participationFilterSchema } from "@/schemas/participation.schema";
+import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
-import { createParticipationSnapshots } from "@/lib/participation-snapshot";
-import { correctParticipationSnapshots } from "@/lib/participation-correction";
-import { decimalToNumber } from "@/lib/decimal-contract";
 
-async function getExcelParticipationCategory(categoryId: string) {
-  const category = await prisma.programCategory.findUnique({
-    where: { id: categoryId },
-    select: { targetUnit: true, evidenceMode: true, scoreInputMode: true },
-  });
+const correctionMetadataSchema = z
+  .object({
+    unitCode: z.string().trim().min(1, "Kode Unit wajib diisi"),
+    overwrite: z.literal(true),
+    reason: z
+      .string()
+      .trim()
+      .min(1, "Alasan koreksi wajib diisi")
+      .max(500, "Alasan koreksi maksimal 500 karakter"),
+    expectedUpdatedAt: z.string().datetime("Versi data tidak valid"),
+  })
+  .strict();
 
-  return category && canImportParticipation(category) ? category : null;
+const commitFormSchema = participationFilterSchema.extend({
+  corrections: z.array(correctionMetadataSchema).default([]),
+});
+
+const MAX_PARTICIPATION_WORKBOOK_BYTES = 2 * 1024 * 1024;
+
+function getRequiredFile(value: FormDataEntryValue | null): File {
+  if (!(value instanceof File)) {
+    throw new ApiError("File Excel wajib diunggah", 400);
+  }
+
+  if (
+    value.type !==
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
+    !value.name.toLowerCase().endsWith(".xlsx")
+  ) {
+    throw new ApiError("File harus berformat XLSX", 400);
+  }
+
+  if (value.size > MAX_PARTICIPATION_WORKBOOK_BYTES) {
+    throw new ApiError("File maksimal 2MB", 400);
+  }
+
+  return value;
 }
 
-export async function POST(req: NextRequest) {
+function parseCorrections(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return [];
+  }
+
+  let decoded: unknown;
+
+  try {
+    decoded = JSON.parse(value);
+  } catch {
+    throw new ApiError("Corrections harus berupa JSON yang valid", 400);
+  }
+
+  const parsed = commitFormSchema.shape.corrections.safeParse(decoded);
+
+  if (!parsed.success) {
+    throw new ApiError(parsed.error.issues[0].message, 400);
+  }
+
+  return parsed.data;
+}
+
+type ParsedMultipartRequest =
+  | { ok: false; error: Response }
+  | {
+      ok: true;
+      file: File;
+      data: z.infer<typeof commitFormSchema>;
+    };
+
+async function parseMultipartRequest(
+  req: NextRequest,
+): Promise<ParsedMultipartRequest> {
+  let formData: FormData;
+
+  try {
+    formData = await req.formData();
+  } catch {
+    throw new ApiError("Payload multipart tidak valid", 400);
+  }
+  const file = getRequiredFile(formData.get("file"));
+
+  const parsed = commitFormSchema.safeParse({
+    categoryId: formData.get("categoryId"),
+    tw: formData.get("tw"),
+    year: formData.get("year"),
+    corrections:
+      formData.get("corrections") === null
+        ? []
+        : parseCorrections(formData.get("corrections")),
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: NextResponse.json(
+        errorResponse(parsed.error.issues[0].message, 400),
+        { status: 400 },
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    file,
+    data: parsed.data,
+  };
+}
+
+export async function POST(req: NextRequest): Promise<Response> {
   try {
     const session = await requireAdmin();
     const action = new URL(req.url).searchParams.get("action");
 
-    if (action === "snapshot-commit") {
-      const parsed = participationSnapshotCommitSchema.safeParse(
-        await req.json(),
-      );
-
-      if (!parsed.success) {
-        return NextResponse.json(
-          errorResponse(parsed.error.issues[0].message, 400),
-          { status: 400 },
-        );
-      }
-
-      const snapshots = await createParticipationSnapshots(parsed.data);
-
+    if (action !== "preview" && action !== "commit") {
       return NextResponse.json(
-        successResponse(
-          {
-            snapshots: snapshots.map((snapshot) => ({
-              ...snapshot,
-              percentage: snapshot.percentage.toNumber(),
-            })),
-          },
-          "Snapshot partisipasi berhasil disimpan",
+        errorResponse(
+          "Action tidak valid. Gunakan ?action=preview atau ?action=commit",
+          400,
         ),
+        { status: 400 },
       );
     }
+
+    const parsedRequest = await parseMultipartRequest(req);
+
+    if (!parsedRequest.ok) {
+      return parsedRequest.error;
+    }
+
+    const buffer = Buffer.from(await parsedRequest.file.arrayBuffer());
+    const { categoryId, tw, year } = parsedRequest.data;
 
     if (action === "preview") {
-      const formData = await req.formData();
-      const file = formData.get("file") as File;
-      const parsed = participationFilterSchema.safeParse({
-        categoryId: formData.get("categoryId"),
-        tw: formData.get("tw"),
-        year: formData.get("year"),
-      });
-
-      if (!parsed.success) {
-        return NextResponse.json(
-          errorResponse(parsed.error.issues[0].message, 400),
-          { status: 400 },
-        );
-      }
-      if (!file) {
-        return NextResponse.json(
-          errorResponse("File Excel wajib diunggah", 400),
-          {
-            status: 400,
-          },
-        );
-      }
-
-      const { categoryId, tw, year } = parsed.data;
-      if (!(await getExcelParticipationCategory(categoryId))) {
-        return NextResponse.json(
-          errorResponse(
-            "Kategori tidak tersedia untuk import Excel; gunakan kategori partisipasi dengan sumber Excel",
-            422,
-          ),
-          { status: 422 },
-        );
-      }
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(buffer as any);
-      const worksheet = workbook.worksheets[0];
-      if (!worksheet) {
-        return NextResponse.json(
-          errorResponse("Sheet Excel tidak ditemukan", 400),
-          {
-            status: 400,
-          },
-        );
-      }
-
-      const units = await prisma.unit.findMany({
-        select: { id: true, name: true },
-      });
-      const unitMap = new Map(
-        units.map((unit) => [unit.name.trim().toUpperCase(), unit]),
-      );
-      const existing = await prisma.participationData.findMany({
-        where: { categoryId, tw, year },
-        select: { unitId: true, percentage: true },
-      });
-      const existingMap = new Map(
-        existing.map((row) => [row.unitId, decimalToNumber(row.percentage)]),
-      );
-      const rows: ParticipationPreviewRow[] = [];
-      let id = 0;
-
-      worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber <= 3) return;
-        const unitName = String(
-          row.getCell(2).text || row.getCell(2).value || "",
-        ).trim();
-        if (!unitName || unitName.toUpperCase() === "UNIT KERJA") return;
-
-        const unit = unitMap.get(unitName.toUpperCase());
-        if (!unit) {
-          rows.push({
-            id: id++,
-            unitName,
-            unitId: null,
-            percentage: null,
-            status: "error",
-            errorMsg: "Unit tidak ditemukan di database",
-          });
-          return;
-        }
-
-        const parsedPercentage = parseParticipationPercentage(
-          row.getCell(3).value,
-        );
-        if (!parsedPercentage.ok) {
-          rows.push({
-            id: id++,
-            unitName: unit.name,
-            unitId: unit.id,
-            percentage: null,
-            status: "error",
-            errorMsg:
-              parsedPercentage.reason === "empty"
-                ? "Nilai persentase wajib diisi"
-                : "Nilai persentase harus bilangan bulat 0 sampai 100",
-          });
-          return;
-        }
-
-        const oldPercentage = existingMap.get(unit.id);
-        const status: ParticipationStatus =
-          oldPercentage === undefined
-            ? "matched"
-            : oldPercentage === parsedPercentage.value
-              ? "unchanged"
-              : "conflict";
-        rows.push({
-          id: id++,
-          unitName: unit.name,
-          unitId: unit.id,
-          percentage: parsedPercentage.value,
-          status,
-          existingPercentage: oldPercentage ?? null,
-        });
-      });
-
-      const stats = {
-        total: rows.length,
-        matched: rows.filter((row) => row.status === "matched").length,
-        conflict: rows.filter((row) => row.status === "conflict").length,
-        unchanged: rows.filter((row) => row.status === "unchanged").length,
-        error: rows.filter((row) => row.status === "error").length,
-        empty: 0,
-      };
-      return NextResponse.json(
-        successResponse({ stats, rows }, "Preview partisipasi berhasil"),
-      );
-    }
-
-    if (action === "commit") {
-      const parsed = participationCorrectionSchema.safeParse(await req.json());
-
-      if (!parsed.success) {
-        return NextResponse.json(
-          errorResponse(parsed.error.issues[0].message, 400),
-          { status: 400 },
-        );
-      }
-
-      const { categoryId, tw, year, rows } = parsed.data;
-
-      if (!(await getExcelParticipationCategory(categoryId))) {
-        return NextResponse.json(
-          errorResponse(
-            "Kategori tidak tersedia untuk koreksi partisipasi Excel",
-            422,
-          ),
-          { status: 422 },
-        );
-      }
-
-      const results = await correctParticipationSnapshots({
+      const preview = await previewParticipationWorkbook({
+        buffer,
         categoryId,
         tw,
         year,
-        rows,
-        actorId: session.user.id,
-        actorName: session.user.name,
       });
 
-      const updated = results.filter(
-        (result) => result.status === "UPDATED",
-      ).length;
-
-      const skipped = results.filter(
-        (result) => result.status === "UNCHANGED",
-      ).length;
-
       return NextResponse.json(
-        successResponse(
-          {
-            updated,
-            skipped,
-            rows: results.map((result) => ({
-              ...result,
-              percentage: result.percentage.toNumber(),
-            })),
-          },
-          "Koreksi data partisipasi selesai",
-        ),
+        successResponse(preview, "Preview partisipasi berhasil"),
       );
     }
 
+    const result = await commitParticipationWorkbook({
+      buffer,
+      categoryId,
+      tw,
+      year,
+      corrections: parsedRequest.data.corrections,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json(
-      errorResponse(
-        "Action tidak valid. Gunakan ?action=preview atau ?action=commit",
-        400,
-      ),
-      { status: 400 },
+      successResponse(result, "Import partisipasi berhasil"),
     );
   } catch (error) {
     return handleApiError(error, "POST /api/participation");

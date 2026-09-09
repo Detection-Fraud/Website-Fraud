@@ -52,12 +52,11 @@ function calculatePercentage(
     .toDecimalPlaces(2);
 }
 
-export async function createParticipationSnapshots(
+export async function createParticipationSnapshotsInTransaction(
   input: ParticipationSnapshotCommitInput,
+  tx: Prisma.TransactionClient,
 ): Promise<ParticipationSnapshotCommitResult[]> {
-  return prisma.$transaction(
-    async (tx) => {
-      const unitIds = input.rows.map((row) => row.unitId);
+  const unitIds = input.rows.map((row) => row.unitId);
 
       const [category, latestSyncRun, units, existingRows] = await Promise.all([
         tx.programCategory.findUnique({
@@ -222,8 +221,14 @@ export async function createParticipationSnapshots(
         });
       }
 
-      return results;
-    },
+  return results;
+}
+
+export async function createParticipationSnapshots(
+  input: ParticipationSnapshotCommitInput,
+): Promise<ParticipationSnapshotCommitResult[]> {
+  return prisma.$transaction(
+    (tx) => createParticipationSnapshotsInTransaction(input, tx),
     {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     },

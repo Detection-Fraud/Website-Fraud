@@ -30,7 +30,7 @@ export type ParticipationCorrectionResult = {
   auditId?: string;
 };
 
-type CorrectionTransaction = Prisma.TransactionClient;
+export type CorrectionTransaction = Prisma.TransactionClient;
 
 export type CorrectionDatabase = {
   $transaction: <T>(
@@ -129,9 +129,9 @@ function parseExpectedUpdatedAt(value: string): Date {
   return parsed;
 }
 
-export async function correctParticipationSnapshots(
+export async function correctParticipationSnapshotsInTransaction(
   input: ParticipationCorrectionInput,
-  database: CorrectionDatabase = prisma,
+  tx: CorrectionTransaction,
 ): Promise<ParticipationCorrectionResult[]> {
   if (input.rows.length === 0) {
     throw new ApiError("Data koreksi tidak boleh kosong", 400);
@@ -150,155 +150,160 @@ export async function correctParticipationSnapshots(
     }
   }
 
-  return database.$transaction(
-    async (tx) => {
-      const orderedRows = [...input.rows].sort((a, b) =>
-        a.unitId.localeCompare(b.unitId),
-      );
+  const orderedRows = [...input.rows].sort((a, b) =>
+    a.unitId.localeCompare(b.unitId),
+  );
 
-      for (const row of orderedRows) {
-        await tx.$queryRaw`
-          SELECT pg_advisory_xact_lock(
-            hashtext(${`participation-correction:${row.unitId}:${input.categoryId}:${input.tw}:${input.year}`})
-          )::text
-        `;
-      }
+  for (const row of orderedRows) {
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext(${`participation-correction:${row.unitId}:${input.categoryId}:${input.tw}:${input.year}`})
+      )::text
+    `;
+  }
 
-      const currentRows = (await tx.participationData.findMany({
-        where: {
-          categoryId: input.categoryId,
-          tw: input.tw,
-          year: input.year,
-          unitId: { in: orderedRows.map((row) => row.unitId) },
-        },
-        select: {
-          id: true,
-          unitId: true,
-          headcount: true,
-          participantCount: true,
-          percentage: true,
-          provenance: true,
-          employeeSyncRunId: true,
-          headcountCapturedAt: true,
-          unitNameSnapshot: true,
-          parentUnitNameSnapshot: true,
-          categoryNameSnapshot: true,
-          updatedAt: true,
-        },
-      })) as FrozenParticipationRow[];
-
-      const currentByUnitId = new Map(
-        currentRows.map((row) => [row.unitId, row]),
-      );
-
-      for (const inputRow of input.rows) {
-        const current = currentByUnitId.get(inputRow.unitId);
-
-        if (!current) {
-          throw new ApiError(
-            "Snapshot partisipasi untuk unit dan periode tersebut tidak ditemukan",
-            409,
-          );
-        }
-
-        if (!isValidFrozenSnapshot(current)) {
-          throw new ApiError(
-            "Snapshot partisipasi tidak memiliki denominator atau provenance yang valid",
-            409,
-          );
-        }
-
-        if (inputRow.participantCount > current.headcount!) {
-          throw new ApiError(
-            "Jumlah partisipasi tidak boleh melebihi jumlah karyawan pada snapshot",
-            400,
-          );
-        }
-      }
-
-      const results: ParticipationCorrectionResult[] = [];
-
-      for (const inputRow of input.rows) {
-        const current = currentByUnitId.get(inputRow.unitId)!;
-        const warning = current.headcount === 0 ? "ZERO_HEADCOUNT" : null;
-        const percentage = calculatePercentage(
-          inputRow.participantCount,
-          current.headcount!,
-        );
-
-        if (inputRow.participantCount === current.participantCount) {
-          results.push({
-            status: "UNCHANGED",
-            participationDataId: current.id,
-            unitId: current.unitId,
-            participantCount: current.participantCount!,
-            percentage: current.percentage!,
-            warning,
-          });
-          continue;
-        }
-
-        if (!inputRow.overwrite) {
-          throw new ApiError("Koreksi membutuhkan konfirmasi overwrite", 409);
-        }
-
-        const reason = getReason(inputRow);
-
-        if (!inputRow.expectedUpdatedAt) {
-          throw new ApiError(
-            "Versi data wajib dikirim saat mengubah snapshot partisipasi",
-            400,
-          );
-        }
-        const expectedUpdatedAt = parseExpectedUpdatedAt(
-          inputRow.expectedUpdatedAt,
-        );
-
-        const audit = await tx.participationCorrectionAudit.create({
-          data: {
-            participationDataId: current.id,
-            previousParticipantCount: current.participantCount,
-            newParticipantCount: inputRow.participantCount,
-            previousPercentage: current.percentage,
-            newPercentage: percentage,
-            reason,
-            actorId: input.actorId,
-            actorName: input.actorName,
-          },
-          select: { id: true },
-        });
-
-        const updateResult = await tx.participationData.updateMany({
-          where: {
-            id: current.id,
-            ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}),
-          },
-          data: {
-            participantCount: inputRow.participantCount,
-            percentage,
-          },
-        });
-
-        if (updateResult.count !== 1) {
-          throw new ApiError(
-            "Snapshot partisipasi telah berubah. Silakan muat ulang data sebelum melakukan koreksi",
-            409,
-          );
-        }
-
-        results.push({
-          status: "UPDATED",
-          participationDataId: current.id,
-          unitId: current.unitId,
-          participantCount: inputRow.participantCount,
-          percentage,
-          warning,
-          auditId: audit.id,
-        });
-      }
-
-      return results;
+  const currentRows = (await tx.participationData.findMany({
+    where: {
+      categoryId: input.categoryId,
+      tw: input.tw,
+      year: input.year,
+      unitId: { in: orderedRows.map((row) => row.unitId) },
     },
+    select: {
+      id: true,
+      unitId: true,
+      headcount: true,
+      participantCount: true,
+      percentage: true,
+      provenance: true,
+      employeeSyncRunId: true,
+      headcountCapturedAt: true,
+      unitNameSnapshot: true,
+      parentUnitNameSnapshot: true,
+      categoryNameSnapshot: true,
+      updatedAt: true,
+    },
+  })) as FrozenParticipationRow[];
+
+  const currentByUnitId = new Map(
+    currentRows.map((row) => [row.unitId, row]),
+  );
+
+  for (const inputRow of input.rows) {
+    const current = currentByUnitId.get(inputRow.unitId);
+
+    if (!current) {
+      throw new ApiError(
+        "Snapshot partisipasi untuk unit dan periode tersebut tidak ditemukan",
+        409,
+      );
+    }
+
+    if (!isValidFrozenSnapshot(current)) {
+      throw new ApiError(
+        "Snapshot partisipasi tidak memiliki denominator atau provenance yang valid",
+        409,
+      );
+    }
+
+    if (inputRow.participantCount > current.headcount!) {
+      throw new ApiError(
+        "Jumlah partisipasi tidak boleh melebihi jumlah karyawan pada snapshot",
+        400,
+      );
+    }
+  }
+
+  const results: ParticipationCorrectionResult[] = [];
+
+  for (const inputRow of input.rows) {
+    const current = currentByUnitId.get(inputRow.unitId)!;
+    const warning = current.headcount === 0 ? "ZERO_HEADCOUNT" : null;
+    const percentage = calculatePercentage(
+      inputRow.participantCount,
+      current.headcount!,
+    );
+
+    if (inputRow.participantCount === current.participantCount) {
+      results.push({
+        status: "UNCHANGED",
+        participationDataId: current.id,
+        unitId: current.unitId,
+        participantCount: current.participantCount!,
+        percentage: current.percentage!,
+        warning,
+      });
+      continue;
+    }
+
+    if (!inputRow.overwrite) {
+      throw new ApiError("Koreksi membutuhkan konfirmasi overwrite", 409);
+    }
+
+    const reason = getReason(inputRow);
+
+    if (!inputRow.expectedUpdatedAt) {
+      throw new ApiError(
+        "Versi data wajib dikirim saat mengubah snapshot partisipasi",
+        400,
+      );
+    }
+    const expectedUpdatedAt = parseExpectedUpdatedAt(
+      inputRow.expectedUpdatedAt,
+    );
+
+    const audit = await tx.participationCorrectionAudit.create({
+      data: {
+        participationDataId: current.id,
+        previousParticipantCount: current.participantCount,
+        newParticipantCount: inputRow.participantCount,
+        previousPercentage: current.percentage,
+        newPercentage: percentage,
+        reason,
+        actorId: input.actorId,
+        actorName: input.actorName,
+      },
+      select: { id: true },
+    });
+
+    const updateResult = await tx.participationData.updateMany({
+      where: {
+        id: current.id,
+        updatedAt: expectedUpdatedAt,
+      },
+      data: {
+        participantCount: inputRow.participantCount,
+        percentage,
+      },
+    });
+
+    if (updateResult.count !== 1) {
+      throw new ApiError(
+        "Snapshot partisipasi telah berubah. Silakan muat ulang data sebelum melakukan koreksi",
+        409,
+      );
+    }
+
+    results.push({
+      status: "UPDATED",
+      participationDataId: current.id,
+      unitId: current.unitId,
+      participantCount: inputRow.participantCount,
+      percentage,
+      warning,
+      auditId: audit.id,
+    });
+  }
+
+  return results;
+}
+
+export async function correctParticipationSnapshots(
+  input: ParticipationCorrectionInput,
+  database: CorrectionDatabase = prisma,
+): Promise<ParticipationCorrectionResult[]> {
+  return database.$transaction(
+    (tx) => correctParticipationSnapshotsInTransaction(input, tx),
     {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     },
