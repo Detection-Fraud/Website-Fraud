@@ -324,16 +324,85 @@ Columns: No, Kode Unit, Unit Kerja, Induk Unit Kerja, Jumlah Karyawan, Jumlah Pa
 
 Depends on stable backend contracts.
 
-Frontend contracts must support `ADMIN`/`PIC` × `SSO`/`LOCAL`.
+Frontend contracts must support `ADMIN`/`PIC`/`VIEWER` × `SSO`/`LOCAL` where
+allowed by the locked backend policy, and must explicitly represent both:
+
+- `Employee.unitId` as HR/Pentaho work placement;
+- `User.unitId` as explicit application/PIC authorization assignment.
+
+These contracts are prerequisites for both the existing operational PIC
+surface and the separate Employee/User Admin management surface. Task 10 does
+not implement either UI.
 
 # Task 11 — Employee/User/PIC Admin UI
 
 Clearly separate source presence, employment status, eligibility, account status, role, and assignment.
 
-Include:
-- Employee ADMIN assignment;
-- Employee PIC assignment;
-- LOCAL debug/system accounts separated from normal Employee management.
+Both Admin management surfaces must coexist. The existing
+`ManagementUserView.tsx` remains operational PIC management scoped by
+`User.unitId`; it must not be converted into the new Employee management page.
+
+### Task 11A — Management compatibility + frontend foundation
+
+Purpose:
+
+- inspect the impact and consumers of `ManagementUserView.tsx` and related
+  frontend/API contracts;
+- verify the old page against the locked `User.unitId` operational scope;
+- apply only bounded compatibility fixes if actual behavior has drifted;
+- establish the frontend foundation, routes, and contracts required by the new
+  Employee/User management surface.
+
+Do not turn `ManagementUserView` into Employee management.
+
+### Task 11B — Employee/User management listing and detail
+
+Implement the separate Admin Employee/User management page, for example
+`/admin/management/employees`.
+
+Cover, according to stable backend contracts:
+
+- Employee master listing;
+- source presence;
+- employment status;
+- PIC eligibility;
+- Employee HR work unit (`Employee.unitId`);
+- User linked/unlinked state;
+- `User.isActive`;
+- role/provider display;
+- current explicit authorization assignment (`User.unitId`);
+- search, filter, and detail behavior.
+
+### Task 11C — Account / Role / Authorization actions
+
+Implement Admin actions for:
+
+- creating/linking a User account where allowed;
+- assigning/reassigning ADMIN, PIC, or VIEWER according to locked policy;
+- activating, deactivating, or reactivating according to backend rules;
+- editing explicit `User.unitId` authorization scope where applicable;
+- preserving the separation between `Employee.unitId` and `User.unitId`;
+- keeping LOCAL debug/breakglass management isolated from the normal Employee
+  flow.
+
+All authorization remains server-side authoritative.
+
+### Task 11D — Integrated compatibility and assurance
+
+Verify:
+
+- the old operational `ManagementUserView` still works by `User.unitId` scope;
+- the new Employee/User page works independently;
+- the two surfaces have no responsibility overlap;
+- `Employee.unitId` and `User.unitId` are not conflated;
+- LOCAL operational isolation remains correct;
+- frontend/backend contracts are consistent;
+- relevant regression tests, focused tester assurance, and code review pass;
+- CRG delta review is complete;
+- security review runs where role, auth, or scope actions make it relevant.
+
+Task 11 may remain `IN_PROGRESS` while 11A–11D advance independently if the
+project task-state model permits packetized execution.
 
 # Task 12 — Participation UI
 
@@ -557,11 +626,14 @@ After Tasks 10–12:
 
 ```text
 frontend contracts
-Employee/User/PIC UI
+old operational PIC management + separate Employee/User management UI
 participation UI
 ```
 
-Run focused frontend/backend contract verification and relevant UI tests.
+Verify Task 10 frontend contracts, Task 11 old/new management-surface
+coexistence, Task 12 participation UI, frontend/backend contract consistency,
+and relevant role/unit/auth boundaries. Run focused frontend/backend contract
+verification and relevant UI tests.
 
 Security reviewer only if UI changes alter auth/access assumptions.
 

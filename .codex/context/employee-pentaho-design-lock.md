@@ -114,6 +114,88 @@ User.unitId: keep previous explicit assignment until Admin reassigns
 
 Admin must explicitly verify, reassign, and reactivate.
 
+## 4A. Admin management UI ownership
+
+The existing `ManagementUserView.tsx` and the new Employee/User management
+page are two separate application concerns. Both Admin surfaces must coexist.
+
+### Existing `ManagementUserView`
+
+`ManagementUserView.tsx` remains the operational PIC management surface. Its
+scope is the explicit application/PIC authorization assignment:
+
+```text
+User.unitId
+```
+
+Its conceptual operational flow remains:
+
+```text
+select unit type
+→ select application unit
+→ list operational PIC accounts by User.unitId
+→ activate/deactivate eligible PIC account
+→ demote/remove PIC assignment where supported
+```
+
+Locked requirements:
+
+- Do not reinterpret `Employee.unitId` as this page's primary scope.
+- Do not convert this page into the Employee HR/Pentaho management page.
+- LOCAL debug/breakglass PIC accounts remain excluded from normal operational
+  PIC listings.
+- If applied behavior has drifted from this contract, Task 11 may make only a
+  bounded compatibility correction. This is reconciliation, not a redesign of
+  the old page.
+
+### New Employee/User management surface
+
+Task 11 introduces a separate Admin surface, for example:
+
+```text
+/admin/management/employees
+```
+
+This surface owns:
+
+```text
+Employee HR/Pentaho state
+↔ User account
+↔ role
+↔ explicit application authorization scope
+```
+
+The UI must distinguish:
+
+- Employee source presence;
+- employment-active status;
+- PIC eligibility;
+- `Employee.unitId` as HR work placement;
+- User linked/unlinked state;
+- `User.isActive`;
+- User role and auth provider;
+- `User.unitId` as explicit application authorization assignment.
+
+Changing `Employee.unitId` must not silently mutate `User.unitId`.
+
+The new surface handles normal Employee-backed account administration,
+including Employee ADMIN/PIC assignment, VIEWER support where applicable,
+account linking/creation, explicit application scope assignment, and
+activation/reactivation according to locked backend policy. LOCAL
+debug/breakglass accounts remain separate from normal Employee management.
+
+### Coexistence rule
+
+```text
+Old operational PIC management
+→ User.unitId operational scope
+
+New Employee/User management
+→ Employee HR state + User linkage/role/authorization administration
+```
+
+Task 11 must not replace or repurpose the old operational page.
+
 ## 5. Pentaho synchronization
 
 Use a FULL SNAPSHOT.
