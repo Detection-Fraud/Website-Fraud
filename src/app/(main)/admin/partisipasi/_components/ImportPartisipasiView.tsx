@@ -5,13 +5,14 @@ import ImportStepper from "@/components/import/_components/ImportStepper";
 import ProsessingStep from "@/components/import/_components/ProsessingStep";
 import UploadFileStep from "@/components/import/_components/UploadFileStep";
 import AppBar from "@/components/layout/Appbar";
+import SelectYear from "@/components/ui/SelectYear";
 import { useCategoryList } from "@/hooks/useCategoryList";
 import { useImportPartisipasi } from "@/hooks/useImportPartisipasi";
 import { api } from "@/lib/api";
 import { CategoryWithStats } from "@/types/program-category";
 import { Button, Card, Label, ListBox, Select } from "@heroui/react";
 import { FiDownload } from "react-icons/fi";
-import { MdOutlineApartment, MdOutlinePercent } from "react-icons/md";
+import { MdOutlineApartment, MdOutlinePeople } from "react-icons/md";
 import PreviewPartisipasiStep from "./PreviewPartisipasiStep";
 
 const PARTISIPASI_REQUIRED_COLUMNS = [
@@ -20,8 +21,8 @@ const PARTISIPASI_REQUIRED_COLUMNS = [
     label: "Unit Kerja (Kode / Nama Unit)",
   },
   {
-    icon: <MdOutlinePercent size={16} className="text-green-500" />,
-    label: "Persentase Partisipasi (%)",
+    icon: <MdOutlinePeople size={16} className="text-green-500" />,
+    label: "Jumlah Partisipasi (Jumlah Peserta)",
   },
 ];
 
@@ -46,6 +47,7 @@ export default function ImportPartisipasiView() {
     errorMsg,
     setCategoryId,
     setTw,
+    setYear,
     handlePreview,
     handleProsesImport,
     handleReset,
@@ -100,7 +102,9 @@ export default function ImportPartisipasiView() {
             <h3 className="font-bold text-gray-800 text-sm tracking-wide">
               Target Data Import
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <SelectYear value={year} onChange={setYear} className="w-full" />
+
               <div>
                 <Label className="text-xs font-semibold text-gray-600 mb-1.5 block">
                   Kategori Program Budaya
@@ -177,6 +181,7 @@ export default function ImportPartisipasiView() {
             isDisabled={!categoryId}
             errorMsg={errorMsg}
             requiredColumns={PARTISIPASI_REQUIRED_COLUMNS}
+            acceptedFileExtensions={[".xlsx"]}
           />
         </div>
       )}
@@ -186,6 +191,8 @@ export default function ImportPartisipasiView() {
           rows={previewRows}
           stats={stats}
           fileName={file?.name}
+          isPending={isLoading}
+          errorMsg={errorMsg}
           onBack={handleReset}
           onProsessImport={handleProsesImport}
         />
@@ -194,8 +201,8 @@ export default function ImportPartisipasiView() {
       {step === 3 && (
         <ProsessingStep
           progress={100}
-          processedCount={stats.matched + stats.conflict}
-          totalCount={stats.matched + stats.conflict}
+          processedCount={stats.first + stats.correction}
+          totalCount={stats.first + stats.correction}
           title="Mengimpor Data Partisipasi..."
           entityName="data partisipasi"
         />

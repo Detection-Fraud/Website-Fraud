@@ -57,6 +57,7 @@ export const PARTICIPATION_WORKBOOK_INSTRUCTIONS = [
   "Kode Unit adalah identifier unit dan tidak boleh diubah.",
   "Jumlah Karyawan diisi oleh sistem berdasarkan data Employee.",
   "Jumlah Partisipasi diisi oleh Admin.",
-  "Persentase dihitung oleh backend berdasarkan Jumlah Partisipasi dan Jumlah Karyawan.",
+  "Isi Jumlah Partisipasi sebagai jumlah peserta (bilangan bulat), bukan persentase.",
+  "Persentase hanya merupakan preview hasil perhitungan dari Jumlah Partisipasi dan Jumlah Karyawan; jangan diisi manual.",
   "Untuk periode historis, nama unit dan induk unit mengikuti snapshot historis.",
 ] as const;

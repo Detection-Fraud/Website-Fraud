@@ -7,9 +7,9 @@ interface ImportStepperProps {
 
 export default function ImportStepper({ currentStep }: ImportStepperProps) {
   const steps = [
-    { id: 1, label: "Upload File", icon: FiCheckCircle },
-    { id: 2, label: "Preview Data", icon: FiFileText },
-    { id: 3, label: "Proses Import", icon: FiDatabase },
+    { id: 1, label: "Unggah File", icon: FiCheckCircle },
+    { id: 2, label: "Pratinjau Data", icon: FiFileText },
+    { id: 3, label: "Proses Impor", icon: FiDatabase },
     { id: 4, label: "Selesai", icon: FiCheck },
   ];
 
@@ -20,7 +20,6 @@ export default function ImportStepper({ currentStep }: ImportStepperProps) {
           const Icon = step.icon;
           const isActive = currentStep === step.id;
           const isCompleted = currentStep > step.id;
-          const isPending = currentStep < step.id;
           return (
             <div key={step.id} className="flex items-center w-full ">
               <div className="flex flex-col items-center gap-2 relative z-10 w-24 ">

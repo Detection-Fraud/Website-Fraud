@@ -196,7 +196,7 @@ export default function LoginForm({ mode }: { mode: LoginFormMode }) {
           </Form>
         )}
 
-        {/* Tombol SSO gaya outline kaca */}  
+        {/* Tombol SSO gaya outline kaca */}
         {mode === "sso" && (
           <Button
             fullWidth

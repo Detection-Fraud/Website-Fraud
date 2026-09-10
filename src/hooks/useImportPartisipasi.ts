@@ -2,9 +2,16 @@
 
 import { api } from "@/lib/api";
 import {
+  buildParticipationCommitPlan,
+  getParticipationErrorMessage,
+} from "@/lib/participation-ui";
+import { toLegacyParticipationPreview } from "@/lib/participation-adapter";
+import type {
   ParticipationImportResult,
   ParticipationImportStats,
   ParticipationPreviewRow,
+  ParticipationWorkbookCommitResult,
+  ParticipationWorkbookPreview,
 } from "@/types/participation.types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
@@ -16,15 +23,17 @@ const INITIAL_STATS: ParticipationImportStats = {
   unchanged: 0,
   error: 0,
   empty: 0,
+  first: 0,
+  correction: 0,
 };
 
 export function useImportPartisipasi() {
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<number>(1);
+  const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
-  const [categoryId, setCategoryId] = useState<string>("");
-  const [tw, setTw] = useState<number>(1);
-  const [year, setYear] = useState<number>(new Date().getFullYear());
+  const [categoryId, setCategoryId] = useState("");
+  const [tw, setTw] = useState(1);
+  const [year, setYear] = useState(new Date().getFullYear());
 
   const [previewRows, setPreviewRows] = useState<ParticipationPreviewRow[]>([]);
   const [stats, setStats] = useState<ParticipationImportStats>(INITIAL_STATS);
@@ -43,28 +52,35 @@ export function useImportPartisipasi() {
       const res = await api.post("/participation?action=preview", formData, {
         headers: { "Content-Type": undefined },
       });
-      return res.data as {
-        rows: ParticipationPreviewRow[];
-        stats: ParticipationImportStats;
-      };
+      return res.data as ParticipationWorkbookPreview;
     },
   });
 
   const commitMutation = useMutation({
-    mutationFn: async (
-      rows: Array<{
-        unitId: string;
-        percentage: number;
-        overwrite: boolean;
-      }>,
-    ) => {
-      const res = await api.post("/participation?action=commit", {
-        categoryId,
-        tw,
-        year,
-        rows,
+    mutationFn: async ({
+      selectedFile,
+      corrections,
+    }: {
+      selectedFile: File;
+      corrections: Array<{
+        unitCode: string;
+        overwrite: true;
+        reason: string;
+        expectedUpdatedAt: string;
+      }>;
+    }) => {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("categoryId", categoryId);
+      formData.append("tw", String(tw));
+      formData.append("year", String(year));
+      formData.append("corrections", JSON.stringify(corrections));
+
+      const res = await api.post("/participation?action=commit", formData, {
+        headers: { "Content-Type": undefined },
       });
-      return res.data as ParticipationImportResult;
+
+      return res.data as ParticipationWorkbookCommitResult;
     },
     onSuccess: async () => {
       await Promise.all([
@@ -77,71 +93,82 @@ export function useImportPartisipasi() {
 
   const handlePreview = useCallback(
     async (selectedFile: File) => {
+      if (previewMutation.isPending || commitMutation.isPending) return;
       if (!categoryId) {
         setErrorMsg("Pilih Kategori Program Budaya terlebih dahulu");
         return;
       }
       setFile(selectedFile);
+      setPreviewRows([]);
+      setStats(INITIAL_STATS);
+      setImportResult(null);
       setErrorMsg(null);
 
       try {
-        const data = await previewMutation.mutateAsync(selectedFile);
+        const data = toLegacyParticipationPreview(
+          await previewMutation.mutateAsync(selectedFile),
+        );
         setPreviewRows(data.rows);
         setStats(data.stats);
         setStep(2);
-      } catch (err: any) {
-        setErrorMsg(
-          err.response?.data?.message ||
-            err.message ||
-            "Gagal memproses file Excel",
-        );
+      } catch (error: unknown) {
+        setErrorMsg(getParticipationErrorMessage(error));
+        setStep(1);
       }
     },
-    [categoryId, previewMutation],
+    [categoryId, commitMutation.isPending, previewMutation],
   );
 
   const handleProsesImport = useCallback(
-    async (overwriteConflictIds: Set<number>) => {
-      setStep(3);
-      setErrorMsg(null);
+    async (
+      correctionsConfirmed: boolean,
+      correctionReasons: Record<number, string>,
+    ) => {
+      if (previewMutation.isPending || commitMutation.isPending) return;
 
-      const validRowsToCommit = previewRows
-        .filter(
-          (r) =>
-            r.status === "matched" ||
-            (r.status === "conflict" && overwriteConflictIds.has(r.id)),
-        )
-        .map((r) => ({
-          unitId: r.unitId!,
-          percentage: r.percentage!,
-          overwrite:
-            r.status === "conflict" ? overwriteConflictIds.has(r.id) : false,
-        }));
+      const plan = buildParticipationCommitPlan(
+        previewRows,
+        correctionsConfirmed,
+        correctionReasons,
+      );
+
+      if (plan.error) {
+        setErrorMsg(plan.error);
+        setStep(2);
+        return;
+      }
+
+      if (!file) {
+        setErrorMsg("File import tidak tersedia");
+        setStep(2);
+        return;
+      }
 
       try {
-        const data = await commitMutation.mutateAsync(validRowsToCommit);
+        setStep(3);
+        const data = await commitMutation.mutateAsync({
+          selectedFile: file,
+          corrections: plan.corrections,
+        });
         setImportResult(data);
         setStep(4);
-      } catch (err: any) {
-        setErrorMsg(
-          err.response?.data?.message ||
-            err.message ||
-            "Gagal melakukan import data",
-        );
+      } catch (error: unknown) {
+        setErrorMsg(getParticipationErrorMessage(error));
         setStep(2);
       }
     },
-    [commitMutation, previewRows],
+    [commitMutation, file, previewMutation.isPending, previewRows],
   );
 
   const handleReset = useCallback(() => {
+    if (previewMutation.isPending || commitMutation.isPending) return;
     setStep(1);
     setFile(null);
     setPreviewRows([]);
     setStats(INITIAL_STATS);
     setImportResult(null);
     setErrorMsg(null);
-  }, []);
+  }, [commitMutation.isPending, previewMutation.isPending]);
 
   return {
     step,

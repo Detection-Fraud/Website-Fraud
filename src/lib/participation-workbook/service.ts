@@ -583,9 +583,10 @@ function buildPreviewRow(
       headcount: existing?.headcount ?? headcount ?? null,
       percentage: null,
       existingParticipantCount: existing?.participantCount ?? null,
-      existingPercentage: existing?.percentage
-        ? decimalToNumber(existing.percentage)
-        : null,
+      existingPercentage:
+        existing?.percentage !== null && existing?.percentage !== undefined
+          ? decimalToNumber(existing.percentage)
+          : null,
       expectedUpdatedAt: existing?.updatedAt.toISOString() ?? null,
       warning: null,
       status: "EMPTY",
@@ -610,9 +611,10 @@ function buildPreviewRow(
       headcount: null,
       percentage: null,
       existingParticipantCount: existing?.participantCount ?? null,
-      existingPercentage: existing?.percentage
-        ? decimalToNumber(existing.percentage)
-        : null,
+      existingPercentage:
+        existing?.percentage !== null && existing?.percentage !== undefined
+          ? decimalToNumber(existing.percentage)
+          : null,
       expectedUpdatedAt: existing?.updatedAt.toISOString() ?? null,
       warning: null,
       status: "ERROR",
@@ -636,9 +638,10 @@ function buildPreviewRow(
       headcount: denominator,
       percentage: null,
       existingParticipantCount: existing?.participantCount ?? null,
-      existingPercentage: existing?.percentage
-        ? decimalToNumber(existing.percentage)
-        : null,
+      existingPercentage:
+        existing?.percentage !== null && existing?.percentage !== undefined
+          ? decimalToNumber(existing.percentage)
+          : null,
       expectedUpdatedAt: existing?.updatedAt.toISOString() ?? null,
       warning: null,
       status: "ERROR",
@@ -683,9 +686,10 @@ function buildPreviewRow(
       headcount: denominator,
       percentage,
       existingParticipantCount: existing.participantCount,
-      existingPercentage: existing.percentage
-        ? decimalToNumber(existing.percentage)
-        : null,
+      existingPercentage:
+        existing.percentage !== null && existing.percentage !== undefined
+          ? decimalToNumber(existing.percentage)
+          : null,
       expectedUpdatedAt: existing.updatedAt.toISOString(),
       warning: denominator === 0 ? "ZERO_HEADCOUNT" : null,
       status: "UNCHANGED",
@@ -703,9 +707,10 @@ function buildPreviewRow(
     headcount: denominator,
     percentage,
     existingParticipantCount: existing.participantCount,
-    existingPercentage: existing.percentage
-      ? decimalToNumber(existing.percentage)
-      : null,
+    existingPercentage:
+      existing.percentage !== null && existing.percentage !== undefined
+        ? decimalToNumber(existing.percentage)
+        : null,
     expectedUpdatedAt: existing.updatedAt.toISOString(),
     warning: denominator === 0 ? "ZERO_HEADCOUNT" : null,
     status: "CORRECTION",
@@ -797,7 +802,18 @@ export async function commitParticipationWorkbook(input: {
     year: input.year,
   });
 
-  const validRows = preview.rows.filter((row) => row.status !== "EMPTY");
+  const emptyRows = preview.rows.filter((row) => row.status === "EMPTY");
+
+  if (emptyRows.length > 0) {
+    throw new ApiError(
+      emptyRows
+        .map((row) => `${row.unitCode}: Jumlah Partisipasi wajib diisi`)
+        .join("; "),
+      400,
+    );
+  }
+
+  const validRows = preview.rows;
   const errors = validRows.filter((row) => row.status === "ERROR");
 
   if (errors.length > 0) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  PARTICIPATION_WORKBOOK_INSTRUCTIONS,
   PARTICIPATION_WORKBOOK_HEADERS,
   PARTICIPATION_WORKBOOK_SHEETS,
   PARTICIPATION_WORKBOOK_TABLES,
@@ -13,6 +14,21 @@ import {
   serializeParticipationWorkbook,
   validateParticipationWorkbookStructure,
 } from "./participation-workbook";
+
+describe("participation workbook guidance", () => {
+  it("guides admins to enter participant counts and treats percentage as preview output", () => {
+    assert.ok(
+      PARTICIPATION_WORKBOOK_INSTRUCTIONS.some((instruction) =>
+        instruction.includes("Jumlah Partisipasi sebagai jumlah peserta"),
+      ),
+    );
+    assert.ok(
+      PARTICIPATION_WORKBOOK_INSTRUCTIONS.some((instruction) =>
+        instruction.includes("preview hasil perhitungan"),
+      ),
+    );
+  });
+});
 
 async function roundTrip(workbook: Parameters<typeof parseParticipationWorkbook>[0]) {
   return loadParticipationWorkbook(await serializeParticipationWorkbook(workbook));

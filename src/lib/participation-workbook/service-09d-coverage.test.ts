@@ -152,6 +152,8 @@ describe("Task 09D participation workbook service", () => {
     assert.deepEqual(result.rows.map((item) => [item.unitCode, item.status]), [["U-CORRECTION", "CORRECTION"], ["U-FIRST", "FIRST"], ["U-UNCHANGED", "UNCHANGED"], ["U-ZERO", "UNCHANGED"]]);
     assert.equal(result.rows.find((item) => item.unitCode === "U-CORRECTION")?.expectedUpdatedAt, updatedAt.toISOString());
     assert.equal(result.rows.find((item) => item.unitCode === "U-ZERO")?.warning, "ZERO_HEADCOUNT");
+    assert.equal(result.rows.find((item) => item.unitCode === "U-ZERO")?.percentage, 0);
+    assert.equal(result.rows.find((item) => item.unitCode === "U-ZERO")?.existingPercentage, 0);
     assert.equal(transactionMock.mock.callCount(), 0);
   });
 
@@ -172,6 +174,28 @@ describe("Task 09D participation workbook service", () => {
     await assert.rejects(commitParticipationWorkbook({ ...input, corrections: [] }), (error: { status?: number }) => error.status === 400);
     await assert.rejects(commitParticipationWorkbook({ ...input, corrections: [{ unitCode: "U-CORRECTION", overwrite: true, reason: "Verified", expectedUpdatedAt: "2026-09-01T00:00:00.000Z" }] }), (error: { status?: number }) => error.status === 409);
     assert.equal(transactionMock.mock.callCount(), 0); assert.equal(createSnapshotsMock.mock.callCount(), 0); assert.equal(correctSnapshotsMock.mock.callCount(), 0);
+  });
+
+  it("rejects EMPTY rows before any workbook commit can partially proceed", async () => {
+    await assert.rejects(
+      commitParticipationWorkbook({
+        buffer: await workbookBuffer([row("U-FIRST", 2), row("U-CORRECTION", null)]),
+        categoryId,
+        tw: 1,
+        year: 2026,
+        actorId: "admin-1",
+        actorName: "Admin Test",
+        corrections: [],
+      }),
+      (error: { status?: number; message?: string }) =>
+        error.status === 400 &&
+        error.message?.includes("U-CORRECTION") === true &&
+        error.message.includes("wajib diisi"),
+    );
+
+    assert.equal(transactionMock.mock.callCount(), 0);
+    assert.equal(createSnapshotsMock.mock.callCount(), 0);
+    assert.equal(correctSnapshotsMock.mock.callCount(), 0);
   });
 
   it("uses one Serializable transaction for mixed FIRST/CORRECTION/UNCHANGED commit", async () => {

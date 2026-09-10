@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, Spinner } from "@heroui/react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { FiAlertCircle, FiUploadCloud } from "react-icons/fi";
 import { LuSparkle } from "react-icons/lu";
 import { MdOutlineApartment, MdOutlinePerson } from "react-icons/md";
@@ -17,6 +17,7 @@ interface UploadFileStepProps {
   isDisabled?: boolean;
   errorMsg: string | null;
   requiredColumns?: RequiredColumn[];
+  acceptedFileExtensions?: readonly string[];
 }
 
 const DEFAULT_REQUIRED_COLUMNS: RequiredColumn[] = [
@@ -36,12 +37,31 @@ export default function UploadFileStep({
   isDisabled = false,
   errorMsg,
   requiredColumns = DEFAULT_REQUIRED_COLUMNS,
+  acceptedFileExtensions = [".xlsx", ".xls", ".csv"],
 }: UploadFileStepProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const accept = acceptedFileExtensions.join(",");
+
+  const getInvalidFileMessage = () =>
+    acceptedFileExtensions.length === 1 && acceptedFileExtensions[0] === ".xlsx"
+      ? "File harus berformat XLSX"
+      : `Format file tidak didukung. Gunakan ${acceptedFileExtensions.join(", ")}`;
+
+  const isAcceptedFile = (file: File) =>
+    acceptedFileExtensions.some((extension) =>
+      file.name.toLowerCase().endsWith(extension.toLowerCase()),
+    );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
+    if (!isAcceptedFile(selected)) {
+      setValidationError(getInvalidFileMessage());
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setValidationError(null);
     onFileSelect(selected);
 
     if (inputRef.current) inputRef.current.value = "";
@@ -52,6 +72,11 @@ export default function UploadFileStep({
     if (isDisabled || isLoading) return;
     const dropped = e.dataTransfer.files?.[0];
     if (!dropped) return;
+    if (!isAcceptedFile(dropped)) {
+      setValidationError(getInvalidFileMessage());
+      return;
+    }
+    setValidationError(null);
     onFileSelect(dropped);
   };
 
@@ -71,7 +96,7 @@ export default function UploadFileStep({
           ref={inputRef}
           id="excel-upload-file"
           type="file"
-          accept=".xlsx, .xls, .csv"
+          accept={accept}
           className="hidden"
           onChange={handleFileChange}
         />
@@ -133,7 +158,7 @@ export default function UploadFileStep({
               </p>
 
               <div className="flex gap-2 mt-4">
-                {[".xlsx", ".xls", ".csv"].map((ext) => (
+                {acceptedFileExtensions.map((ext) => (
                   <span
                     key={ext}
                     className="px-3 py-1 text-xs font-mono font-medium bg-gray-100 text-gray-600 rounded-full"
@@ -149,10 +174,10 @@ export default function UploadFileStep({
             </>
           )}
 
-          {errorMsg && (
+          {(errorMsg || validationError) && (
             <div className="mt-3 flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
               <FiAlertCircle size={16} className="mt-0.5 shrink-0" />
-              <span>{errorMsg}</span>
+              <span>{errorMsg || validationError}</span>
             </div>
           )}
         </div>

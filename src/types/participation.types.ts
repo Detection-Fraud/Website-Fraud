@@ -1,3 +1,10 @@
+export type ParticipationWorkbookActionStatus =
+  | "FIRST"
+  | "UNCHANGED"
+  | "CORRECTION"
+  | "EMPTY"
+  | "ERROR";
+
 export type ParticipationStatus =
   | "matched"
   | "conflict"
@@ -5,14 +12,59 @@ export type ParticipationStatus =
   | "error"
   | "empty";
 
-export interface ParticipationPreviewRow {
+export interface ParticipationWorkbookPreviewRow {
   id: number;
-  unitName: string;
+  sheetKey: string;
+  rowNumber: number;
+  unitCode: string;
   unitId: string | null;
+  unitName: string;
+  participantCount: number | null;
+  headcount: number | null;
   percentage: number | null;
-  status: ParticipationStatus;
-  existingPercentage?: number | null;
+  existingParticipantCount: number | null;
+  existingPercentage: number | null;
+  expectedUpdatedAt: string | null;
+  warning: "ZERO_HEADCOUNT" | null;
+  status: ParticipationWorkbookActionStatus;
   errorMsg?: string;
+}
+
+export interface ParticipationWorkbookPreview {
+  stats: {
+    total: number;
+    first: number;
+    unchanged: number;
+    correction: number;
+    empty: number;
+    error: number;
+  };
+  rows: ParticipationWorkbookPreviewRow[];
+}
+
+export interface ParticipationWorkbookCommitRow {
+  unitCode: string;
+  unitId: string;
+  status: "FIRST" | "CORRECTION" | "UNCHANGED";
+  participantCount: number;
+  percentage: number;
+  warning: "ZERO_HEADCOUNT" | null;
+  auditId?: string;
+}
+
+export interface ParticipationWorkbookCommitResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  rows: ParticipationWorkbookCommitRow[];
+}
+
+export interface ParticipationPreviewRow extends Omit<
+  ParticipationWorkbookPreviewRow,
+  "status"
+> {
+  status: ParticipationStatus;
+  sourceStatus: ParticipationWorkbookActionStatus;
 }
 
 export interface ParticipationImportStats {
@@ -22,13 +74,11 @@ export interface ParticipationImportStats {
   unchanged: number;
   error: number;
   empty: number;
+  first: number;
+  correction: number;
 }
 
-export interface ParticipationImportResult {
-  created: number;
-  updated: number;
-  skipped: number;
-}
+export type ParticipationImportResult = ParticipationWorkbookCommitResult;
 
 export interface CategoryBreakdown {
   categoryId: string;
@@ -36,7 +86,6 @@ export interface CategoryBreakdown {
   percentage: number;
 }
 
-// [UPDATED] Metadata kategori yang ada — untuk build dynamic columns di component
 export interface ParticipationCategory {
   id: string;
   name: string;
@@ -53,7 +102,6 @@ export interface ParticipationRankingItem {
   categories: CategoryBreakdown[];
 }
 
-// [UPDATED] Wrapper response API ranking — include categories metadata
 export interface ParticipationRankingResponse {
   ranking: ParticipationRankingItem[];
   categories: ParticipationCategory[];
