@@ -88,7 +88,9 @@ export default function UnitListPanel({
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center h-full py-8">
-            <p className="text-sm text-slate-400 font-medium">Tidak ada data unit</p>
+            <p className="text-sm text-slate-400 font-medium">
+              Tidak ada data unit
+            </p>
           </div>
         ) : (
           <ListBox
@@ -133,7 +135,9 @@ export default function UnitListPanel({
                       <span
                         className={[
                           "text-sm leading-tight truncate",
-                          isActive ? "font-bold text-sky-900" : "font-semibold text-slate-700",
+                          isActive
+                            ? "font-bold text-sky-900"
+                            : "font-semibold text-slate-700",
                         ].join(" ")}
                       >
                         {unit.name}
@@ -170,16 +174,18 @@ export default function UnitListPanel({
       <Card.Footer className="p-4 border-t border-slate-100 shrink-0 bg-white">
         <Button
           onClick={onAddUser}
-          isDisabled={isButtonDisabled}
+          isPending={isButtonDisabled}
           className={cn(
-            "w-full py-3.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] shadow-xs flex items-center justify-center gap-2",
+            "w-full min-w-0 overflow-hidden py-3.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] shadow-xs flex items-center justify-center gap-2",
             isButtonDisabled
               ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-70"
               : "bg-sky-600 hover:bg-sky-700 text-white shadow-xs",
           )}
         >
-          <FiPlus className="w-4 h-4" />
-          <span>Tambah PIC {selectedUnit ? `(${selectedUnit.name})` : ""}</span>
+          <FiPlus className="w-4 h-4 shrink-0" />
+          <span className="min-w-0 truncate">
+            Tambah PIC {selectedUnit ? `(${selectedUnit.name})` : ""}
+          </span>
         </Button>
       </Card.Footer>
     </Card>
