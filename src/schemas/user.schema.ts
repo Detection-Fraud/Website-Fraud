@@ -23,6 +23,40 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type ToggleUserStatusInput = z.infer<typeof toggleUserStatusSchema>;
 export type PromoteUserInput = z.infer<typeof promoteUserSchema>;
 
+const ensureAdminActionSchema = z
+  .object({
+    action: z.literal("ENSURE_ADMIN"),
+  })
+  .strict();
+
+const setActiveActionSchema = z
+  .object({
+    action: z.literal("SET_ACTIVE"),
+    isActive: z.boolean({
+      error: (issue) =>
+        issue.input === undefined
+          ? "Status (isActive) harus disertakan"
+          : "Format status tidak valid",
+    }),
+  })
+  .strict();
+
+const revokeAdminActionSchema = z
+  .object({
+    action: z.literal("REVOKE_ADMIN"),
+  })
+  .strict();
+
+export const employeeAdminActionSchema = z.discriminatedUnion("action", [
+  ensureAdminActionSchema,
+  setActiveActionSchema,
+  revokeAdminActionSchema,
+]);
+
+export type EmployeeAdminActionInput = z.infer<
+  typeof employeeAdminActionSchema
+>;
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Password lama wajib diisi"),

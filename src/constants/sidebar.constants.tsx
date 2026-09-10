@@ -55,13 +55,18 @@ export const SidebarMenuAdmin: SidebarMenuItem[] = [
     children: [
       {
         key: "management",
-        label: "Daftar Culture Catalyst",
+        label: "Manajemen PIC",
         href: "/admin/management",
       },
       {
         key: "import",
         label: "Import Karyawan",
         href: "/admin/import",
+      },
+      {
+        key: "employees",
+        label: "Employee & User",
+        href: "/admin/management/employees",
       },
     ],
   },

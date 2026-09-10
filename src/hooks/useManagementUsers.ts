@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { PaginationMeta, UserWithUnit } from "@/types/user.types";
+import { ManagementUsersResponse } from "@/types/user.types";
 import { useQuery } from "@tanstack/react-query";
 
 interface UseManagementUsersOptions {
@@ -10,10 +10,6 @@ interface UseManagementUsersOptions {
   page?: number;
   limit?: number;
 }
-interface UsersResponse {
-  users: UserWithUnit[];
-  pagination: PaginationMeta;
-}
 
 export function useManagementUsers({
   unitId,
@@ -21,16 +17,23 @@ export function useManagementUsers({
   page = 1,
   limit = 10,
 }: UseManagementUsersOptions) {
-  const { data, isLoading, error, refetch } = useQuery<UsersResponse>({
-    queryKey: ["management-users", unitId, search, page, limit],
-    queryFn: () =>
-      api
-        .get("/users", {
-          params: { unitId, search, page: String(page), limit: String(limit) },
-        })
-        .then((res) => res.data),
-    enabled: !!unitId && unitId !== "ALL",
-  });
+  const { data, isLoading, error, refetch } = useQuery<ManagementUsersResponse>(
+    {
+      queryKey: ["management-users", unitId, search, page, limit],
+      queryFn: () =>
+        api
+          .get("/users", {
+            params: {
+              unitId,
+              search,
+              page: String(page),
+              limit: String(limit),
+            },
+          })
+          .then((res) => res.data),
+      enabled: !!unitId && unitId !== "ALL",
+    },
+  );
 
   return {
     users: data?.users ?? [],

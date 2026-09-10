@@ -123,6 +123,7 @@ export default function UserTablePanel({
             {/* UPDATED: Rose Soft Delete Button */}
             <Button
               onClick={() => onDelete(item)}
+              aria-label={`Lepas PIC ${item.name}`}
               isIconOnly
               size="sm"
               className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/60 rounded-xl p-2 transition-all active:scale-95 shadow-xs"

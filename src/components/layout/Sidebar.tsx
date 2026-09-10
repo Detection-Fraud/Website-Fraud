@@ -15,6 +15,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PiCaretDownBold } from "react-icons/pi";
 
+function isExactPathActive(pathname: string, href: string): boolean {
+  return pathname === href;
+}
+
+function isPathOrDescendantActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export default function Sidebar() {
   const { user } = useCurrentUser();
   const pathname = usePathname();
@@ -57,7 +65,7 @@ export default function Sidebar() {
     getMenuItems().forEach((item) => {
       if (item.children) {
         const hasActiveChild = item.children.some((child) =>
-          pathname.startsWith(child.href),
+          isExactPathActive(pathname, child.href),
         );
         if (hasActiveChild) {
           newOpenMenus[item.key] = true;
@@ -82,7 +90,9 @@ export default function Sidebar() {
 
   const isParentActive = (item: SidebarMenuItem): boolean => {
     if (!item.children) return false;
-    return item.children.some((child) => pathname.startsWith(child.href));
+    return item.children.some((child) =>
+      isExactPathActive(pathname, child.href),
+    );
   };
 
   if (!mounted) return null;
@@ -164,7 +174,10 @@ export default function Sidebar() {
                     >
                       <div className="flex flex-col gap-0.5 pl-3 pt-1 pb-1">
                         {item.children.map((child) => {
-                          const isChildActive = pathname.startsWith(child.href);
+                          const isChildActive = isExactPathActive(
+                            pathname,
+                            child.href,
+                          );
                           return (
                             <Link
                               key={child.key}
@@ -201,7 +214,7 @@ export default function Sidebar() {
               const isActive = isDashboardRoot
                 ? pathname === item.href
                 : item.href
-                  ? pathname.startsWith(item.href)
+                  ? isPathOrDescendantActive(pathname, item.href)
                   : false;
 
               return (

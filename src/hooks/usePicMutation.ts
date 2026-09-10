@@ -22,6 +22,7 @@ export function usePicMutation({ onSuccess }: UsePicMutationOptions = {}) {
   const invalidateUserQueries = () => {
     queryClient.invalidateQueries({ queryKey: ["management-users"] });
     queryClient.invalidateQueries({ queryKey: ["units"] });
+    queryClient.invalidateQueries({ queryKey: ["employee-management"] });
     onSuccess?.();
   };
 
@@ -57,11 +58,13 @@ export function usePicMutation({ onSuccess }: UsePicMutationOptions = {}) {
       return res.data;
     },
     onSuccess: () => {
-      toast.success("Berhasil dihapus");
+      toast.success("PIC berhasil dilepas", {
+        description: "User tetap tersimpan sebagai VIEWER dan akun dinonaktifkan.",
+      });
       invalidateUserQueries();
     },
     onError: (err) => {
-      toast.danger("Gagal", {
+      toast.danger("Gagal melepas PIC", {
         description: err instanceof Error ? err.message : "Error",
       });
     },
@@ -92,6 +95,7 @@ export function usePicMutation({ onSuccess }: UsePicMutationOptions = {}) {
   return {
     //  ADD
     promotePic: promoteMutation.mutate,
+    promotePicAsync: promoteMutation.mutateAsync,
     isSubmitting: promoteMutation.isPending,
     submitError: promoteMutation.error
       ? (promoteMutation.error as Error).message
@@ -100,12 +104,16 @@ export function usePicMutation({ onSuccess }: UsePicMutationOptions = {}) {
 
     // DELETE
     deleteUser: deleteMutation.mutate,
+    deleteUserAsync: deleteMutation.mutateAsync,
+    releasePic: deleteMutation.mutate,
+    releasePicAsync: deleteMutation.mutateAsync,
     isDeleting: deleteMutation.isPending
       ? (deleteMutation.variables ?? null)
       : null,
 
     // Toggle
     toggleStatus: toggleStatusMutation.mutate,
+    toggleStatusAsync: toggleStatusMutation.mutateAsync,
     isUpdatingStatus: toggleStatusMutation.isPending
       ? (toggleStatusMutation.variables?.userId ?? null)
       : null,

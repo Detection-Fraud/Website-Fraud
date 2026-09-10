@@ -1,7 +1,8 @@
 import { Prisma, PrismaClient } from "@generated/prisma/client";
 import { ApiError } from "@/lib/api/auth-guard";
-import { isPicEligible } from "@/lib/employee-eligibility";
+import { isEmploymentActive, isPicEligible } from "@/lib/employee-eligibility";
 import { prisma } from "@/lib/prisma";
+import type { EmployeeAdminActionInput } from "@/schemas/user.schema";
 
 const userSelect = Prisma.validator<Prisma.UserSelect>()({
   id: true,
@@ -116,6 +117,137 @@ async function resolveEmployee(
     where: { id: identifier },
     select: employeeSelect,
   });
+}
+
+type ListEmployeesForManagementInput = {
+  search?: string;
+  source?: "PRESENT" | "ABSENT";
+  employment?: "ACTIVE" | "INACTIVE";
+  account?: "LINKED" | "UNLINKED" | "ACTIVE" | "INACTIVE";
+  role?: "ADMIN" | "PIC" | "VIEWER";
+  page: number;
+  limit: number;
+};
+
+export async function listEmployeesForManagement(
+  input: ListEmployeesForManagementInput,
+  db: Db = prisma,
+) {
+  const search = input.search?.trim() ?? "";
+
+  if (input.account === "UNLINKED" && input.role) {
+    return {
+      employees: [],
+      pagination: {
+        total: 0,
+        page: input.page,
+        limit: input.limit,
+        totalPages: 0,
+      },
+    };
+  }
+
+  const userWhere: Prisma.UserWhereInput = {
+    authProvider: "SSO",
+    ...(input.account === "ACTIVE" ? { isActive: true } : {}),
+    ...(input.account === "INACTIVE" ? { isActive: false } : {}),
+    ...(input.role ? { role: input.role } : {}),
+  };
+
+  const where: Prisma.EmployeeWhereInput = {
+    ...(search
+      ? {
+          OR: [
+            {
+              name: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+            {
+              nip: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          ],
+        }
+      : {}),
+    ...(input.source === "PRESENT"
+      ? { isPresentInSource: true }
+      : input.source === "ABSENT"
+        ? { isPresentInSource: false }
+        : {}),
+    ...(input.employment === "ACTIVE"
+      ? {
+          kodeStatpeg: "01",
+          statKepeg: "02",
+        }
+      : input.employment === "INACTIVE"
+        ? {
+            NOT: {
+              kodeStatpeg: "01",
+              statKepeg: "02",
+            },
+          }
+        : {}),
+    ...(input.account === "UNLINKED"
+      ? { user: { is: null } }
+      : input.account === "LINKED"
+        ? { user: { is: userWhere } }
+        : Object.keys(userWhere).length > 1
+          ? { user: { is: userWhere } }
+          : {
+              OR: [{ user: { is: null } }, { user: { is: userWhere } }],
+            }),
+  };
+
+  const [records, total] = await Promise.all([
+    db.employee.findMany({
+      where,
+      skip: (input.page - 1) * input.limit,
+      take: input.limit,
+      orderBy: [{ name: "asc" }, { nip: "asc" }, { id: "asc" }],
+      select: employeeSelect,
+    }),
+    db.employee.count({ where }),
+  ]);
+
+  const employees = records.map((employee) => ({
+    id: employee.id,
+    nip: employee.nip,
+    name: employee.name,
+    jenjang: employee.jenjang,
+    kodeStatpeg: employee.kodeStatpeg,
+    statKepeg: employee.statKepeg,
+    unitId: employee.unitId,
+    unit: employee.unit,
+    isPresentInSource: employee.isPresentInSource,
+    employmentActive: isEmploymentActive(employee),
+    picEligible: isPicEligible(employee),
+    user: employee.user
+      ? {
+          id: employee.user.id,
+          name: employee.user.name,
+          username: employee.user.username,
+          role: employee.user.role,
+          authProvider: employee.user.authProvider,
+          unitId: employee.user.unitId,
+          isActive: employee.user.isActive,
+          unit: employee.user.unit,
+        }
+      : null,
+  }));
+
+  return {
+    employees,
+    pagination: {
+      total,
+      page: input.page,
+      limit: input.limit,
+      totalPages: Math.ceil(total / input.limit),
+    },
+  };
 }
 
 export async function listPicUsers(
@@ -300,10 +432,7 @@ export async function searchActivePics(
     )
     .map(({ employee: employeeRecord, ...user }) => {
       if (!employeeRecord) {
-        throw new UserManagementError(
-          "PIC belum tertaut ke Employee",
-          409,
-        );
+        throw new UserManagementError("PIC belum tertaut ke Employee", 409);
       }
 
       return user;
@@ -565,27 +694,249 @@ export async function setUserStatus(
 }
 
 export async function demoteUser(userId: string, db: Db = prisma) {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      authProvider: true,
+  return db.$transaction(
+    async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          role: true,
+          authProvider: true,
+        },
+      });
+
+      if (!user) {
+        throw new UserManagementError("User tidak ditemukan", 404);
+      }
+
+      if (user.authProvider !== "SSO" || user.role !== "PIC") {
+        throw new UserManagementError(
+          "Hanya akun PIC SSO yang dapat diturunkan",
+          409,
+        );
+      }
+
+      return tx.user.update({
+        where: { id: userId },
+        data: {
+          role: "VIEWER",
+          isActive: false,
+        },
+        select: userSelect,
+      });
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    },
+  );
+}
+
+const employeeAdminActionEmployeeSelect =
+  Prisma.validator<Prisma.EmployeeSelect>()({
+    id: true,
+    nip: true,
+    name: true,
+    jenjang: true,
+    kodeStatpeg: true,
+    statKepeg: true,
+    isPresentInSource: true,
+    user: {
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        samlNameId: true,
+        role: true,
+        authProvider: true,
+        unitId: true,
+        isActive: true,
+        employeeId: true,
+      },
     },
   });
 
-  if (!user) {
-    throw new UserManagementError("User tidak ditemukan", 404);
+const employeeAdminActionUserSelect = Prisma.validator<Prisma.UserSelect>()({
+  id: true,
+  name: true,
+  username: true,
+  employeeId: true,
+  role: true,
+  authProvider: true,
+  unitId: true,
+  isActive: true,
+  createdAt: true,
+});
+
+type EmployeeAdminActionUser = Prisma.UserGetPayload<{
+  select: typeof employeeAdminActionUserSelect;
+}>;
+
+function rejectNonSsoAdmin(user: { role: string; authProvider: string }): void {
+  if (user.authProvider !== "SSO" || user.role !== "ADMIN") {
+    throw new UserManagementError(
+      "Hanya akun ADMIN SSO yang dapat diubah melalui operasi ini",
+      409,
+    );
   }
+}
 
-  rejectLocalOperationalMutation(user.authProvider);
+function rejectSelfAction(actorId: string, userId: string): void {
+  if (actorId === userId) {
+    throw new UserManagementError(
+      "Admin tidak dapat menonaktifkan dirinya sendiri",
+      409,
+    );
+  }
+}
 
-  return db.user.update({
-    where: { id: userId },
-    data: {
-      role: "VIEWER",
-      isActive: false,
+export async function applyEmployeeAdminAction(
+  employeeId: string,
+  actorId: string,
+  action: EmployeeAdminActionInput,
+  db: Db = prisma,
+): Promise<EmployeeAdminActionUser> {
+  return db.$transaction(
+    async (tx) => {
+      const employee = await tx.employee.findUnique({
+        where: { id: employeeId },
+        select: employeeAdminActionEmployeeSelect,
+      });
+
+      if (!employee) {
+        throw new UserManagementError("Employee tidak ditemukan", 404);
+      }
+
+      if (action.action === "ENSURE_ADMIN") {
+        let user = employee.user;
+
+        if (!user) {
+          const matches = await tx.user.findMany({
+            where: {
+              OR: [{ username: employee.nip }, { samlNameId: employee.nip }],
+            },
+            take: 3,
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              samlNameId: true,
+              role: true,
+              authProvider: true,
+              unitId: true,
+              isActive: true,
+              employeeId: true,
+            },
+          });
+
+          const uniqueMatches = [
+            ...new Map(matches.map((item) => [item.id, item])).values(),
+          ];
+
+          if (uniqueMatches.length > 1) {
+            throw new UserManagementError(
+              "Ditemukan beberapa akun dengan identitas Employee yang sama",
+              409,
+            );
+          }
+
+          user = uniqueMatches[0] ?? null;
+        }
+
+        if (!user) {
+          return tx.user.create({
+            data: {
+              username: employee.nip,
+              samlNameId: employee.nip,
+              name: employee.name,
+              authProvider: "SSO",
+              role: "ADMIN",
+              isActive: false,
+              employee: { connect: { id: employee.id } },
+            },
+            select: employeeAdminActionUserSelect,
+          });
+        }
+
+        if (user.employeeId && user.employeeId !== employee.id) {
+          throw new UserManagementError(
+            "Akun sudah tertaut ke Employee lain",
+            409,
+          );
+        }
+
+        if (user.authProvider !== "SSO") {
+          throw new UserManagementError(
+            "Akun bukan akun ADMIN SSO yang valid",
+            409,
+          );
+        }
+
+        if (user.role === "PIC") {
+          throw new UserManagementError(
+            "Akun PIC tidak dapat dipromosikan menjadi ADMIN",
+            409,
+          );
+        }
+
+        if (user.role !== "ADMIN" && user.role !== "VIEWER") {
+          throw new UserManagementError("Role akun tidak dikenal", 409);
+        }
+
+        return tx.user.update({
+          where: { id: user.id },
+          data: {
+            employee: { connect: { id: employee.id } },
+            name: employee.name,
+            username: employee.nip,
+            samlNameId: employee.nip,
+            authProvider: "SSO",
+            role: "ADMIN",
+            isActive: user.role === "ADMIN" ? user.isActive : false,
+          },
+          select: employeeAdminActionUserSelect,
+        });
+      }
+
+      const user = employee.user;
+
+      if (!user) {
+        throw new UserManagementError("Employee belum memiliki User", 409);
+      }
+
+      rejectNonSsoAdmin(user);
+
+      if (action.action === "REVOKE_ADMIN") {
+        rejectSelfAction(actorId, user.id);
+
+        return tx.user.update({
+          where: { id: user.id },
+          data: { role: "VIEWER", isActive: false },
+          select: employeeAdminActionUserSelect,
+        });
+      }
+
+      if (!action.isActive) {
+        rejectSelfAction(actorId, user.id);
+      } else if (!isEmploymentActive(employee)) {
+        throw new UserManagementError(
+          "Employee tidak memenuhi syarat status kepegawaian aktif",
+          422,
+        );
+      } else if (!employee.isPresentInSource) {
+        throw new UserManagementError(
+          "Employee tidak ditemukan pada source terbaru",
+          422,
+        );
+      }
+
+      return tx.user.update({
+        where: { id: user.id },
+        data: { isActive: action.isActive },
+        select: employeeAdminActionUserSelect,
+      });
     },
-    select: userSelect,
-  });
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    },
+  );
 }

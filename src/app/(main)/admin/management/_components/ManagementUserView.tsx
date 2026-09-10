@@ -6,14 +6,35 @@ import { usePicMutation } from "@/hooks/usePicMutation";
 import { useUnitList } from "@/hooks/useUnitList";
 import { UserWithUnit } from "@/types/user.types";
 import { useOverlayState } from "@heroui/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  getEmployeeManagementDeepLinkWarning,
+  parseEmployeeManagementDeepLink,
+} from "@/lib/employee-management-actions";
 import ModalAddPic from "./ModalAddPIC";
 import ModalConfirmAction from "./ModalConfirmAction";
 import SelectUnitType from "./SelectUnitType";
 import UnitListPanel from "./UnitListPanel";
 import UserTablePanel from "./UserTablePanel";
 
-export default function ManagementUserView() {
+interface ManagementUserViewProps {
+  deepLinkParams?: {
+    unitId?: string;
+    nip?: string;
+    unitType?: string;
+  };
+}
+
+export default function ManagementUserView({
+  deepLinkParams = {},
+}: ManagementUserViewProps) {
+  const deepLinkSearchParams = new URLSearchParams();
+  if (deepLinkParams.unitId) deepLinkSearchParams.set("unitId", deepLinkParams.unitId);
+  if (deepLinkParams.nip) deepLinkSearchParams.set("nip", deepLinkParams.nip);
+  if (deepLinkParams.unitType) deepLinkSearchParams.set("unitType", deepLinkParams.unitType);
+  const deepLink = parseEmployeeManagementDeepLink(deepLinkSearchParams);
+  const deepLinkWarning = getEmployeeManagementDeepLinkWarning(deepLinkSearchParams);
+  const appliedDeepLink = useRef<string | null>(null);
   const [selectedUnitType, setSelectedUnitType] = useState<string>("KANWIL");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("ALL");
 
@@ -35,25 +56,76 @@ export default function ManagementUserView() {
     action: null,
     user: null,
   });
+  const [deepLinkMessage, setDeepLinkMessage] = useState<string | null>(
+    deepLinkWarning,
+  );
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const stateModal = useOverlayState();
 
   const { units, isLoading: isLoadingUnits } = useUnitList(selectedUnitType);
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
 
+  useEffect(() => {
+    if (deepLinkWarning) {
+      setDeepLinkMessage(deepLinkWarning);
+      return;
+    }
+
+    if (!deepLink) {
+      setDeepLinkMessage(null);
+      return;
+    }
+
+    if (!deepLink || appliedDeepLink.current === `${deepLink.unitId}:${deepLink.nip}`) {
+      return;
+    }
+
+    if (deepLink.unitType && deepLink.unitType !== selectedUnitType) {
+      setSelectedUnitType(deepLink.unitType);
+      setSelectedUnitId("ALL");
+      setUserSearch("");
+      setUserPage(1);
+      return;
+    }
+
+    const verifiedUnit = units.find((unit) => unit.id === deepLink.unitId);
+    if (!verifiedUnit) {
+      if (!isLoadingUnits) {
+        setDeepLinkMessage(
+          "Unit pada deep-link tidak ditemukan untuk tipe unit tersebut; silakan pilih unit secara manual.",
+        );
+      }
+      return;
+    }
+
+    appliedDeepLink.current = `${deepLink.unitId}:${deepLink.nip}`;
+    setDeepLinkMessage(null);
+    setSelectedUnitId(verifiedUnit.id);
+    setUserSearch(deepLink.nip);
+    setUserPage(1);
+  }, [deepLink, deepLinkWarning, isLoadingUnits, selectedUnitType, units]);
+
   const {
     users,
     pagination,
     isLoading: isLoadingUsers,
+    refetch: refetchUsers,
   } = useManagementUsers({
     unitId: selectedUnit?.id ?? "",
     search: userSearch,
     page: userPage,
   });
 
-  const { deleteUser, isDeleting, toggleStatus, isUpdatingStatus } =
+  const {
+    releasePicAsync,
+    isDeleting,
+    toggleStatusAsync,
+    isUpdatingStatus,
+  } =
     usePicMutation();
 
   const handleDeleteUser = (user: UserWithUnit) => {
+    setConfirmError(null);
     setConfirmModal({
       isOpen: true,
       action: "DELETE",
@@ -62,6 +134,7 @@ export default function ManagementUserView() {
   };
 
   const handleToggleStatus = async (user: UserWithUnit, newStatus: boolean) => {
+    setConfirmError(null);
     setConfirmModal({
       isOpen: true,
       action: "TOGGLE_STATUS",
@@ -107,13 +180,22 @@ export default function ManagementUserView() {
   const executeConfirmAction = async () => {
     if (!confirmModal.user) return;
 
-    if (confirmModal.action === "TOGGLE_STATUS") {
-      await toggleStatus({
-        userId: confirmModal.user.id,
-        isActive: confirmModal.newStatus!,
-      });
-    } else if (confirmModal.action === "DELETE") {
-      await deleteUser(confirmModal.user.id);
+    try {
+      if (confirmModal.action === "TOGGLE_STATUS") {
+        await toggleStatusAsync({
+          userId: confirmModal.user.id,
+          isActive: confirmModal.newStatus!,
+        });
+      } else if (confirmModal.action === "DELETE") {
+        await releasePicAsync(confirmModal.user.id);
+      }
+
+      await refetchUsers();
+    } catch (error) {
+      setConfirmError(
+        error instanceof Error ? error.message : "Aksi PIC gagal dilakukan",
+      );
+      return;
     }
 
     // Tutup modal & reset state
@@ -122,12 +204,13 @@ export default function ManagementUserView() {
       action: null,
       user: null,
     });
+    setConfirmError(null);
   };
   return (
     <div className="flex flex-col gap-6 h-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <AppBar
-          title="User Management"
+          title="Manajemen PIC"
           description="Kelola PIC unit kerja BULOG — Kanwil, Kancab, dan Divisi"
           showAddButton={false}
         />
@@ -138,6 +221,12 @@ export default function ManagementUserView() {
           className="w-full sm:min-w-72"
         />
       </div>
+
+      {deepLinkMessage && (
+        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {deepLinkMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,32%)_1fr] gap-4">
         <UnitListPanel
@@ -182,20 +271,22 @@ export default function ManagementUserView() {
 
       <ModalConfirmAction
         isOpen={confirmModal.isOpen}
-        onClose={() =>
-          setConfirmModal({ isOpen: false, action: null, user: null })
-        }
+        onClose={() => {
+          setConfirmError(null);
+          setConfirmModal({ isOpen: false, action: null, user: null });
+        }}
         onConfirm={executeConfirmAction}
         isLoading={
           isUpdatingStatus === confirmModal.user?.id ||
           isDeleting === confirmModal.user?.id
         }
+        error={confirmError}
         title={
           confirmModal.action === "TOGGLE_STATUS"
             ? confirmModal.newStatus
               ? "Aktifkan PIC"
               : "Nonaktifkan PIC"
-            : "Hapus PIC"
+            : "Lepas PIC"
         }
         description={
           confirmModal.action === "TOGGLE_STATUS" ? (
@@ -208,9 +299,9 @@ export default function ManagementUserView() {
             </span>
           ) : (
             <span>
-              Apakah Anda yakin ingin menghapus PIC{" "}
-              <strong>{confirmModal.user?.name}</strong> secara permanen? Aksi
-              ini tidak dapat dibatalkan.
+              Apakah Anda yakin ingin melepas PIC{" "}
+              <strong>{confirmModal.user?.name}</strong>? User tetap tersimpan,
+              role menjadi VIEWER, akun nonaktif, Employee link tetap ada.
             </span>
           )
         }
@@ -219,7 +310,7 @@ export default function ManagementUserView() {
             ? confirmModal.newStatus
               ? "Ya, Aktifkan"
               : "Ya, Nonaktifkan"
-            : "Ya, Hapus"
+            : "Ya, Lepas PIC"
         }
       />
     </div>

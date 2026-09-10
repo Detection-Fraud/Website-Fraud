@@ -1,8 +1,6 @@
 import { handleApiError, requireAdmin } from "@/lib/api/auth-guard";
-import { prisma } from "@/lib/prisma";
-import { errorResponse, successResponse } from "@/lib/response";
+import { successResponse } from "@/lib/response";
 import { searchActivePics, searchPicCandidates } from "@/lib/user-management";
-import { Prisma, Role } from "@generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {

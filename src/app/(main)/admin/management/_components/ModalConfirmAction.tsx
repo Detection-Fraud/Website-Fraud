@@ -13,6 +13,7 @@ interface ModalConfirmActionProps {
   confirmText?: string;
   confirmColor?: string;
   isDanger?: boolean;
+  error?: string | null;
 }
 
 export default function ModalConfirmAction({
@@ -25,6 +26,7 @@ export default function ModalConfirmAction({
   confirmText = "Ya, Lanjutkan",
   confirmColor,
   isDanger = false,
+  error = null,
 }: ModalConfirmActionProps) {
   const isDangerAction = isDanger || confirmColor === "danger";
   return (
@@ -51,6 +53,12 @@ export default function ModalConfirmAction({
               <div className="text-sm text-slate-600 leading-relaxed space-y-1">
                 {description}
               </div>
+
+              {error && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                  {error}
+                </p>
+              )}
 
               <div className="flex gap-2.5 pt-6">
                 <Button
