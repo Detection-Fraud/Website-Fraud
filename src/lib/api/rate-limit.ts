@@ -4,6 +4,31 @@ interface RateLimitStore {
 }
 
 const store = new Map<string, RateLimitStore>();
+const MAX_RATE_LIMIT_ENTRIES = 4096;
+
+function pruneExpiredEntries(now: number): void {
+  for (const [key, value] of store) {
+    if (value.resetAt <= now) {
+      store.delete(key);
+    }
+  }
+}
+
+function evictEarliestEntry(): void {
+  let earliestKey: string | null = null;
+  let earliestResetAt = Number.POSITIVE_INFINITY;
+
+  for (const [key, value] of store) {
+    if (value.resetAt < earliestResetAt) {
+      earliestKey = key;
+      earliestResetAt = value.resetAt;
+    }
+  }
+
+  if (earliestKey) {
+    store.delete(earliestKey);
+  }
+}
 
 if (typeof setInterval !== "undefined") {
   const cleanupTimer = setInterval(() => {
@@ -48,10 +73,15 @@ export function checkRateLimit(
 
   const key = `${prefix}:${ip}`;
   const now = Date.now();
+  pruneExpiredEntries(now);
 
   const existing = store.get(key);
 
   if (!existing || existing.resetAt <= now) {
+    if (!existing && store.size >= MAX_RATE_LIMIT_ENTRIES) {
+      evictEarliestEntry();
+    }
+
     store.set(key, { count: 1, resetAt: now + windowMs });
     return { success: true, remaining: max - 1, resetAt: now + windowMs };
   }

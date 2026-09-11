@@ -5,6 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import { authConfig } from "./auth.config";
 import jwt from "jsonwebtoken";
 import { evaluateAuthPolicy } from "@/lib/auth-policy";
+import { isLocalCredentialRateLimited } from "@/lib/local-credential-rate-limit";
 import { consumeCredential } from "@/lib/sso-token-store";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -17,7 +18,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
 
-      async authorize(credentials) {
+      async authorize(credentials, request) {
+        if (isLocalCredentialRateLimited(request, credentials?.username)) {
+          return null;
+        }
+
         if (!credentials?.username || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
