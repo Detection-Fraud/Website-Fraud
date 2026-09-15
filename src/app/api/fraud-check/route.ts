@@ -110,10 +110,22 @@ export async function POST(request: Request) {
     });
 
     if (!pythonResponse.ok) {
+      const headers = new Headers();
+      if (pythonResponse.status === 429) {
+        const retryAfter = pythonResponse.headers.get("Retry-After")?.trim();
+        if (retryAfter && /^(?:[1-9]|[1-5]\d|60)$/.test(retryAfter)) {
+          headers.set("Retry-After", retryAfter);
+        }
+      }
+
       return NextResponse.json(
-        errorResponse("Gagal memproses data di Python AI", 500),
+        errorResponse(
+          "Gagal memproses data di Python AI",
+          pythonResponse.status,
+        ),
         {
           status: pythonResponse.status,
+          headers,
         },
       );
     }

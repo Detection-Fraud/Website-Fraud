@@ -46,8 +46,12 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void) {
         }
       });
     },
-    onError: (_, imagesToCheck) => {
-      toast.danger("Terjadi kesalahan saat mengecek fraud. Silakan coba lagi.");
+    onError: (error: any, imagesToCheck) => {
+      const message =
+        error?.response?.status === 429
+          ? "Analisis sedang penuh. Silakan coba lagi beberapa saat."
+          : "Terjadi kesalahan saat mengecek fraud. Silakan coba lagi.";
+      toast.danger(message);
       imagesToCheck.forEach((img) =>
         imageStore.updateImageStatus(img.id, "IDLE"),
       );
