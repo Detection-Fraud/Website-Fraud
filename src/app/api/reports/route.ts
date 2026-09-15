@@ -1,4 +1,9 @@
-import { ApiError, handleApiError, requireAuth, requirePic } from "@/lib/api/auth-guard";
+import {
+  ApiError,
+  handleApiError,
+  requireAuth,
+  requirePic,
+} from "@/lib/api/auth-guard";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +11,10 @@ import {
   isActivityDateInsideProgram,
   isProgramUploadOpen,
 } from "@/lib/program-period";
-import { getCapabilityError, requiresEvidence } from "@/lib/program-capabilities";
+import {
+  getCapabilityError,
+  requiresEvidence,
+} from "@/lib/program-capabilities";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
 import { programPurposeSchema } from "@/schemas/category-query.schema";
 import { createReportSchema } from "@/schemas/report.schema";
@@ -34,6 +42,13 @@ export async function GET(request: NextRequest) {
       );
     }
     const purpose = purposeResult.data;
+    const sortMode = searchParams.get("sortMode");
+    if (sortMode !== null && sortMode !== "APPROVAL") {
+      return NextResponse.json(
+        errorResponse("Sort mode laporan tidak valid", 400),
+        { status: 400 },
+      );
+    }
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const limit = Math.min(100, parseInt(searchParams.get("limit") || "10"));
     const search = searchParams.get("search") || "";
@@ -106,12 +121,20 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit;
     const requestedSortOrder = searchParams.get("sortOrder");
-    const sortOrder = requestedSortOrder === "desc" ? "desc" : "asc";
+    const sortOrder: Prisma.SortOrder =
+      requestedSortOrder === "desc" ? "desc" : "asc";
+    const orderBy: Prisma.ActivityReportOrderByWithRelationInput[] =
+      sortMode === "APPROVAL"
+        ? statusFilter === "PENDING"
+          ? [{ lastSubmittedAt: "asc" }, { id: "asc" }]
+          : [{ updatedAt: "desc" }, { id: "desc" }]
+        : [{ createdAt: sortOrder }, { id: sortOrder }];
+
     const [total, reports] = await Promise.all([
       prisma.activityReport.count({ where: whereClause }),
       prisma.activityReport.findMany({
         where: whereClause,
-        orderBy: [{ createdAt: sortOrder }, { id: sortOrder }],
+        orderBy,
         include: {
           unit: {
             select: {
@@ -183,7 +206,10 @@ export async function POST(request: Request) {
 
     if (!user.unitId) {
       return NextResponse.json(
-        errorResponse("Akun PIC wajib terhubung dengan unit kerja yang valid", 403),
+        errorResponse(
+          "Akun PIC wajib terhubung dengan unit kerja yang valid",
+          403,
+        ),
         { status: 403 },
       );
     }
@@ -205,7 +231,11 @@ export async function POST(request: Request) {
     if (!parsedData.success) {
       const errorMessage = formatZodError(parsedData.error);
       return NextResponse.json(
-        errorResponse(`Validasi gagal: ${errorMessage}`, 400, z.treeifyError(parsedData.error)),
+        errorResponse(
+          `Validasi gagal: ${errorMessage}`,
+          400,
+          z.treeifyError(parsedData.error),
+        ),
         { status: 400 },
       );
     }
@@ -225,19 +255,23 @@ export async function POST(request: Request) {
     });
 
     if (!programData || !programData.category) {
-      return NextResponse.json(errorResponse("Program tidak ditemukan", 404), { status: 404 });
+      return NextResponse.json(errorResponse("Program tidak ditemukan", 404), {
+        status: 404,
+      });
     }
 
     if (!programData.isActive) {
-      return NextResponse.json(errorResponse("Program sedang tidak aktif", 400), { status: 400 });
+      return NextResponse.json(
+        errorResponse("Program sedang tidak aktif", 400),
+        { status: 400 },
+      );
     }
 
     const capabilityError = getCapabilityError(programData.category);
     if (capabilityError) {
-      return NextResponse.json(
-        errorResponse(capabilityError, 422),
-        { status: 422 },
-      );
+      return NextResponse.json(errorResponse(capabilityError, 422), {
+        status: 422,
+      });
     }
     if (!requiresEvidence(programData.category)) {
       return NextResponse.json(
@@ -263,6 +297,7 @@ export async function POST(request: Request) {
     const category = programData.category;
 
     const result = await prisma.$transaction(async (tx) => {
+      const submittedAt = new Date();
       if (category.scoreInputMode === "DIRECT_ADMIN") {
         await tx.$queryRaw(
           Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`direct-report:${user.unitId}:${programId}`}))::text`,
@@ -273,7 +308,10 @@ export async function POST(request: Request) {
         });
 
         if (existingReport) {
-          throw new ApiError("Unit Anda sudah pernah mengunggah bukti untuk program ini", 409);
+          throw new ApiError(
+            "Unit Anda sudah pernah mengunggah bukti untuk program ini",
+            409,
+          );
         }
       }
 
@@ -286,6 +324,7 @@ export async function POST(request: Request) {
           programId,
           unitId: user.unitId!,
           createdById: user.id,
+          lastSubmittedAt: submittedAt,
           photos: {
             create:
               uploadedPhotos?.map((photo: UploadedPhoto) => ({
@@ -296,6 +335,7 @@ export async function POST(request: Request) {
           logs: {
             create: {
               action: "SUBMITTED",
+              createdAt: submittedAt,
               notes: null,
               actorId: user.id,
               actorName: user.name,
@@ -310,9 +350,12 @@ export async function POST(request: Request) {
       });
     });
 
-    return NextResponse.json(successResponse(result, "Laporan berhasil dibuat", 201), {
-      status: 201,
-    });
+    return NextResponse.json(
+      successResponse(result, "Laporan berhasil dibuat", 201),
+      {
+        status: 201,
+      },
+    );
   } catch (error: unknown) {
     return handleApiError(error, "POST /api/reports");
   }

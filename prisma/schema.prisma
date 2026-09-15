@@ -344,6 +344,7 @@ model ActivityReport {
 
   status ReportStatus @default(PENDING)
 
+  lastSubmittedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -362,6 +363,7 @@ model ActivityReport {
   @@index([programId])
   @@index([tanggalKegiatan])
   @@index([status, unitId])
+  @@index([status, lastSubmittedAt, id])
   @@index([unitId, programId, tanggalKegiatan])
 }
 

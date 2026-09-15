@@ -63,7 +63,11 @@ export default function ApprovalView() {
     handleKancabChange,
     handleDivisiChange,
     handlePageChange,
-  } = useReportList({ defaultStatus: "PENDING", purpose: "EVIDENCE" });
+  } = useReportList({
+    defaultStatus: "PENDING",
+    purpose: "EVIDENCE",
+    sortMode: "APPROVAL",
+  });
 
   const { handleApprove } = useApproval();
 

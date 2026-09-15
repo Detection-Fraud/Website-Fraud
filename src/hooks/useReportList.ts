@@ -29,6 +29,7 @@ export type ReportScope = (typeof REPORT_SCOPES)[number];
 interface UseReportListOptions {
   defaultStatus?: ReportStatusFilter;
   purpose?: "EVIDENCE" | "ALL";
+  sortMode?: "APPROVAL";
 }
 
 export interface PaginationInfo {
@@ -89,6 +90,7 @@ export function getCategoryUpdates(categoryId: string) {
 export function useReportList({
   defaultStatus = "ALL",
   purpose = "ALL",
+  sortMode,
 }: UseReportListOptions = {}) {
   const {
     updateParams,
@@ -136,6 +138,7 @@ export function useReportList({
     search,
     status: statusFilter,
     purpose,
+    ...(sortMode ? { sortMode } : {}),
     categoryId: categoryFilter !== "ALL" ? categoryFilter : undefined,
     programId: programFilter !== "ALL" ? programFilter : undefined,
     kanwilId,

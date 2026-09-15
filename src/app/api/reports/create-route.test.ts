@@ -3,15 +3,26 @@ import { before, beforeEach, mock, test } from "node:test";
 import { NextRequest } from "next/server";
 
 class TestApiError extends Error {
-  constructor(message: string, public status: number) {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
     super(message);
   }
 }
 
 const authMock = mock.fn(async () => ({
-  user: { id: "pic-1", name: "PIC", role: "PIC", unitId: "unit-1" as string | null },
+  user: {
+    id: "pic-1",
+    name: "PIC",
+    role: "PIC",
+    unitId: "unit-1" as string | null,
+  },
 }));
-const userFindFirstMock = mock.fn(async () => ({ id: "pic-1", unitId: "unit-1" }));
+const userFindFirstMock = mock.fn(async () => ({
+  id: "pic-1",
+  unitId: "unit-1",
+}));
 const programFindUniqueMock = mock.fn(async () => ({
   isActive: true,
   startDate: new Date("2026-01-01"),
@@ -24,10 +35,16 @@ const programFindUniqueMock = mock.fn(async () => ({
   },
 }));
 let created = false;
-const reportFindFirstMock = mock.fn(async () => (created ? { id: "report-1" } : null as { id: string } | null));
+const reportFindFirstMock = mock.fn(async () =>
+  created ? { id: "report-1" } : (null as { id: string } | null),
+);
 const reportCreateMock = mock.fn(async () => {
   created = true;
-  return { id: "report-1", photos: [], createdBy: { id: "pic-1", name: "PIC" } };
+  return {
+    id: "report-1",
+    photos: [],
+    createdBy: { id: "pic-1", name: "PIC" },
+  };
 });
 const queryRawMock = mock.fn(async () => undefined);
 let transactionTail = Promise.resolve();
@@ -35,7 +52,10 @@ const transactionMock = mock.fn(async (callback: (tx: unknown) => unknown) => {
   const run = transactionTail.then(() =>
     callback({
       $queryRaw: queryRawMock,
-      activityReport: { findFirst: reportFindFirstMock, create: reportCreateMock },
+      activityReport: {
+        findFirst: reportFindFirstMock,
+        create: reportCreateMock,
+      },
     }),
   );
   transactionTail = run.then(
@@ -46,13 +66,15 @@ const transactionMock = mock.fn(async (callback: (tx: unknown) => unknown) => {
 });
 const rateLimitMock = mock.fn(() => ({ success: true }));
 const rateLimitResponseMock = mock.fn();
-const errorResponseMock = mock.fn((message: string, status: number, data: unknown = null) => ({
-  success: false,
-  error: true,
-  status,
-  message,
-  data,
-}));
+const errorResponseMock = mock.fn(
+  (message: string, status: number, data: unknown = null) => ({
+    success: false,
+    error: true,
+    status,
+    message,
+    data,
+  }),
+);
 const successResponseMock = mock.fn((data: unknown, message: string) => ({
   success: true,
   error: false,
@@ -79,9 +101,14 @@ mock.module("@/lib/api/auth-guard", {
   },
 });
 mock.module("@/lib/api/rate-limit", {
-  namedExports: { checkRateLimit: rateLimitMock, rateLimitResponse: rateLimitResponseMock },
+  namedExports: {
+    checkRateLimit: rateLimitMock,
+    rateLimitResponse: rateLimitResponseMock,
+  },
 });
-mock.module("@/lib/api/unit-scope", { namedExports: { resolveScope: mock.fn() } });
+mock.module("@/lib/api/unit-scope", {
+  namedExports: { resolveScope: mock.fn() },
+});
 mock.module("@/lib/prisma", {
   namedExports: {
     prisma: {
@@ -106,7 +133,12 @@ mock.module("@/lib/response", {
 });
 mock.module("@generated/prisma", {
   namedExports: {
-    Prisma: { sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }) },
+    Prisma: {
+      sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+        strings,
+        values,
+      }),
+    },
   },
 });
 
@@ -123,9 +155,17 @@ beforeEach(() => {
   transactionTail = Promise.resolve();
   created = false;
   authMock.mock.mockImplementation(async () => ({
-    user: { id: "pic-1", name: "PIC", role: "PIC", unitId: "unit-1" as string | null },
+    user: {
+      id: "pic-1",
+      name: "PIC",
+      role: "PIC",
+      unitId: "unit-1" as string | null,
+    },
   }));
-  userFindFirstMock.mock.mockImplementation(async () => ({ id: "pic-1", unitId: "unit-1" }));
+  userFindFirstMock.mock.mockImplementation(async () => ({
+    id: "pic-1",
+    unitId: "unit-1",
+  }));
   programFindUniqueMock.mock.mockImplementation(async () => ({
     isActive: true,
     startDate: new Date("2026-01-01"),
@@ -137,12 +177,18 @@ beforeEach(() => {
       scoreInputMode: "DIRECT_ADMIN",
     },
   }));
-  reportFindFirstMock.mock.mockImplementation(async () => (created ? { id: "report-1" } : null));
+  reportFindFirstMock.mock.mockImplementation(async () =>
+    created ? { id: "report-1" } : null,
+  );
   isProgramUploadOpenMock.mock.mockImplementation(() => true);
   isActivityDateInsideProgramMock.mock.mockImplementation(() => true);
 });
 
-function request(photos: number, programId = "11111111-1111-4111-8111-111111111111") {
+function request(
+  photos: number,
+  programId = "11111111-1111-4111-8111-111111111111",
+  lastSubmittedAt?: string,
+) {
   return new NextRequest("http://localhost/api/reports", {
     method: "POST",
     body: JSON.stringify({
@@ -151,6 +197,7 @@ function request(photos: number, programId = "11111111-1111-4111-8111-1111111111
       lokasi: "Aula",
       description: "Dokumentasi kegiatan budaya",
       programId,
+      ...(lastSubmittedAt ? { lastSubmittedAt } : {}),
       uploadedPhotos: Array.from({ length: photos }, (_, index) => ({
         originalName: `foto-${index}.jpg`,
         imageUrl: `/uploads/foto-${index}.jpg`,
@@ -192,6 +239,40 @@ test("menerima tepat satu atau dua foto, menolak nol atau tiga foto", async () =
   assert.equal((await POST(request(2))).status, 201);
 });
 
+test("mengesampingkan lastSubmittedAt dari request client dan memakai timestamp server", async () => {
+  const clientSubmittedAt = "2000-01-01T00:00:00.000Z";
+  const response = await POST(
+    request(1, "11111111-1111-4111-8111-111111111111", clientSubmittedAt),
+  );
+
+  assert.equal(response.status, 201);
+
+  const createArgs = (reportCreateMock.mock.calls.at(-1) as any)?.arguments[0];
+  const reportTimestamp = createArgs?.data?.lastSubmittedAt;
+
+  assert.ok(reportTimestamp instanceof Date);
+  assert.notEqual(reportTimestamp.toISOString(), clientSubmittedAt);
+});
+
+test("menggunakan satu timestamp untuk report dan log SUBMITTED", async () => {
+  const response = await POST(request(1));
+
+  assert.equal(response.status, 201);
+
+  const createArgs = (reportCreateMock.mock.calls.at(-1) as any)?.arguments[0];
+  const data = createArgs?.data;
+  const reportTimestamp = data?.lastSubmittedAt;
+  const submittedLog = data?.logs?.create;
+
+  assert.ok(reportTimestamp instanceof Date);
+  assert.strictEqual(submittedLog.createdAt, reportTimestamp);
+  assert.equal(submittedLog.action, "SUBMITTED");
+  assert.equal(submittedLog.notes, null);
+  assert.equal(submittedLog.actorId, "pic-1");
+  assert.equal(submittedLog.actorName, "PIC");
+  assert.equal(submittedLog.actorRole, "PIC");
+});
+
 test("hanya evidence capability yang diterima dan duplicate berlaku untuk semua status", async () => {
   programFindUniqueMock.mock.mockImplementation(async () => ({
     isActive: true,
@@ -229,7 +310,10 @@ test("hanya evidence capability yang diterima dan duplicate berlaku untuk semua 
     assert.deepEqual(
       (reportFindFirstMock.mock.calls.at(-1) as any)?.arguments[0],
       {
-        where: { unitId: "unit-1", programId: "11111111-1111-4111-8111-111111111111" },
+        where: {
+          unitId: "unit-1",
+          programId: "11111111-1111-4111-8111-111111111111",
+        },
         select: { id: true },
       },
     );
@@ -255,7 +339,10 @@ test("menolak tuple capability invalid meskipun evidence mode tersedia", async (
 
 test("parallel direct-admin create menghasilkan satu report dan satu loser 409", async () => {
   const responses = await Promise.all([POST(request(1)), POST(request(1))]);
-  assert.deepEqual(responses.map((response) => response.status).sort(), [201, 409]);
+  assert.deepEqual(
+    responses.map((response) => response.status).sort(),
+    [201, 409],
+  );
   assert.equal(reportCreateMock.mock.callCount(), 1);
   assert.equal(transactionMock.mock.callCount(), 2);
 });

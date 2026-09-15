@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import { before, beforeEach, describe, it, mock } from "node:test";
 import { NextRequest } from "next/server";
 
+class TestApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+
 type ReportStatus = "PENDING" | "APPROVED" | "REJECTED";
 type CategoryCapability = {
   targetUnit: "KEGIATAN" | "PARTISIPASI_PERSEN";
@@ -20,6 +29,7 @@ const directAdminCapability: CategoryCapability = {
 
 let reportStatus: ReportStatus;
 let reportNotes: string | null;
+let reportLastSubmittedAt: Date;
 let categoryCapability: CategoryCapability;
 let transitionCount: number;
 let logs: Array<Record<string, unknown>>;
@@ -27,6 +37,15 @@ let logs: Array<Record<string, unknown>>;
 const authMock = mock.fn<(...args: any[]) => Promise<any>>(
   async () => adminSession,
 );
+const requireAdminMock = mock.fn<(...args: any[]) => Promise<any>>(async () => {
+  const session = await authMock();
+
+  if (session?.user?.role !== "ADMIN") {
+    throw new TestApiError("Hanya Admin yang dapat mengakses", 403);
+  }
+
+  return session;
+});
 const updateManyMock = mock.fn<(...args: any[]) => Promise<any>>(async (args: any) => {
   if (
     args.where.id !== "report-1" ||
@@ -37,6 +56,9 @@ const updateManyMock = mock.fn<(...args: any[]) => Promise<any>>(async (args: an
 
   reportStatus = args.data.status;
   reportNotes = args.data.notes;
+  if ("lastSubmittedAt" in args.data) {
+    reportLastSubmittedAt = args.data.lastSubmittedAt;
+  }
   transitionCount += 1;
   return { count: 1 };
 });
@@ -62,6 +84,24 @@ const transactionMock = mock.fn<(...args: any[]) => Promise<any>>(
 );
 
 mock.module("@/auth", { namedExports: { auth: authMock } });
+mock.module("@/lib/api/auth-guard", {
+  namedExports: {
+    ApiError: TestApiError,
+    requireAdmin: requireAdminMock,
+    handleApiError: (error: unknown) =>
+      Response.json(
+        {
+          success: false,
+          error: true,
+          status: error instanceof TestApiError ? error.status : 500,
+          message:
+            error instanceof TestApiError ? error.message : "internal",
+          data: null,
+        },
+        { status: error instanceof TestApiError ? error.status : 500 },
+      ),
+  },
+});
 mock.module("@/lib/prisma", {
   namedExports: { prisma: { $transaction: transactionMock } },
 });
@@ -77,6 +117,7 @@ before(async () => {
 
 beforeEach(() => {
   authMock.mock.resetCalls();
+  requireAdminMock.mock.resetCalls();
   updateManyMock.mock.resetCalls();
   logCreateMock.mock.resetCalls();
   findUniqueMock.mock.resetCalls();
@@ -84,6 +125,7 @@ beforeEach(() => {
   authMock.mock.mockImplementation(async () => adminSession);
   reportStatus = "PENDING";
   reportNotes = null;
+  reportLastSubmittedAt = new Date("2026-06-01T12:00:00.000Z");
   categoryCapability = directAdminCapability;
   transitionCount = 0;
   logs = [];
@@ -128,6 +170,7 @@ describe("PATCH /api/reports/[id]/status", () => {
   });
 
   it("menghasilkan exact nextAction hanya untuk capability direct-admin", async () => {
+    const originalLastSubmittedAt = reportLastSubmittedAt;
     const response = await run({ status: "APPROVED" });
     const body = await responseBody(response);
 
@@ -144,6 +187,7 @@ describe("PATCH /api/reports/[id]/status", () => {
       where: { id: "report-1", status: "PENDING" },
       data: { status: "APPROVED", notes: null },
     });
+    assert.equal(reportLastSubmittedAt, originalLastSubmittedAt);
     assert.equal(transitionCount, 1);
     assert.equal(logs.length, 1);
   });
@@ -179,12 +223,18 @@ describe("PATCH /api/reports/[id]/status", () => {
 
   it("menyimpan rejection note pada satu transisi dan satu log", async () => {
     const notes = "Bukti kegiatan belum menunjukkan peserta dengan jelas";
+    const originalLastSubmittedAt = reportLastSubmittedAt;
     const response = await run({ status: "REJECTED", notes });
     const body = await responseBody(response);
 
     assert.equal(response.status, 200);
     assert.equal(reportStatus, "REJECTED");
     assert.equal(reportNotes, notes);
+    assert.deepEqual((updateManyMock.mock.calls as any)[0].arguments[0], {
+      where: { id: "report-1", status: "PENDING" },
+      data: { status: "REJECTED", notes },
+    });
+    assert.equal(reportLastSubmittedAt, originalLastSubmittedAt);
     assert.equal(transitionCount, 1);
     assert.equal(logs.length, 1);
     assert.deepEqual(logs[0], {

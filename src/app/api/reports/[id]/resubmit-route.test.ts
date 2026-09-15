@@ -3,7 +3,10 @@ import { before, beforeEach, mock, test } from "node:test";
 import { NextRequest } from "next/server";
 
 class TestApiError extends Error {
-  constructor(message: string, public status: number) {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
     super(message);
   }
 }
@@ -18,7 +21,13 @@ const reportFindUniqueMock = mock.fn(async () => ({
   programId: "program-1",
   status: "REJECTED",
   tanggalKegiatan: new Date("2026-06-01"),
-  photos: [{ id: "old-photo", publicId: null, imageUrl: "https://example.test/old.jpg" }],
+  photos: [
+    {
+      id: "old-photo",
+      publicId: null,
+      imageUrl: "https://example.test/old.jpg",
+    },
+  ],
 }));
 const userFindFirstMock = mock.fn(async () => ({ id: "pic-1" }));
 const programFindUniqueMock = mock.fn(async () => ({
@@ -32,19 +41,38 @@ const programFindUniqueMock = mock.fn(async () => ({
     scoreInputMode: "DIRECT_ADMIN",
   },
 }));
+const updateManyMock = mock.fn(async () => ({ count: 1 }));
 const updateMock = mock.fn(async () => ({ id: "report-1", status: "PENDING" }));
+const activityReportCreateMock = mock.fn(async () => ({ id: "report-new" }));
 const logCreateMock = mock.fn(async () => ({ id: "log-1" }));
 const deleteManyMock = mock.fn(async () => ({ count: 1 }));
 const queryRawMock = mock.fn(async () => undefined);
-const transactionMock = mock.fn(async (callback: (tx: unknown) => unknown) =>
-  callback({
-    $queryRaw: queryRawMock,
-    activityReport: { findFirst: mock.fn(async () => null), update: updateMock },
-    activityPhoto: { deleteMany: deleteManyMock },
-    activityLog: { create: logCreateMock },
-  }),
-);
-const errorResponseMock = (message: string, status: number, data: unknown = null) => ({
+let transactionRollbackCount = 0;
+
+const transactionMock = mock.fn(async (callback: (tx: unknown) => unknown) => {
+  try {
+    return await callback({
+      $queryRaw: queryRawMock,
+      activityReport: {
+        findFirst: mock.fn(async () => null),
+        updateMany: updateManyMock,
+        update: updateMock,
+        create: activityReportCreateMock,
+      },
+      activityPhoto: { deleteMany: deleteManyMock },
+      activityLog: { create: logCreateMock },
+    });
+  } catch (error) {
+    transactionRollbackCount += 1;
+    throw error;
+  }
+});
+
+const errorResponseMock = (
+  message: string,
+  status: number,
+  data: unknown = null,
+) => ({
   success: false,
   error: true,
   status,
@@ -101,24 +129,36 @@ mock.module("@/lib/response", {
 mock.module("@generated/prisma", {
   namedExports: {
     Prisma: {
-      sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+      sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+        strings,
+        values,
+      }),
       validator: () => (select: unknown) => select,
     },
   },
 });
-mock.module("fs/promises", { namedExports: { unlink: mock.fn(async () => undefined) } });
+mock.module("fs/promises", {
+  namedExports: { unlink: mock.fn(async () => undefined) },
+});
 
-let PUT: (request: NextRequest, context: { params: Promise<{ id: string }> }) => Promise<Response>;
+let PUT: (
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) => Promise<Response>;
 before(async () => ({ PUT } = await import("./route")));
 beforeEach(() => {
   authMock.mock.resetCalls();
   reportFindUniqueMock.mock.resetCalls();
   userFindFirstMock.mock.resetCalls();
   programFindUniqueMock.mock.resetCalls();
+  updateManyMock.mock.resetCalls();
   updateMock.mock.resetCalls();
+  activityReportCreateMock.mock.resetCalls();
   logCreateMock.mock.resetCalls();
   deleteManyMock.mock.resetCalls();
   transactionMock.mock.resetCalls();
+  transactionRollbackCount = 0;
+  updateManyMock.mock.mockImplementation(async () => ({ count: 1 }));
   reportFindUniqueMock.mock.mockImplementation(async () => ({
     id: "report-1",
     createdById: "pic-1",
@@ -126,33 +166,46 @@ beforeEach(() => {
     programId: "program-1",
     status: "REJECTED",
     tanggalKegiatan: new Date("2026-06-01"),
-    photos: [{ id: "old-photo", publicId: null, imageUrl: "https://example.test/old.jpg" }],
+    photos: [
+      {
+        id: "old-photo",
+        publicId: null,
+        imageUrl: "https://example.test/old.jpg",
+      },
+    ],
   }));
   userFindFirstMock.mock.mockImplementation(async () => ({ id: "pic-1" }));
   isProgramUploadOpenMock.mock.mockImplementation(() => true);
   isActivityDateInsideProgramMock.mock.mockImplementation(() => true);
 });
 
-function request(photos: number) {
+function request(photos: number, clientLastSubmittedAt?: string) {
+  const body = {
+    activityName: "Kegiatan budaya",
+    tanggalKegiatan: "2026-06-01",
+    lokasi: "Aula",
+    description: "Dokumentasi kegiatan budaya",
+    photos: Array.from({ length: photos }, (_, index) => ({
+      originalName: `baru-${index}.jpg`,
+      imageUrl: `/uploads/baru-${index}.jpg`,
+      publicId: null,
+    })),
+    ...(clientLastSubmittedAt !== undefined
+      ? { lastSubmittedAt: clientLastSubmittedAt }
+      : {}),
+  };
+
   return new NextRequest("http://localhost/api/reports/report-1", {
     method: "PUT",
-    body: JSON.stringify({
-      activityName: "Kegiatan budaya",
-      tanggalKegiatan: "2026-06-01",
-      lokasi: "Aula",
-      description: "Dokumentasi kegiatan budaya",
-      photos: Array.from({ length: photos }, (_, index) => ({
-        originalName: `baru-${index}.jpg`,
-        imageUrl: `/uploads/baru-${index}.jpg`,
-        publicId: null,
-      })),
-    }),
+    body: JSON.stringify(body),
     headers: { "content-type": "application/json" },
   });
 }
 
-async function run(photos = 1) {
-  return PUT(request(photos), { params: Promise.resolve({ id: "report-1" }) });
+async function run(photos = 1, clientLastSubmittedAt?: string) {
+  return PUT(request(photos, clientLastSubmittedAt), {
+    params: Promise.resolve({ id: "report-1" }),
+  });
 }
 
 test("hanya creator pada unit yang sama dapat resubmit report REJECTED", async () => {
@@ -174,7 +227,13 @@ test("PENDING dan APPROVED immutable untuk PIC", async () => {
     programId: "program-1",
     status: "PENDING",
     tanggalKegiatan: new Date("2026-06-01"),
-    photos: [{ id: "photo", publicId: null, imageUrl: "https://example.test/photo.jpg" }],
+    photos: [
+      {
+        id: "photo",
+        publicId: null,
+        imageUrl: "https://example.test/photo.jpg",
+      },
+    ],
   }));
   assert.equal((await run()).status, 409);
   reportFindUniqueMock.mock.mockImplementationOnce(async () => ({
@@ -184,14 +243,38 @@ test("PENDING dan APPROVED immutable untuk PIC", async () => {
     programId: "program-1",
     status: "APPROVED",
     tanggalKegiatan: new Date("2026-06-01"),
-    photos: [{ id: "photo", publicId: null, imageUrl: "https://example.test/photo.jpg" }],
+    photos: [
+      {
+        id: "photo",
+        publicId: null,
+        imageUrl: "https://example.test/photo.jpg",
+      },
+    ],
   }));
   assert.equal((await run()).status, 409);
   assert.equal(transactionMock.mock.callCount(), 0);
 });
 
 test("resubmit memakai ID yang sama, kembali ke PENDING, dan menulis RESUBMITTED", async () => {
-  assert.equal((await run(1)).status, 200);
+  const clientLastSubmittedAt = "2000-01-01T00:00:00.000Z";
+
+  assert.equal((await run(1, clientLastSubmittedAt)).status, 200);
+  assert.equal(updateManyMock.mock.callCount(), 1);
+
+  const transitionArgs = (updateManyMock.mock.calls as any)[0].arguments[0];
+
+  assert.deepEqual(transitionArgs.where, {
+    id: "report-1",
+    status: "REJECTED",
+  });
+  assert.equal(transitionArgs.data.status, "PENDING");
+  assert.equal(transitionArgs.data.notes, null);
+  assert.ok(transitionArgs.data.lastSubmittedAt instanceof Date);
+  assert.notEqual(
+    transitionArgs.data.lastSubmittedAt.toISOString(),
+    clientLastSubmittedAt,
+  );
+
   assert.deepEqual((updateMock.mock.calls as any)[0].arguments[0], {
     where: { id: "report-1" },
     data: {
@@ -200,24 +283,96 @@ test("resubmit memakai ID yang sama, kembali ke PENDING, dan menulis RESUBMITTED
       tanggalKegiatan: new Date("2026-06-01"),
       lokasi: "Aula",
       description: "Dokumentasi kegiatan budaya",
-      status: "PENDING",
-      notes: null,
       photos: {
-        create: [{ imageUrl: "/uploads/baru-0.jpg", originalName: "baru-0.jpg", publicId: null }],
+        create: [
+          {
+            imageUrl: "/uploads/baru-0.jpg",
+            originalName: "baru-0.jpg",
+            publicId: null,
+          },
+        ],
       },
     },
   });
+
+  assert.equal(activityReportCreateMock.mock.callCount(), 0);
   assert.equal(logCreateMock.mock.callCount(), 1);
+
+  const logArgs = (logCreateMock.mock.calls as any)[0].arguments[0];
+
+  assert.deepEqual(logArgs.data, {
+    reportId: "report-1",
+    action: "RESUBMITTED",
+    createdAt: transitionArgs.data.lastSubmittedAt,
+    notes: null,
+    actorId: "pic-1",
+    actorName: "PIC",
+    actorRole: "PIC",
+  });
+
   assert.equal(
-    ((logCreateMock.mock.calls as any)[0].arguments[0] as { data: { reportId: string; action: string } })
-      .data.reportId,
+    (
+      (logCreateMock.mock.calls as any)[0].arguments[0] as {
+        data: { reportId: string; action: string };
+      }
+    ).data.reportId,
     "report-1",
   );
+
   assert.equal(
-    ((logCreateMock.mock.calls as any)[0].arguments[0] as { data: { reportId: string; action: string } })
-      .data.action,
+    (
+      (logCreateMock.mock.calls as any)[0].arguments[0] as {
+        data: { reportId: string; action: string };
+      }
+    ).data.action,
     "RESUBMITTED",
   );
+});
+
+test("stale compare-and-set menghasilkan 409 tanpa mutation lanjutan atau log", async () => {
+  updateManyMock.mock.mockImplementationOnce(async () => ({ count: 0 }));
+
+  const response = await run();
+
+  assert.equal(response.status, 409);
+  assert.equal(deleteManyMock.mock.callCount(), 0);
+  assert.equal(updateMock.mock.callCount(), 0);
+  assert.equal(logCreateMock.mock.callCount(), 0);
+  assert.equal(activityReportCreateMock.mock.callCount(), 0);
+});
+
+test("dua resubmit paralel hanya menghasilkan satu sukses dan satu 409", async () => {
+  let transitionAvailable = true;
+
+  updateManyMock.mock.mockImplementation(async () => {
+    if (!transitionAvailable) return { count: 0 };
+
+    transitionAvailable = false;
+    return { count: 1 };
+  });
+
+  const responses = await Promise.all([run(), run()]);
+
+  assert.deepEqual(
+    responses.map((response) => response.status).sort(),
+    [200, 409],
+  );
+  assert.equal(updateManyMock.mock.callCount(), 2);
+  assert.equal(updateMock.mock.callCount(), 1);
+  assert.equal(logCreateMock.mock.callCount(), 1);
+});
+
+test("kegagalan mutation lanjutan meneruskan rollback transaction dan tidak menulis log", async () => {
+  updateMock.mock.mockImplementationOnce(async () => {
+    throw new Error("downstream failure");
+  });
+
+  const response = await run();
+
+  assert.equal(response.status, 500);
+  assert.equal(transactionMock.mock.callCount(), 1);
+  assert.equal(transactionRollbackCount, 1);
+  assert.equal(logCreateMock.mock.callCount(), 0);
 });
 
 test("nol atau tiga foto ditolak oleh schema, satu atau dua foto diproses", async () => {

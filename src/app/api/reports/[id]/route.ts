@@ -9,7 +9,10 @@ import {
   isActivityDateInsideProgram,
   isProgramUploadOpen,
 } from "@/lib/program-period";
-import { getCapabilityError, requiresEvidence } from "@/lib/program-capabilities";
+import {
+  getCapabilityError,
+  requiresEvidence,
+} from "@/lib/program-capabilities";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
 import { updateReportSchema } from "@/schemas/report.schema";
 import { Prisma } from "@generated/prisma";
@@ -226,10 +229,9 @@ export async function PUT(
     }
     const capabilityError = getCapabilityError(programData.category);
     if (capabilityError) {
-      return NextResponse.json(
-        errorResponse(capabilityError, 422),
-        { status: 422 },
-      );
+      return NextResponse.json(errorResponse(capabilityError, 422), {
+        status: 422,
+      });
     }
     if (!requiresEvidence(programData.category)) {
       return NextResponse.json(
@@ -254,12 +256,31 @@ export async function PUT(
     }
     const category = programData.category;
 
-    // UPDATED: Transaksi atomik dengan duplicate direct-admin check pada resubmit (Blocker 4)
+    // UPDATED: Transaksi atomik dengan compare-and-set pada resubmit.
     const [updatedReport] = await prisma.$transaction(async (tx) => {
+      const resubmittedAt = new Date();
+
+      const transition = await tx.activityReport.updateMany({
+        where: { id, status: "REJECTED" },
+        data: {
+          status: "PENDING",
+          notes: null,
+          lastSubmittedAt: resubmittedAt,
+        },
+      });
+
+      if (transition.count !== 1) {
+        throw new ApiError(
+          "Laporan tidak ditemukan atau statusnya sudah berubah",
+          409,
+        );
+      }
+
       if (category.scoreInputMode === "DIRECT_ADMIN") {
         await tx.$queryRaw(
           Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`direct-report:${existingReport.unitId}:${finalProgramId}`}))::text`,
         );
+
         const duplicateOtherReport = await tx.activityReport.findFirst({
           where: {
             id: { not: id },
@@ -268,6 +289,7 @@ export async function PUT(
           },
           select: { id: true },
         });
+
         if (duplicateOtherReport) {
           throw new ApiError(
             "Unit Anda sudah memiliki laporan lain untuk program penilaian ini",
@@ -275,9 +297,11 @@ export async function PUT(
           );
         }
       }
+
       if (photos && photos.length > 0) {
         await tx.activityPhoto.deleteMany({ where: { reportId: id } });
       }
+
       const reportUpdated = await tx.activityReport.update({
         where: { id },
         data: {
@@ -286,8 +310,6 @@ export async function PUT(
           tanggalKegiatan: finalDate,
           lokasi,
           description,
-          status: "PENDING",
-          notes: null,
           ...(photos &&
             photos.length > 0 && {
               photos: {
@@ -300,16 +322,19 @@ export async function PUT(
             }),
         },
       });
+
       await tx.activityLog.create({
         data: {
           reportId: id,
           action: "RESUBMITTED",
+          createdAt: resubmittedAt,
           notes: null,
           actorId: session.user.id,
           actorName: session.user.name,
           actorRole: session.user.role,
         },
       });
+
       return [reportUpdated];
     });
 
