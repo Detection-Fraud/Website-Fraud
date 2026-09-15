@@ -1,7 +1,7 @@
 import MonthPicker from "@/components/ui/month-picker";
 import { Banner } from "@/hooks/useBanners";
 import { useSearchPic } from "@/hooks/useSearchPic";
-import { api } from "@/lib/api";
+import { useTemporaryUpload } from "@/hooks/useUploadMutation";
 import { PicSearchResult } from "@/types/pic.types";
 import {
   Autocomplete,
@@ -92,6 +92,11 @@ export default function BannerFormModal({
   banner,
 }: BannerFormModalProps) {
   const isEditMode = !!banner;
+  const {
+    uploadTemporaryFile,
+    isUploading,
+    isDeletingUpload,
+  } = useTemporaryUpload(isOpen);
 
   const {
     query: picQuery,
@@ -109,7 +114,6 @@ export default function BannerFormModal({
   const [selectedUnitName, setSelectedUnitName] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const periodText = formatPeriod(periodDate);
@@ -169,25 +173,26 @@ export default function BannerFormModal({
     reader.readAsDataURL(file);
 
     // Upload ke server
-    setIsUploading(true);
     setUploadError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      const result = await uploadTemporaryFile(file);
+      if (!result) {
+        setImagePreview(null);
+        setUploadedUrl("");
+        return;
+      }
 
-      const response = await api.post("/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setUploadedUrl(response.data.url);
+      setUploadedUrl(result.url);
     } catch (err) {
       console.error("Upload gagal:", err);
       setUploadError("Upload gagal. Coba lagi.");
       setImagePreview(null);
-    } finally {
-      setIsUploading(false);
     }
+  };
+
+  const handleClose = () => {
+    onClose();
   };
 
   const handlePicSelected = (key: Key | null) => {
@@ -236,7 +241,12 @@ export default function BannerFormModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={onClose}>
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
+    >
       <Modal.Backdrop variant="blur">
         <Modal.Container placement="center">
           <Modal.Dialog className="max-w-3xl w-full">
@@ -426,7 +436,7 @@ export default function BannerFormModal({
                           accept="image/jpeg,image/png"
                           onChange={handleFileSelect}
                           className="hidden"
-                          disabled={isUploading}
+                          disabled={isUploading || isDeletingUpload}
                         />
                       </label>
 
@@ -456,8 +466,8 @@ export default function BannerFormModal({
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={onClose}
-                    isDisabled={isLoading || isUploading}
+                    onClick={handleClose}
+                    isDisabled={isLoading || isUploading || isDeletingUpload}
                   >
                     Batal
                   </Button>
@@ -465,8 +475,8 @@ export default function BannerFormModal({
                   <Button
                     type="submit"
                     variant="primary"
-                    isPending={isLoading || isUploading}
-                    isDisabled={isUploading}
+                    isPending={isLoading || isUploading || isDeletingUpload}
+                    isDisabled={isUploading || isDeletingUpload}
                   >
                     <FiSave className="w-4 h-4" />
                     {isLoading

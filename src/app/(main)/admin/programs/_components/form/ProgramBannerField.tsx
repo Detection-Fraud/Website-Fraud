@@ -1,7 +1,7 @@
 "use client";
 
 import Dropzone from "@/components/ui/Dropzone";
-import { useUploadMutation } from "@/hooks/useUploadMutation";
+import { useTemporaryUpload } from "@/hooks/useUploadMutation";
 import { Button, Label } from "@heroui/react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -18,7 +18,12 @@ export default function ProgramBannerField({
   isOpen,
   onUploadingChange,
 }: ProgramBannerFieldProps) {
-  const { uploadFile, isUploading } = useUploadMutation();
+  const {
+    uploadTemporaryFile,
+    discardTemporaryUpload,
+    isUploading,
+    isDeletingUpload,
+  } = useTemporaryUpload(isOpen);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,17 +31,27 @@ export default function ProgramBannerField({
   }, [initialBannerUrl, isOpen]);
 
   useEffect(() => {
-    onUploadingChange(isUploading);
-  }, [isUploading, onUploadingChange]);
+    onUploadingChange(isUploading || isDeletingUpload);
+  }, [isDeletingUpload, isUploading, onUploadingChange]);
 
   const handleBannerUpload = async (file?: File) => {
     if (!file) return;
 
     try {
-      const result = await uploadFile(file);
+      const result = await uploadTemporaryFile(file);
+      if (!result) return;
       setBannerUrl(result.url);
     } catch (error) {
       console.error("Gagal mengunggah banner", error);
+    }
+  };
+
+  const handleRemoveBanner = async () => {
+    try {
+      await discardTemporaryUpload();
+      setBannerUrl(null);
+    } catch {
+      // Error toast ditangani oleh useUploadMutation.
     }
   };
 
@@ -57,7 +72,8 @@ export default function ProgramBannerField({
             aria-label="Hapus banner"
             className="absolute right-2 top-2 bg-slate-900/80 text-white"
             isIconOnly
-            onPress={() => setBannerUrl(null)}
+            isDisabled={isDeletingUpload}
+            onPress={handleRemoveBanner}
             type="button"
           >
             <FiX className="size-4" />
@@ -65,9 +81,13 @@ export default function ProgramBannerField({
         </div>
       ) : (
         <Dropzone
-          isDisabled={isUploading}
+          isDisabled={isUploading || isDeletingUpload}
           label={
-            isUploading ? "Mengunggah..." : "Klik atau seret poster ke sini"
+            isUploading
+              ? "Mengunggah..."
+              : isDeletingUpload
+                ? "Menghapus file sementara..."
+                : "Klik atau seret poster ke sini"
           }
           maxSizeMb={3}
           onFileSelected={(files) => handleBannerUpload(files[0])}

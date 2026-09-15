@@ -3,7 +3,7 @@
 import Dropzone from "@/components/ui/Dropzone";
 import { CategoryWithStats } from "@/hooks/useCategoryList";
 import { useCategoryMutation } from "@/hooks/useCategoryMutation";
-import { useUploadMutation } from "@/hooks/useUploadMutation";
+import { useTemporaryUpload } from "@/hooks/useUploadMutation";
 import {
   CATEGORY_CAPABILITY_PRESETS,
   getCategoryCapabilityPreset,
@@ -42,7 +42,13 @@ export default function ModalFormCategory({
 }: ModalFormCategoryProps) {
   const { createCategory, updateCategory, isCreating, isUpdating } =
     useCategoryMutation();
-  const { uploadFile, isUploading } = useUploadMutation();
+  const {
+    uploadTemporaryFile,
+    discardTemporaryUpload,
+    preserveTemporaryUpload,
+    isUploading,
+    isDeletingUpload,
+  } = useTemporaryUpload(isOpen);
 
   const isEdit = !!initialData;
   const [color, setColor] = useState(() => parseColor("#3b82f6"));
@@ -102,7 +108,14 @@ export default function ModalFormCategory({
     setImagePreview(objectUrl);
 
     try {
-      const res = await uploadFile(file);
+      const res = await uploadTemporaryFile(file);
+      if (!res) {
+        revokePreviewObjectUrl();
+        setBannerUrl(null);
+        setImagePreview(null);
+        return;
+      }
+
       revokePreviewObjectUrl();
       setBannerUrl(res.url);
       setImagePreview(res.url);
@@ -113,10 +126,19 @@ export default function ModalFormCategory({
     }
   };
 
-  const handleRemoveBanner = () => {
-    revokePreviewObjectUrl();
-    setBannerUrl(null);
-    setImagePreview(null);
+  const handleRemoveBanner = async () => {
+    try {
+      await discardTemporaryUpload();
+      revokePreviewObjectUrl();
+      setBannerUrl(null);
+      setImagePreview(null);
+    } catch {
+      // Error toast ditangani oleh useUploadMutation.
+    }
+  };
+
+  const handleClose = () => {
+    onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -142,13 +164,15 @@ export default function ModalFormCategory({
       } else {
         await createCategory(payload);
       }
+      preserveTemporaryUpload();
       onClose();
     } catch {
       // Handled by mutation toast
     }
   };
 
-  const isLoading = isCreating || isUpdating || isUploading;
+  const isLoading =
+    isCreating || isUpdating || isUploading || isDeletingUpload;
   const selectedCapabilityPreset =
     getCategoryCapabilityPresetForForm(capabilityPresetId);
   const isPartisipasi =
@@ -158,7 +182,9 @@ export default function ModalFormCategory({
     <Modal>
       <Modal.Backdrop
         isOpen={isOpen}
-        onOpenChange={onClose}
+        onOpenChange={(open) => {
+          if (!open) handleClose();
+        }}
         className="backdrop-blur-sm"
       >
         <Modal.Container scroll="inside">
