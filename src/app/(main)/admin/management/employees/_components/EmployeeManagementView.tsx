@@ -1,18 +1,16 @@
 "use client";
 
-import { isEmploymentActive, isPicEligible } from "@/lib/employee-eligibility";
 import AppBar from "@/components/layout/Appbar";
 import DataTable, { TableColumn } from "@/components/layout/DataTable";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useEmployeeManagement } from "@/hooks/useEmployeeManagement";
 import {
-  getEmployeeAdminActions,
   getEmployeeAdminReasons,
-  getEmployeeAdminActionLabel,
   getEmployeePicManagementLink,
   type EmployeeAdminAction,
 } from "@/lib/employee-management-actions";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import {
+import { summarizeEmployeeUi } from "@/lib/employee-management-ui";
+import type {
   EmployeeAccount,
   EmployeeAccountFilter,
   EmployeeEmploymentFilter,
@@ -23,23 +21,28 @@ import {
   Button,
   Card,
   ListBox,
-  Modal,
   SearchField,
   SearchFieldGroup,
   Select,
-  useOverlayState,
+  Skeleton,
 } from "@heroui/react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
+import EmployeeDetailPanel from "./EmployeeDetailPanel";
 import ManageAdminModal from "./ManageAdminModal";
 
 const columns: TableColumn[] = [
   { key: "employee", label: "Employee" },
   { key: "placement", label: "Unit HR / Pentaho" },
-  { key: "employment", label: "Kepegawaian" },
-  { key: "eligibility", label: "Kelayakan PIC" },
-  { key: "account", label: "Akun User" },
-  { key: "action", label: "Detail" },
+  { key: "condition", label: "Kondisi HR/source" },
+  { key: "account", label: "Akun aplikasi" },
+  { key: "action", label: "Tinjauan" },
 ];
+
+type ActiveFilterTag = {
+  key: string;
+  label: string;
+  onClear: () => void;
+};
 
 function StatusBadge({
   tone,
@@ -57,7 +60,10 @@ function StatusBadge({
 
   return (
     <span
-      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${className}`}
+      className={
+        "inline-flex rounded-full border px-2.5 py-1 text-xs font-medium " +
+        className
+      }
     >
       {children}
     </span>
@@ -79,13 +85,14 @@ function FilterSelect({
     <Select
       aria-label={label}
       className="min-w-44"
-      value={value}
-      onChange={(key) => onChange(String(key))}
+      selectedKey={value}
+      onSelectionChange={(key) => onChange(String(key ?? "ALL"))}
     >
-      <Select.Trigger>
+      <Select.Trigger className="min-h-11 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2">
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
+
       <Select.Popover>
         <ListBox>
           {options.map((option) => (
@@ -104,128 +111,161 @@ function FilterSelect({
   );
 }
 
-function EmployeeDetail({ employee }: { employee: EmployeeAccount }) {
-  const employmentActive = isEmploymentActive(employee);
-  const picEligible = isPicEligible(employee);
+function EmployeeManagementSkeleton() {
+  const skeletonClass = "rounded-lg motion-reduce:animate-none";
 
   return (
-    <div className="space-y-5">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-400">
-          Identitas Employee
-        </p>
-        <h3 className="mt-1 text-lg font-semibold text-slate-900">
-          {employee.name}
-        </h3>
-        <p className="text-sm text-slate-500">NIP {employee.nip}</p>
-      </div>
+    <div
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+      className="space-y-4"
+    >
+      <Card className="min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+        <Card.Header className="gap-2 border-b border-slate-100 px-5 py-4">
+          <Skeleton
+            animationType="pulse"
+            className={`h-5 w-40 ${skeletonClass}`}
+          />
+          <Skeleton
+            animationType="pulse"
+            className={`h-4 w-72 max-w-full ${skeletonClass}`}
+          />
+        </Card.Header>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 p-3">
-          <p className="text-xs text-slate-400">Unit HR / Pentaho</p>
-          <p className="mt-1 text-sm font-medium text-slate-800">
-            {employee.unit?.name ?? "Belum dipetakan"}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Employee.unitId: {employee.unitId ?? "—"}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 p-3">
-          <p className="text-xs text-slate-400">Status sumber</p>
-          <div className="mt-2">
-            <StatusBadge
-              tone={employee.isPresentInSource ? "success" : "danger"}
-            >
-              {employee.isPresentInSource
-                ? "Ada di source terbaru"
-                : "Tidak ada di source terbaru"}
-            </StatusBadge>
+        <Card.Content className="space-y-4 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Skeleton
+              animationType="pulse"
+              className={`h-11 min-w-0 flex-1 rounded-xl ${skeletonClass}`}
+            />
+            <Skeleton
+              animationType="pulse"
+              className={`h-11 w-20 rounded-xl ${skeletonClass}`}
+            />
           </div>
-        </div>
 
-        <div className="rounded-xl border border-slate-200 p-3">
-          <p className="text-xs text-slate-400">Status kepegawaian</p>
-          <p className="mt-1 text-sm font-medium text-slate-800">
-            {employmentActive ? "Aktif" : "Tidak aktif"}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            KODE_STATPEG {employee.kodeStatpeg} · STAT_KEPEG{" "}
-            {employee.statKepeg}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 p-3">
-          <p className="text-xs text-slate-400">Kelayakan PIC</p>
-          <div className="mt-2">
-            <StatusBadge tone={picEligible ? "success" : "neutral"}>
-              {picEligible ? "Memenuhi syarat" : "Tidak memenuhi syarat"}
-            </StatusBadge>
+          <div className="flex flex-wrap gap-3">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton
+                key={index}
+                animationType="pulse"
+                className={`h-11 w-44 rounded-xl ${skeletonClass}`}
+              />
+            ))}
           </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Jenjang {employee.jenjang}
-          </p>
-        </div>
-      </div>
 
-      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-        <p className="text-xs uppercase tracking-wide text-blue-600">
-          Akun aplikasi
-        </p>
+          <Skeleton
+            animationType="pulse"
+            className={`h-4 w-40 ${skeletonClass}`}
+          />
+        </Card.Content>
+      </Card>
 
-        {employee.user ? (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <p className="text-xs text-blue-700/70">User</p>
-              <p className="text-sm font-semibold text-blue-950">
-                {employee.user.name}
-              </p>
-              <p className="text-xs text-blue-800/70">
-                {employee.user.username ?? "Username belum tersedia"}
-              </p>
-            </div>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(20rem,0.85fr)]">
+        <Card className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+          <Card.Header className="gap-2 border-b border-slate-100 px-5 py-4">
+            <Skeleton
+              animationType="pulse"
+              className={`h-5 w-32 ${skeletonClass}`}
+            />
+            <Skeleton
+              animationType="pulse"
+              className={`h-4 w-48 ${skeletonClass}`}
+            />
+          </Card.Header>
 
-            <div>
-              <p className="text-xs text-blue-700/70">Status akun</p>
-              <p className="text-sm font-semibold text-blue-950">
-                {employee.user.isActive ? "Aktif" : "Tidak aktif"}
-              </p>
-              <p className="text-xs text-blue-800/70">
-                Role {employee.user.role} · Provider{" "}
-                {employee.user.authProvider}
-              </p>
-            </div>
-
-            <div className="sm:col-span-2">
-              <p className="text-xs text-blue-700/70">
-                Unit otorisasi aplikasi
-              </p>
-              <p className="text-sm font-semibold text-blue-950">
-                {employee.user.unit?.name ??
-                  employee.user.unitId ??
-                  "Belum ditetapkan"}
-              </p>
-              <p className="text-xs text-blue-800/70">
-                User.unitId: {employee.user.unitId ?? "—"}
-              </p>
-            </div>
-            {getEmployeePicManagementLink(employee) && (
-              <div className="sm:col-span-2">
-                <a
-                  className="text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"
-                  href={getEmployeePicManagementLink(employee) ?? undefined}
-                >
-                  Buka tautan read-only di Manajemen PIC
-                </a>
+          <Card.Content className="space-y-4 p-5">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div
+                key={index}
+                className="grid gap-3 border-b border-slate-100 pb-4 last:border-b-0"
+              >
+                <Skeleton
+                  animationType="pulse"
+                  className={`h-4 w-40 ${skeletonClass}`}
+                />
+                <Skeleton
+                  animationType="pulse"
+                  className={`h-4 w-28 ${skeletonClass}`}
+                />
+                <Skeleton
+                  animationType="pulse"
+                  className={`h-8 w-24 rounded-xl ${skeletonClass}`}
+                />
               </div>
-            )}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-blue-950">
-            Employee belum tertaut ke akun User aplikasi.
+            ))}
+          </Card.Content>
+        </Card>
+
+        <Card className="min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+          <Card.Header className="gap-2 border-b border-slate-100 px-5 py-4">
+            <Skeleton
+              animationType="pulse"
+              className={`h-5 w-48 ${skeletonClass}`}
+            />
+            <Skeleton
+              animationType="pulse"
+              className={`h-4 w-56 max-w-full ${skeletonClass}`}
+            />
+          </Card.Header>
+
+          <Card.Content className="space-y-4 p-5">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="space-y-2">
+                <Skeleton
+                  animationType="pulse"
+                  className={`h-3 w-24 ${skeletonClass}`}
+                />
+                <Skeleton
+                  animationType="pulse"
+                  className={`h-5 w-full ${skeletonClass}`}
+                />
+              </div>
+            ))}
+          </Card.Content>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function EmployeeLoadError({
+  error,
+  background = false,
+  onRetry,
+}: {
+  error: string | null;
+  background?: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div>
+        <p className="text-sm font-semibold">
+          Data Employee belum dapat dimuat.
+        </p>
+
+        {error && <p className="mt-1 text-xs text-rose-700">{error}</p>}
+
+        {background && (
+          <p className="mt-1 text-xs text-rose-700">
+            Data lama tetap ditampilkan.
           </p>
         )}
       </div>
+
+      <Button
+        variant="secondary"
+        className="min-h-11 shrink-0 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
+        aria-label="Coba lagi memuat data Employee"
+        onPress={onRetry}
+      >
+        Coba lagi
+      </Button>
     </div>
   );
 }
@@ -238,18 +278,17 @@ export default function EmployeeManagementView() {
   const [account, setAccount] = useState<EmployeeAccountFilter>("ALL");
   const [role, setRole] = useState<EmployeeRoleFilter>("ALL");
   const [page, setPage] = useState(1);
-  const [selectedEmployee, setSelectedEmployee] =
-    useState<EmployeeAccount | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(
+    null,
+  );
   const [adminAction, setAdminAction] = useState<{
     employee: EmployeeAccount;
     action: EmployeeAdminAction;
     reasons: ReturnType<typeof getEmployeeAdminReasons>;
   } | null>(null);
 
-  const detailState = useOverlayState();
   const { user: currentUser } = useCurrentUser();
-
-  const { employees, pagination, isLoading, error, refetch } =
+  const { employees, pagination, isLoading, isFetching, error, refetch } =
     useEmployeeManagement({
       search,
       source,
@@ -259,6 +298,63 @@ export default function EmployeeManagementView() {
       page,
       limit: 10,
     });
+
+  const [previousResult, setPreviousResult] = useState<{
+    employees: EmployeeAccount[];
+    pagination: typeof pagination;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isFetching && !error) {
+      setPreviousResult({ employees, pagination });
+    }
+  }, [employees, error, isFetching, pagination]);
+
+  const shouldUsePreviousResult =
+    Boolean(previousResult) &&
+    employees.length === 0 &&
+    (isFetching || Boolean(error));
+
+  const visibleEmployees = shouldUsePreviousResult
+    ? previousResult!.employees
+    : employees;
+
+  const visiblePagination = shouldUsePreviousResult
+    ? previousResult!.pagination
+    : pagination;
+
+  const isInitialError =
+    Boolean(error) && !previousResult && employees.length === 0;
+
+  const isInitialLoading =
+    isLoading && !isInitialError && !previousResult && employees.length === 0;
+
+  const hasActiveFilters =
+    Boolean(search) ||
+    source !== "ALL" ||
+    employment !== "ALL" ||
+    account !== "ALL" ||
+    role !== "ALL";
+
+  const selectedEmployee =
+    visibleEmployees.find((employee) => employee.id === selectedEmployeeId) ??
+    null;
+
+  useEffect(() => {
+    if (selectedEmployeeId === null) {
+      if (visibleEmployees.length > 0) {
+        setSelectedEmployeeId(visibleEmployees[0].id);
+      }
+
+      return;
+    }
+
+    if (
+      !visibleEmployees.some((employee) => employee.id === selectedEmployeeId)
+    ) {
+      setSelectedEmployeeId(null);
+    }
+  }, [selectedEmployeeId, visibleEmployees]);
 
   const handleFilterChange = <T,>(setter: (value: T) => void, value: T) => {
     setter(value);
@@ -276,18 +372,91 @@ export default function EmployeeManagementView() {
     setPage(1);
   };
 
-  const handleOpenDetail = (employee: EmployeeAccount) => {
-    setSelectedEmployee(employee);
-    detailState.open();
+  const resetFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setSource("ALL");
+    setEmployment("ALL");
+    setAccount("ALL");
+    setRole("ALL");
+    setPage(1);
   };
 
-  const handleAdminAction = (employee: EmployeeAccount, action: EmployeeAdminAction) => {
+  const handleOpenDetail = (employee: EmployeeAccount) => {
+    setSelectedEmployeeId(employee.id);
+  };
+
+  const handleAdminAction = (
+    employee: EmployeeAccount,
+    action: EmployeeAdminAction,
+  ) => {
     setAdminAction({
       employee,
       action,
       reasons: getEmployeeAdminReasons(employee, currentUser?.id),
     });
   };
+
+  const accountLabels: Record<Exclude<EmployeeAccountFilter, "ALL">, string> = {
+    LINKED: "Sudah tertaut",
+    UNLINKED: "Belum tertaut",
+    ACTIVE: "Akun aktif",
+    INACTIVE: "Akun tidak aktif",
+  };
+
+  const activeFilterTags: ActiveFilterTag[] = [
+    ...(search
+      ? [
+          {
+            key: "search",
+            label: "Cari: " + search,
+            onClear: handleClearSearch,
+          },
+        ]
+      : []),
+    ...(source !== "ALL"
+      ? [
+          {
+            key: "source",
+            label:
+              source === "PRESENT"
+                ? "Source: Ada di source"
+                : "Source: Tidak ada di source",
+            onClear: () => handleFilterChange(setSource, "ALL"),
+          },
+        ]
+      : []),
+    ...(employment !== "ALL"
+      ? [
+          {
+            key: "employment",
+            label:
+              employment === "ACTIVE"
+                ? "HR: Kepegawaian aktif"
+                : "HR: Kepegawaian tidak aktif",
+            onClear: () => handleFilterChange(setEmployment, "ALL"),
+          },
+        ]
+      : []),
+    ...(account !== "ALL"
+      ? [
+          {
+            key: "account",
+            label: "Akun: " + accountLabels[account],
+            onClear: () => handleFilterChange(setAccount, "ALL"),
+          },
+        ]
+      : []),
+    ...(role !== "ALL"
+      ? [
+          {
+            key: "role",
+            label: "Role: " + role,
+            onClear: () => handleFilterChange(setRole, "ALL"),
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="flex h-full flex-col gap-6">
@@ -297,6 +466,7 @@ export default function EmployeeManagementView() {
         showAddButton={false}
       />
 
+      {!isInitialLoading && !isInitialError && (
       <Card className="rounded-2xl border border-slate-200/70 bg-white shadow-sm">
         <Card.Header className="gap-1 border-b border-slate-100 px-5 py-4">
           <Card.Title className="text-base font-semibold text-slate-900">
@@ -311,7 +481,7 @@ export default function EmployeeManagementView() {
         <Card.Content className="space-y-4 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <SearchField className="min-w-0 flex-1">
-              <SearchFieldGroup className="bg-slate-50">
+              <SearchFieldGroup className="min-h-11 bg-slate-50 transition-colors duration-200 motion-reduce:transition-none focus-within:ring-2 focus-within:ring-[var(--focus)] focus-within:ring-offset-2">
                 <SearchField.SearchIcon />
                 <SearchField.Input
                   aria-label="Cari Employee"
@@ -319,19 +489,21 @@ export default function EmployeeManagementView() {
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      handleSearch();
-                    }
+                    if (event.key === "Enter") handleSearch();
                   }}
                 />
-                <SearchField.ClearButton onClick={handleClearSearch} />
+                <SearchField.ClearButton
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
+                  aria-label="Bersihkan pencarian Employee"
+                  onClick={handleClearSearch}
+                />
               </SearchFieldGroup>
             </SearchField>
 
             <Button
               variant="secondary"
               onPress={handleSearch}
-              className="shrink-0"
+              className="min-h-11 shrink-0 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
             >
               Cari
             </Button>
@@ -347,10 +519,7 @@ export default function EmployeeManagementView() {
               options={[
                 { id: "ALL", label: "Semua source" },
                 { id: "PRESENT", label: "Ada di source" },
-                {
-                  id: "ABSENT",
-                  label: "Tidak ada di source",
-                },
+                { id: "ABSENT", label: "Tidak ada di source" },
               ]}
             />
 
@@ -365,14 +534,8 @@ export default function EmployeeManagementView() {
               }
               options={[
                 { id: "ALL", label: "Semua status HR" },
-                {
-                  id: "ACTIVE",
-                  label: "Kepegawaian aktif",
-                },
-                {
-                  id: "INACTIVE",
-                  label: "Kepegawaian tidak aktif",
-                },
+                { id: "ACTIVE", label: "Kepegawaian aktif" },
+                { id: "INACTIVE", label: "Kepegawaian tidak aktif" },
               ]}
             />
 
@@ -387,10 +550,7 @@ export default function EmployeeManagementView() {
                 { id: "LINKED", label: "Sudah tertaut" },
                 { id: "UNLINKED", label: "Belum tertaut" },
                 { id: "ACTIVE", label: "Akun aktif" },
-                {
-                  id: "INACTIVE",
-                  label: "Akun tidak aktif",
-                },
+                { id: "INACTIVE", label: "Akun tidak aktif" },
               ]}
             />
 
@@ -408,194 +568,285 @@ export default function EmployeeManagementView() {
               ]}
             />
           </div>
+
+          <div
+            className="flex flex-wrap items-center gap-2"
+            aria-label="Filter aktif"
+          >
+            {activeFilterTags.length > 0 && (
+              <span className="text-xs font-medium text-slate-500">
+                Filter aktif:
+              </span>
+            )}
+
+            {activeFilterTags.map((tag) => (
+              <Button
+                key={tag.key}
+                variant="ghost"
+                size="sm"
+                className="min-h-11 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs tabular-nums text-slate-600 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
+                aria-label={"Hapus " + tag.label}
+                onPress={tag.onClear}
+              >
+                {tag.label} ×
+              </Button>
+            ))}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-11 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
+              isDisabled={activeFilterTags.length === 0}
+              onPress={resetFilters}
+            >
+              Reset filter
+            </Button>
+          </div>
+
+          <p className="text-xs tabular-nums text-slate-500">
+            {visiblePagination.total} hasil Employee
+          </p>
         </Card.Content>
       </Card>
+      )}
 
-      {isLoading ? (
-        <Card
-          aria-live="polite"
-          className="rounded-2xl border border-slate-200/70 bg-white shadow-sm"
-        >
-          <Card.Content className="p-10 text-center text-sm text-slate-500">
-            Memuat data Employee…
-          </Card.Content>
-        </Card>
-      ) : error ? (
-        <Card
-          role="alert"
-          className="rounded-2xl border border-rose-200 bg-rose-50 shadow-sm"
-        >
-          <Card.Content className="flex flex-col items-center gap-3 p-8 text-center">
-            <p className="text-sm font-semibold text-rose-800">
-              Data Employee belum dapat dimuat.
-            </p>
-            <p className="text-xs text-rose-700">{error}</p>
-            <Button variant="secondary" onPress={() => refetch()}>
-              Coba lagi
-            </Button>
-          </Card.Content>
-        </Card>
+      {isInitialError ? (
+        <EmployeeLoadError error={error} onRetry={() => refetch()} />
+      ) : isInitialLoading ? (
+        <EmployeeManagementSkeleton />
       ) : (
-        <Card className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
-          <Card.Content className="overflow-x-auto p-0">
-            <DataTable<EmployeeAccount>
-              column={columns}
-              data={employees}
-              ariaLabel="Daftar Employee dan akun User"
-              pagination={pagination}
-              onPageChange={setPage}
-              renderEmptyState={() => (
-                <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
-                  <p className="text-sm font-semibold text-slate-700">
-                    Employee tidak ditemukan
-                  </p>
-                  <p className="mt-1 max-w-sm text-xs text-slate-500">
-                    Coba ubah kata kunci atau filter yang sedang digunakan.
-                  </p>
-                </div>
+        <div
+          aria-busy={isFetching}
+          className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(20rem,0.85fr)]"
+        >
+          <Card className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+            <Card.Header className="flex-row items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <Card.Title className="text-base font-semibold text-slate-900">
+                  Employee
+                </Card.Title>
+                <Card.Description>
+                  Hasil <span className="tabular-nums">{visiblePagination.total}</span>{" "}
+                  data
+                </Card.Description>
+              </div>
+
+              {isFetching && (
+                <p
+                  className="text-xs text-sky-700 transition-opacity duration-200 motion-reduce:transition-none"
+                  aria-live="polite"
+                >
+                  Memperbarui…
+                </p>
               )}
-              renderCell={(employee, columnKey) => {
-                const employmentActive = isEmploymentActive(employee);
-                const picEligible = isPicEligible(employee);
-                const adminActions = getEmployeeAdminActions(
-                  employee,
-                  currentUser?.id,
-                );
+            </Card.Header>
 
-                switch (columnKey) {
-                  case "employee":
-                    return (
-                      <div>
-                        <p className="font-semibold text-slate-800">
-                          {employee.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          NIP {employee.nip}
-                        </p>
-                      </div>
-                    );
+            <Card.Content className="overflow-x-auto p-0">
+              <DataTable<EmployeeAccount>
+                column={columns}
+                data={visibleEmployees}
+                ariaLabel="Daftar Employee dan akun aplikasi"
+                pagination={visiblePagination}
+                onPageChange={setPage}
+                getRowKey={(employee) => employee.id}
+                getRowClassName={(employee) =>
+                  summarizeEmployeeUi(employee).hasReviewFlag
+                    ? "bg-amber-50/40"
+                    : undefined
+                }
+                isPaginationDisabled={isFetching}
+                renderEmptyState={() => (
+                  <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+                    <p className="text-sm font-semibold text-slate-700">
+                      {hasActiveFilters
+                        ? "Tidak ada Employee yang cocok"
+                        : "Belum ada data Employee"}
+                    </p>
+                    <p className="mt-1 max-w-sm text-xs text-slate-500">
+                      {hasActiveFilters
+                        ? "Coba ubah filter atau reset filter untuk melihat seluruh data."
+                        : "Data Employee belum tersedia untuk ditampilkan."}
+                    </p>
+                    {hasActiveFilters && (
+                      <Button
+                        variant="secondary"
+                        className="mt-4 min-h-11 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
+                        onPress={resetFilters}
+                      >
+                        Reset filter
+                      </Button>
+                    )}
+                  </div>
+                )}
+                renderCell={(employee, columnKey) => {
+                  const needsReview =
+                    summarizeEmployeeUi(employee).hasReviewFlag;
 
-                  case "placement":
-                    return (
-                      <div>
+                  switch (columnKey) {
+                    case "employee":
+                      return (
+                        <div
+                          className={
+                            needsReview
+                              ? "border-l-2 border-amber-400 pl-3"
+                              : undefined
+                          }
+                        >
+                          <p className="font-semibold text-slate-800">
+                            {employee.name}
+                          </p>
+                          <p className="text-xs tabular-nums text-slate-500">
+                            NIP {employee.nip}
+                          </p>
+                        </div>
+                      );
+
+                    case "placement":
+                      return (
                         <p className="font-medium text-slate-700">
                           {employee.unit?.name ?? "Belum dipetakan"}
                         </p>
-                        <p className="text-xs text-slate-500">
-                          Employee.unitId: {employee.unitId ?? "—"}
-                        </p>
-                      </div>
-                    );
+                      );
 
-                  case "employment":
-                    return (
-                      <div className="space-y-1">
-                        <StatusBadge
-                          tone={employmentActive ? "success" : "neutral"}
-                        >
-                          {employmentActive ? "Aktif" : "Tidak aktif"}
-                        </StatusBadge>
-                        <p className="text-xs text-slate-500">
-                          {employee.kodeStatpeg}/{employee.statKepeg}
-                        </p>
-                      </div>
-                    );
-
-                  case "eligibility":
-                    return (
-                      <StatusBadge tone={picEligible ? "success" : "neutral"}>
-                        {picEligible ? "Layak PIC" : "Tidak layak"}
-                      </StatusBadge>
-                    );
-
-                  case "account":
-                    return employee.user ? (
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
+                    case "condition":
+                      return (
+                        <div className="flex min-w-44 flex-col items-start gap-1.5">
                           <StatusBadge
                             tone={
-                              employee.user.isActive ? "success" : "warning"
+                              employee.employmentActive ? "success" : "neutral"
                             }
                           >
-                            {employee.user.isActive ? "Aktif" : "Tidak aktif"}
+                            {employee.employmentActive
+                              ? "HR aktif"
+                              : "HR tidak aktif"}
                           </StatusBadge>
-                          <span className="text-xs font-semibold text-slate-700">
-                            {employee.user.role}
-                          </span>
+                          <StatusBadge
+                            tone={
+                              employee.isPresentInSource ? "success" : "danger"
+                            }
+                          >
+                            {employee.isPresentInSource
+                              ? "Source tersedia"
+                              : "Source tidak tersedia"}
+                          </StatusBadge>
+                          <StatusBadge
+                            tone={employee.picEligible ? "success" : "neutral"}
+                          >
+                            {employee.picEligible
+                              ? "PIC layak"
+                              : "PIC tidak layak"}
+                          </StatusBadge>
+                          <p className="text-xs tabular-nums text-slate-500">
+                            {employee.kodeStatpeg}/{employee.statKepeg}
+                          </p>
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {employee.user.authProvider} · User.unitId{" "}
-                          {employee.user.unitId ?? "—"}
-                        </p>
-                      </div>
-                    ) : (
-                      <StatusBadge tone="neutral">Belum tertaut</StatusBadge>
-                    );
+                      );
 
-                  case "action":
-                    return (
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onPress={() => handleOpenDetail(employee)}
-                        >
-                          Lihat detail
-                        </Button>
-                        {adminActions.map((action) => (
+                    case "account":
+                      return employee.user ? (
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <StatusBadge
+                              tone={
+                                employee.user.isActive ? "success" : "warning"
+                              }
+                            >
+                              {employee.user.isActive ? "Aktif" : "Tidak aktif"}
+                            </StatusBadge>
+                            <span className="text-xs font-semibold text-slate-700">
+                              {employee.user.role}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {employee.user.authProvider} ·{" "}
+                            {employee.user.unit?.name ??
+                              "Scope belum ditetapkan"}
+                          </p>
+                        </div>
+                      ) : (
+                        <StatusBadge tone="neutral">Belum tertaut</StatusBadge>
+                      );
+
+                    case "action":
+                      return (
+                        <div className="flex min-w-44 flex-wrap gap-2">
                           <Button
-                            key={action}
                             size="sm"
-                            variant={action === "REVOKE_ADMIN" ? "secondary" : "primary"}
-                            onPress={() => handleAdminAction(employee, action)}
+                            variant="secondary"
+                            className="min-h-11 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
+                            aria-label={`Lihat detail ${employee.name}`}
+                            onPress={() => handleOpenDetail(employee)}
                           >
-                            {getEmployeeAdminActionLabel(action)}
+                            Lihat detail
                           </Button>
-                        ))}
-                        {getEmployeePicManagementLink(employee) && (
-                          <a
-                            className="inline-flex items-center rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                            href={getEmployeePicManagementLink(employee) ?? undefined}
-                          >
-                            Lihat PIC
-                          </a>
-                        )}
-                      </div>
-                    );
 
-                  default:
-                    return null;
-                }
-              }}
-            />
-          </Card.Content>
-        </Card>
+                          {getEmployeePicManagementLink(employee) && (
+                            <a
+                              className="inline-flex min-h-11 items-center rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-200 motion-reduce:transition-none hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
+                              href={
+                                getEmployeePicManagementLink(employee) ??
+                                undefined
+                              }
+                            >
+                              Lihat PIC
+                            </a>
+                          )}
+                        </div>
+                      );
+                    default:
+                      return null;
+                  }
+                }}
+              />
+            </Card.Content>
+          </Card>
+
+          <Card
+            className="min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-sm"
+            aria-labelledby="employee-inspector-heading"
+          >
+            <Card.Header className="border-b border-slate-100 px-5 py-4">
+              <Card.Title
+                id="employee-inspector-heading"
+                className="text-base font-semibold text-slate-900"
+              >
+                Inspector Employee
+              </Card.Title>
+              <Card.Description>
+                Detail Employee dan akun aplikasi dari baris yang dipilih.
+              </Card.Description>
+            </Card.Header>
+
+            <Card.Content className="p-5">
+              {selectedEmployee ? (
+                <EmployeeDetailPanel
+                  employee={selectedEmployee}
+                  currentUserId={currentUser?.id}
+                  onAction={handleAdminAction}
+                />
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                  <h3 className="text-sm font-semibold text-slate-700">
+                    Belum ada tinjauan
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Pilih “Lihat detail” pada daftar Employee untuk membuka
+                    inspector.
+                  </p>
+                </div>
+              )}
+            </Card.Content>
+          </Card>
+        </div>
       )}
 
-      <Modal isOpen={detailState.isOpen} onOpenChange={detailState.setOpen}>
-        <Modal.Backdrop>
-          <Modal.Container scroll="inside">
-            <Modal.Dialog className="sm:max-w-2xl">
-              <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>Detail Employee & User</Modal.Heading>
-                <p className="text-sm text-slate-500">
-                  Informasi HR/Pentaho dan akun aplikasi ditampilkan terpisah.
-                </p>
-              </Modal.Header>
-              <Modal.Body>
-                {selectedEmployee ? (
-                  <EmployeeDetail employee={selectedEmployee} />
-                ) : (
-                  <p className="text-sm text-slate-500">
-                    Tidak ada Employee yang dipilih.
-                  </p>
-                )}
-              </Modal.Body>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal>
+      {error && previousResult && !isInitialError && (
+        <EmployeeLoadError
+          error={error}
+          background={visibleEmployees.length > 0}
+          onRetry={() => refetch()}
+        />
+      )}
 
       <ManageAdminModal
         employee={adminAction?.employee ?? null}
@@ -605,8 +856,6 @@ export default function EmployeeManagementView() {
         onClose={() => setAdminAction(null)}
         onSuccess={() => {
           setAdminAction(null);
-          setSelectedEmployee(null);
-          detailState.close();
           refetch();
         }}
       />

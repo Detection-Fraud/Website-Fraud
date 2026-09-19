@@ -1,5 +1,6 @@
 import { Pagination, Table } from "@heroui/react";
 import { BsFillInboxFill } from "react-icons/bs";
+import type * as React from "react";
 
 export interface TableColumn {
   key: string;
@@ -26,11 +27,13 @@ interface DataTableProps<T> {
   handleSearch?: () => void;
   filterStatus?: React.ReactNode;
   filterProgram?: React.ReactNode;
-
   haveSearch?: boolean;
   haveFilter?: boolean;
   className?: string;
   renderEmptyState?: () => React.ReactNode;
+  getRowKey?: (item: T, index: number) => React.Key;
+  getRowClassName?: (item: T, index: number) => string | undefined;
+  isPaginationDisabled?: boolean;
 }
 
 export default function DataTable<T>({
@@ -50,35 +53,36 @@ export default function DataTable<T>({
   haveSearch,
   filterProgram,
   renderEmptyState,
+  getRowKey,
+  getRowClassName,
+  isPaginationDisabled = false,
 }: DataTableProps<T>) {
   const showPagination = pagination && pagination.totalPages > 0;
 
   const getPageNumbers = () => {
     if (!pagination) return [];
+
     const { page, totalPages } = pagination;
     const pages: (number | "ellipsis")[] = [];
 
     if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) {
+      for (let i = 1; i <= totalPages; i += 1) {
         pages.push(i);
       }
     } else {
       pages.push(1);
 
-      if (page > 3) {
-        pages.push("ellipsis");
-      }
+      if (page > 3) pages.push("ellipsis");
 
-      const start = Math.max(2, page - 1);
-      const end = Math.min(totalPages - 1, page + 1);
-
-      for (let i = start; i <= end; i++) {
+      for (
+        let i = Math.max(2, page - 1);
+        i <= Math.min(totalPages - 1, page + 1);
+        i += 1
+      ) {
         pages.push(i);
       }
 
-      if (page < totalPages - 2) {
-        pages.push("ellipsis");
-      }
+      if (page < totalPages - 2) pages.push("ellipsis");
 
       pages.push(totalPages);
     }
@@ -87,36 +91,13 @@ export default function DataTable<T>({
   };
 
   return (
-    <Table className={`p-0 rounded-none ${className}`}>
-      {/* Container untuk filter & pencarian dibikin sejajar dengan gap */}
-      {/* {haveSearch && (
-        <div className="flex w-full flex-row items-center justify-start gap-3 p-4">
-          {haveFilter && filterStatus}
-          {haveFilter && filterProgram}
-          <SearchField className="w-64">
-            <SearchFieldGroup>
-              <SearchField.SearchIcon />
-              <SearchField.Input
-                placeholder="Cari Laporan..."
-                value={search}
-                onChange={(e) => onSearch?.(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSearch?.();
-                  }
-                }}
-              />
-              <SearchField.ClearButton onClick={onClearSearch} />
-            </SearchFieldGroup>
-          </SearchField>
-        </div>
-      )} */}
+    <Table className={`rounded-none p-0 ${className ?? ""}`}>
       <Table.ScrollContainer>
         <Table.Content aria-label={ariaLabel || "Tabel Data"}>
-          <Table.Header className={"sticky z-10 top-0"}>
+          <Table.Header className="sticky top-0 z-10">
             {column.map((col, idx) => (
               <Table.Column
-                className={"px-6 py-3.5 bg-[#f8fafc] whitespace-nowrap"}
+                className="whitespace-nowrap bg-[#f8fafc] px-6 py-3.5"
                 key={col.key}
                 isRowHeader={idx === 0}
               >
@@ -124,18 +105,19 @@ export default function DataTable<T>({
               </Table.Column>
             ))}
           </Table.Header>
+
           <Table.Body
             renderEmptyState={
               renderEmptyState ||
               (() => (
-                <div className="w-full py-14 px-4 text-center flex flex-col items-center justify-center">
-                  <div className="w-14 h-14 bg-slate-100/80 border border-slate-200/60 rounded-2xl flex items-center justify-center text-slate-400 shadow-xs mb-3">
+                <div className="flex w-full flex-col items-center justify-center px-4 py-14 text-center">
+                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200/60 bg-slate-100/80 text-slate-400 shadow-xs">
                     <BsFillInboxFill size={26} />
                   </div>
                   <p className="text-sm font-semibold text-slate-700">
                     Data Tidak Ditemukan
                   </p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
+                  <p className="mt-1 max-w-xs text-xs leading-relaxed text-slate-400">
                     Belum ada rekaman data yang sesuai dengan kriteria filter
                     saat ini.
                   </p>
@@ -144,15 +126,18 @@ export default function DataTable<T>({
             }
           >
             {data.map((item, idx) => (
-              <Table.Row key={idx}>
+              <Table.Row
+                key={getRowKey?.(item, idx) ?? idx}
+                className={getRowClassName?.(item, idx)}
+              >
                 {column.map((col) => (
                   <Table.Cell
+                    className="whitespace-nowrap rounded-none px-6 text-start"
                     key={col.key}
-                    className={"rounded-none px-6 text-start whitespace-nowrap"}
                   >
                     {renderCell
                       ? renderCell(item, col.key)
-                      : (item as any)[col.key]}
+                      : (item as Record<string, React.ReactNode>)[col.key]}
                   </Table.Cell>
                 ))}
               </Table.Row>
@@ -162,17 +147,18 @@ export default function DataTable<T>({
       </Table.ScrollContainer>
 
       {showPagination && (
-        <Table.Footer className="bg-white px-w sm:px-4">
+        <Table.Footer className="bg-white px-4">
           <Pagination>
-            <Pagination.Summary className="text-xs hidden sm:block">
+            <Pagination.Summary className="hidden text-xs tabular-nums sm:block">
               Menampilkan {(pagination.page - 1) * pagination.limit + 1}-
               {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
               dari {pagination.total} data
             </Pagination.Summary>
+
             <Pagination.Content>
               <Pagination.Item>
                 <Pagination.Previous
-                  isDisabled={pagination.page <= 1}
+                  isDisabled={isPaginationDisabled || pagination.page <= 1}
                   onPress={() => onPageChange?.(pagination.page - 1)}
                 >
                   <Pagination.PreviousIcon />
@@ -180,23 +166,24 @@ export default function DataTable<T>({
                 </Pagination.Previous>
               </Pagination.Item>
 
-              {getPageNumbers().map((p, i) =>
-                p === "ellipsis" ? (
-                  <Pagination.Item key={`ellipsis-${i}`}>
+              {getPageNumbers().map((pageNumber, index) =>
+                pageNumber === "ellipsis" ? (
+                  <Pagination.Item key={`ellipsis-${index}`}>
                     <Pagination.Ellipsis />
                   </Pagination.Item>
                 ) : (
-                  <Pagination.Item key={p}>
+                  <Pagination.Item key={pageNumber}>
                     <Pagination.Link
-                      isActive={p === pagination.page}
-                      onPress={() => onPageChange?.(p)}
-                      className={
-                        p === pagination.page
-                          ? "bg-linear-to-br from-sky-600  to-sky-500 font-bold text-white"
+                      isDisabled={isPaginationDisabled}
+                      isActive={pageNumber === pagination.page}
+                      onPress={() => onPageChange?.(pageNumber)}
+                      className={`tabular-nums ${
+                        pageNumber === pagination.page
+                          ? "bg-linear-to-br from-sky-600 to-sky-500 font-bold text-white"
                           : ""
-                      }
+                      }`}
                     >
-                      {p}
+                      {pageNumber}
                     </Pagination.Link>
                   </Pagination.Item>
                 ),
@@ -204,7 +191,10 @@ export default function DataTable<T>({
 
               <Pagination.Item>
                 <Pagination.Next
-                  isDisabled={pagination.page >= pagination.totalPages}
+                  isDisabled={
+                    isPaginationDisabled ||
+                    pagination.page >= pagination.totalPages
+                  }
                   onPress={() => onPageChange?.(pagination.page + 1)}
                 >
                   <span className="hidden sm:inline">Next</span>
