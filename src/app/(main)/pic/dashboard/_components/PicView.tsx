@@ -22,7 +22,6 @@ export default function PicView() {
   const {
     reports,
     pagination,
-    isLoading,
     searchInput,
     setSearchInput,
     handleSearch,
@@ -37,7 +36,7 @@ export default function PicView() {
     handleStatusChange,
     handleKancabChange,
     handlePageChange,
-  } = useReportList({ defaultStatus: "ALL" });
+  } = useReportList({ defaultStatus: "ALL", purpose: "EVIDENCE" });
 
   const { user } = useCurrentUser();
   const isKanwil = user?.unitType === "KANTOR_WILAYAH";
@@ -204,7 +203,7 @@ export default function PicView() {
       </Card>
 
       {/* UPDATED: Table Card Surface & Token Upgrade */}
-      <Card className="rounded-2xl shadow-surface hover:shadow-[var(--surface-shadow-md)] transition-all duration-200 border border-slate-200/60 bg-white p-0 overflow-hidden">
+      <Card className="rounded-2xl shadow-surface hover:shadow-(--surface-shadow-md) transition-all duration-200 border border-slate-200/60 bg-white p-0 overflow-hidden">
         <div className="flex flex-col md:flex-row w-full items-start md:items-center justify-between gap-3 p-4">
           <Card.Header className="p-4">
             <Card.Title className="font-semibold text-md text-slate-900">
