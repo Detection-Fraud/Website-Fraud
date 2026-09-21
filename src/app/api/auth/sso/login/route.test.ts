@@ -22,6 +22,8 @@ mock.module("@/lib/saml-transport", {
 
 let GET: (request: Request) => Promise<Response>;
 const previousTrustedHeader = process.env.TRUSTED_INGRESS_IDENTITY_HEADER;
+const previousAllowUntrustedIngress =
+  process.env.SSO_ALLOW_UNTRUSTED_INGRESS;
 
 before(async () => {
   process.env.TRUSTED_INGRESS_IDENTITY_HEADER = "x-ingress-client-id";
@@ -33,6 +35,12 @@ after(() => {
     delete process.env.TRUSTED_INGRESS_IDENTITY_HEADER;
   } else {
     process.env.TRUSTED_INGRESS_IDENTITY_HEADER = previousTrustedHeader;
+  }
+
+  if (previousAllowUntrustedIngress === undefined) {
+    delete process.env.SSO_ALLOW_UNTRUSTED_INGRESS;
+  } else {
+    process.env.SSO_ALLOW_UNTRUSTED_INGRESS = previousAllowUntrustedIngress;
   }
 });
 
@@ -82,6 +90,24 @@ describe("GET /api/auth/sso/login", () => {
     assert.equal(getAuthorizeUrlMock.mock.callCount(), 11);
   });
 
+  it("allows forwarded identity only when the internal fallback is enabled", async () => {
+    process.env.SSO_ALLOW_UNTRUSTED_INGRESS = "true";
+
+    try {
+      const response = await GET(
+        new Request("http://localhost/api/auth/sso/login", {
+          headers: { "x-forwarded-for": "192.0.2.44" },
+        }),
+      );
+
+      assert.equal(response.status, 307);
+      assert.match(response.headers.get("location") ?? "", /idp\.example\.test/);
+      assert.equal(getAuthorizeUrlMock.mock.callCount(), 12);
+    } finally {
+      delete process.env.SSO_ALLOW_UNTRUSTED_INGRESS;
+    }
+  });
+
   it("rejects forwarding headers even when selected as the configured header", async () => {
     process.env.TRUSTED_INGRESS_IDENTITY_HEADER = "x-forwarded-for";
 
@@ -93,7 +119,7 @@ describe("GET /api/auth/sso/login", () => {
       );
 
       assert.equal(response.status, 503);
-      assert.equal(getAuthorizeUrlMock.mock.callCount(), 11);
+      assert.equal(getAuthorizeUrlMock.mock.callCount(), 12);
     } finally {
       process.env.TRUSTED_INGRESS_IDENTITY_HEADER = "x-ingress-client-id";
     }

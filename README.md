@@ -25,6 +25,11 @@ client-supplied copy (for example, `x-ingress-client-id`). Requests without
 that ingress-attested identity are rejected; `x-forwarded-for` and `x-real-ip`
 are never used as trusted SSO client identity headers.
 
+Internal environments that cannot configure their reverse proxy may explicitly
+set `SSO_ALLOW_UNTRUSTED_INGRESS=true`. In that mode only, SSO initiation falls
+back to the existing forwarded-address rate-limit identity. Keep the flag unset
+for public environments.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

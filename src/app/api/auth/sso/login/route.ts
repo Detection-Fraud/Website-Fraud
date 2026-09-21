@@ -21,7 +21,10 @@ export async function GET(request: Request) {
   }
 
   const clientIdentity = getTrustedClientIdentity(request);
-  if (!clientIdentity) {
+  const allowUntrustedIngress =
+    process.env.SSO_ALLOW_UNTRUSTED_INGRESS === "true";
+
+  if (!clientIdentity && !allowUntrustedIngress) {
     return NextResponse.json(
       { error: "Trusted ingress identity is required" },
       { status: 503, headers: { "Cache-Control": "no-store" } },
@@ -29,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   const rateLimit = checkRateLimit(request, {
-    clientIdentity,
+    ...(clientIdentity ? { clientIdentity } : {}),
     keyPrefix: "sso-login",
     max: 10,
   });
