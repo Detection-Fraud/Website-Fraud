@@ -1,12 +1,8 @@
-import fs from "fs";
+import { readFile } from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
+import path from "node:path";
 
-// Lokasi folder upload ASLI di server.
-// Di server production, set env var UPLOAD_DIR=D:\aktivasi-budaya\uploads-bulog
-// Di local development, fallback ke public/uploads seperti biasa.
-const UPLOAD_DIR =
-  process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
+import { resolvePublicUploadPath } from "@/lib/api/upload-storage";
 
 const MIME_MAP: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -16,46 +12,46 @@ const MIME_MAP: Record<string, string> = {
   ".webp": "image/webp",
 };
 
+export const runtime = "nodejs";
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> },
 ) {
-  const { slug } = await params;
-
-  // Gabungkan slug menjadi nama file, misal ["gambar.jpg"] → "gambar.jpg"
-  const filename = slug.join("/");
-
-  // Buat absolute path ke file
-  const filePath = path.join(UPLOAD_DIR, filename);
-
-  // ⛔ Security: Cegah path traversal attack (misal: ../../etc/passwd)
-  const resolvedFilePath = path.resolve(filePath);
-  const resolvedUploadDir = path.resolve(UPLOAD_DIR);
-  if (!resolvedFilePath.startsWith(resolvedUploadDir)) {
-    return new NextResponse("Forbidden", { status: 403 });
-  }
-
-  // Cek apakah file benar-benar ada
-  if (!fs.existsSync(resolvedFilePath)) {
-    return new NextResponse("Not Found", { status: 404 });
-  }
-
   try {
-    const fileBuffer = fs.readFileSync(resolvedFilePath);
-    const ext = path.extname(filename).toLowerCase();
+    const { slug } = await params;
+    const resolution = await resolvePublicUploadPath(slug);
+
+    if (resolution.kind === "unsafe") {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+
+    if (resolution.kind === "missing") {
+      return new NextResponse("Not Found", { status: 404 });
+    }
+
+    if (resolution.kind === "error") {
+      return new NextResponse("Internal Server Error", { status: 500 });
+    }
+
+    const fileBuffer = await readFile(resolution.filePath);
+    const ext = path.extname(resolution.storageKey).toLowerCase();
     const contentType = MIME_MAP[ext] || "application/octet-stream";
 
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        // Cache 1 tahun di browser (file nama UUID tidak pernah berubah isinya)
         "Cache-Control": "public, max-age=31536000, immutable",
         "Content-Length": fileBuffer.length.toString(),
       },
     });
-  } catch (e) {
-    console.error("[GET /uploads] Error membaca file:", e);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return new NextResponse("Not Found", { status: 404 });
+    }
+
+    console.error("[GET /uploads] Error membaca file:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
