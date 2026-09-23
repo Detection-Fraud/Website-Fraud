@@ -295,7 +295,9 @@ async function getCurrentHeadcounts(
     },
   });
 
-  const headcounts = new Map(unitIds.map((unitId) => [unitId, 0] as const));
+  const headcounts = new Map<string, number>(
+    unitIds.map((unitId) => [unitId, 0]),
+  );
 
   for (const row of grouped) {
     if (row.unitId !== null) {
