@@ -32,6 +32,8 @@ type ParticipationDb = Prisma.TransactionClient;
 type UnitRecord = {
   id: string;
   kodeOrg: string;
+  kodeDolog: string;
+  kodeSubdolog: string;
   name: string;
   type: "DIVISI" | "KANTOR_WILAYAH" | "KANTOR_CABANG";
   parent: { name: string } | null;
@@ -41,9 +43,10 @@ function indexUnitsByCanonicalCode(
   units: readonly UnitRecord[],
 ): Map<string, UnitRecord> {
   const indexed = new Map<string, UnitRecord>();
+  const unitsByLegacyCode = new Map<string, UnitRecord[]>();
 
   for (const unit of units) {
-    const code = getUnitCodeCanonicalKey(unit.kodeOrg);
+    const code = getUnitCodeCanonicalKey(getCanonicalUnitCode(unit));
 
     if (indexed.has(code)) {
       throw new ApiError(
@@ -53,6 +56,17 @@ function indexUnitsByCanonicalCode(
     }
 
     indexed.set(code, unit);
+
+    const legacyCode = getUnitCodeCanonicalKey(unit.kodeOrg);
+    const legacyMatches = unitsByLegacyCode.get(legacyCode) ?? [];
+    legacyMatches.push(unit);
+    unitsByLegacyCode.set(legacyCode, legacyMatches);
+  }
+
+  for (const [legacyCode, matches] of unitsByLegacyCode) {
+    if (matches.length === 1 && !indexed.has(legacyCode)) {
+      indexed.set(legacyCode, matches[0]!);
+    }
   }
 
   return indexed;
@@ -236,6 +250,8 @@ async function getUnits(): Promise<UnitRecord[]> {
     select: {
       id: true,
       kodeOrg: true,
+      kodeDolog: true,
+      kodeSubdolog: true,
       name: true,
       type: true,
       parent: {
@@ -456,6 +472,8 @@ export async function buildParticipationExport(input: {
       unit: {
         select: {
           kodeOrg: true,
+          kodeDolog: true,
+          kodeSubdolog: true,
           type: true,
         },
       },
@@ -473,16 +491,17 @@ export async function buildParticipationExport(input: {
   const canonicalCodes = new Set<string>();
 
   for (const row of rows) {
-    const canonicalUnitCode = normalizeUnitCode(row.unit.kodeOrg);
+    const canonicalUnitCode = getCanonicalUnitCode(row.unit);
+    const canonicalUnitCodeKey = getUnitCodeCanonicalKey(canonicalUnitCode);
 
-    if (canonicalCodes.has(canonicalUnitCode)) {
+    if (canonicalCodes.has(canonicalUnitCodeKey)) {
       throw new ApiError(
-        `Kode Unit canonical duplikat atau ambigu: ${canonicalUnitCode}`,
+        `Kode Unit canonical duplikat atau ambigu: ${canonicalUnitCodeKey}`,
         409,
       );
     }
 
-    canonicalCodes.add(canonicalUnitCode);
+    canonicalCodes.add(canonicalUnitCodeKey);
 
     if (
       row.provenance !== "EMPLOYEE_SNAPSHOT" ||

@@ -35,8 +35,25 @@ async function roundTrip(workbook: Parameters<typeof parseParticipationWorkbook>
 }
 
 describe("participation workbook 09A primitives", () => {
-  it("uses kodeOrg as the canonical unit code", () => {
-    assert.equal(getCanonicalUnitCode({ kodeOrg: "  UNIT-001  " }), "UNIT-001");
+  it("uses the Pentaho regional identity instead of ambiguous kodeOrg", () => {
+    assert.equal(
+      getCanonicalUnitCode({
+        kodeOrg: "E0B000",
+        kodeDolog: "09",
+        kodeSubdolog: "00",
+        type: "KANTOR_WILAYAH",
+      }),
+      "WILAYAH:09:00",
+    );
+    assert.equal(
+      getCanonicalUnitCode({
+        kodeOrg: "E0B000",
+        kodeDolog: "10",
+        kodeSubdolog: "00",
+        type: "KANTOR_WILAYAH",
+      }),
+      "WILAYAH:10:00",
+    );
   });
 
   it("generates a structurally valid workbook and parses it back", async () => {
