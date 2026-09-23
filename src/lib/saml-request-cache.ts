@@ -48,13 +48,12 @@ export class BoundedSamlRequestCache implements CacheProvider {
       return null;
     }
 
-    this.cache.delete(key);
     return item.value;
   }
 
   async removeAsync(key: string | null): Promise<string | null> {
-    if (key !== null) {
-      this.cache.delete(key);
+    if (key !== null && this.cache.delete(key)) {
+      return key;
     }
 
     return null;

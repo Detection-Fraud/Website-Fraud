@@ -78,6 +78,12 @@ export function classifySamlValidationError(error: unknown): string {
 
   if (message.includes("signature")) return "InvalidSignature";
   if (message.includes("audience")) return "AudienceMismatch";
+  if (
+    message.includes("inresponseto") ||
+    message.includes("subject confirmation")
+  ) {
+    return "SAMLRequestStateInvalid";
+  }
   if (message.includes("expired") || message.includes("not yet valid")) {
     return "SAMLAssertionExpired";
   }

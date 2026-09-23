@@ -31,6 +31,8 @@ const SSO_ERROR_MESSAGES: Record<string, string> = {
     "Tujuan response SSO tidak sesuai. Silakan hubungi Administrator.",
   SAMLAssertionExpired:
     "Response SSO sudah kedaluwarsa. Silakan login ulang dari awal.",
+  SAMLRequestStateInvalid:
+    "Sesi request SSO tidak ditemukan atau sudah kedaluwarsa. Silakan login ulang dari awal.",
   MissingNIP:
     "NIP tidak ditemukan dari data SSO. Silakan hubungi Administrator.",
   InvalidSSOToken:

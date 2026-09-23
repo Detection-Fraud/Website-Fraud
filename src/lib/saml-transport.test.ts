@@ -43,7 +43,7 @@ describe("SAML transport helpers", () => {
     );
     assert.equal(
       classifySamlValidationError(new Error("InResponseTo is not valid")),
-      "InvalidSAMLResponse",
+      "SAMLRequestStateInvalid",
     );
   });
 

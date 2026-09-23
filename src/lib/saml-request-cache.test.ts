@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { BoundedSamlRequestCache } from "./saml-request-cache";
 
 describe("BoundedSamlRequestCache", () => {
-  it("claims and deletes request IDs once", async () => {
+  it("keeps request IDs readable until node-saml removes them", async () => {
     const cache = new BoundedSamlRequestCache({
       capacity: 4,
       keyExpirationPeriodMs: 60_000,
@@ -12,10 +12,12 @@ describe("BoundedSamlRequestCache", () => {
     await cache.saveAsync("request-1", "created-at");
 
     assert.equal(await cache.getAsync("request-1"), "created-at");
+    assert.equal(await cache.getAsync("request-1"), "created-at");
+    assert.equal(await cache.removeAsync("request-1"), "request-1");
     assert.equal(await cache.getAsync("request-1"), null);
   });
 
-  it("allows only one parallel claimant", async () => {
+  it("supports node-saml reading the same request during response validation", async () => {
     const cache = new BoundedSamlRequestCache({
       capacity: 4,
       keyExpirationPeriodMs: 60_000,
@@ -27,9 +29,7 @@ describe("BoundedSamlRequestCache", () => {
       Array.from({ length: 20 }, () => cache.getAsync("request-1")),
     );
 
-    assert.equal(results.filter((result) => result === "created-at").length, 1);
-
-    assert.equal(results.filter((result) => result === null).length, 19);
+    assert.equal(results.every((result) => result === "created-at"), true);
   });
 
   it("keeps removeAsync idempotent", async () => {
@@ -40,8 +40,7 @@ describe("BoundedSamlRequestCache", () => {
 
     await cache.saveAsync("request-1", "created-at");
 
-    assert.equal(await cache.getAsync("request-1"), "created-at");
-    assert.equal(await cache.removeAsync("request-1"), null);
+    assert.equal(await cache.removeAsync("request-1"), "request-1");
     assert.equal(await cache.removeAsync("request-1"), null);
   });
 
