@@ -25,6 +25,12 @@ const SSO_ERROR_MESSAGES: Record<string, string> = {
     "Akun Anda belum terdaftar sebagai PIC. Silakan hubungi Administrator.",
   SSOFailed: "Gagal memvalidasi SSO Bulog. Silakan coba lagi.",
   InvalidSAMLResponse: "Response SSO tidak valid. Silakan coba lagi.",
+  InvalidSignature:
+    "Tanda tangan response SSO tidak valid. Silakan hubungi Administrator.",
+  AudienceMismatch:
+    "Tujuan response SSO tidak sesuai. Silakan hubungi Administrator.",
+  SAMLAssertionExpired:
+    "Response SSO sudah kedaluwarsa. Silakan login ulang dari awal.",
   MissingNIP:
     "NIP tidak ditemukan dari data SSO. Silakan hubungi Administrator.",
   InvalidSSOToken:

@@ -288,7 +288,15 @@ export default function EmployeeManagementView() {
   } | null>(null);
 
   const { user: currentUser } = useCurrentUser();
-  const { employees, pagination, isLoading, isFetching, error, refetch } =
+  const {
+    employees,
+    pagination,
+    isLoading,
+    isFetching,
+    isPlaceholderData,
+    error,
+    refetch,
+  } =
     useEmployeeManagement({
       search,
       source,
@@ -299,35 +307,10 @@ export default function EmployeeManagementView() {
       limit: 10,
     });
 
-  const [previousResult, setPreviousResult] = useState<{
-    employees: EmployeeAccount[];
-    pagination: typeof pagination;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!isFetching && !error) {
-      setPreviousResult({ employees, pagination });
-    }
-  }, [employees, error, isFetching, pagination]);
-
-  const shouldUsePreviousResult =
-    Boolean(previousResult) &&
-    employees.length === 0 &&
-    (isFetching || Boolean(error));
-
-  const visibleEmployees = shouldUsePreviousResult
-    ? previousResult!.employees
-    : employees;
-
-  const visiblePagination = shouldUsePreviousResult
-    ? previousResult!.pagination
-    : pagination;
-
-  const isInitialError =
-    Boolean(error) && !previousResult && employees.length === 0;
-
-  const isInitialLoading =
-    isLoading && !isInitialError && !previousResult && employees.length === 0;
+  const visibleEmployees = employees;
+  const visiblePagination = pagination;
+  const isInitialError = Boolean(error) && employees.length === 0;
+  const isInitialLoading = isLoading && !isInitialError;
 
   const hasActiveFilters =
     Boolean(search) ||
@@ -480,22 +463,22 @@ export default function EmployeeManagementView() {
 
         <Card.Content className="space-y-4 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <SearchField className="min-w-0 flex-1">
+            <SearchField
+              className="min-w-0 flex-1"
+              value={searchInput}
+              onChange={setSearchInput}
+              onSubmit={handleSearch}
+              onClear={handleClearSearch}
+            >
               <SearchFieldGroup className="min-h-11 bg-slate-50 transition-colors duration-200 motion-reduce:transition-none focus-within:ring-2 focus-within:ring-[var(--focus)] focus-within:ring-offset-2">
                 <SearchField.SearchIcon />
                 <SearchField.Input
                   aria-label="Cari Employee"
                   placeholder="Cari nama atau NIP"
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleSearch();
-                  }}
                 />
                 <SearchField.ClearButton
                   className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2"
                   aria-label="Bersihkan pencarian Employee"
-                  onClick={handleClearSearch}
                 />
               </SearchFieldGroup>
             </SearchField>
@@ -649,10 +632,16 @@ export default function EmployeeManagementView() {
                 pagination={visiblePagination}
                 onPageChange={setPage}
                 getRowKey={(employee) => employee.id}
+                selectedRowKey={selectedEmployeeId}
+                onRowSelectionChange={(key) =>
+                  setSelectedEmployeeId(key == null ? null : String(key))
+                }
                 getRowClassName={(employee) =>
-                  summarizeEmployeeUi(employee).hasReviewFlag
-                    ? "bg-amber-50/40"
-                    : undefined
+                  `cursor-pointer transition-colors duration-150 motion-reduce:transition-none ${
+                    summarizeEmployeeUi(employee).hasReviewFlag
+                      ? "bg-amber-50/40"
+                      : ""
+                  }`
                 }
                 isPaginationDisabled={isFetching}
                 renderEmptyState={() => (
@@ -840,10 +829,10 @@ export default function EmployeeManagementView() {
         </div>
       )}
 
-      {error && previousResult && !isInitialError && (
+      {error && !isInitialError && (
         <EmployeeLoadError
           error={error}
-          background={visibleEmployees.length > 0}
+          background={visibleEmployees.length > 0 || isPlaceholderData}
           onRetry={() => refetch()}
         />
       )}

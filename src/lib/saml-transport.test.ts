@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Profile } from "@node-saml/node-saml";
 import {
+  classifySamlValidationError,
   createRelayState,
   extractNip,
   getSsoBaseUrl,
@@ -27,6 +28,25 @@ function profile(overrides: Partial<Profile> = {}): Profile {
 }
 
 describe("SAML transport helpers", () => {
+  it("classifies validation failures without exposing SAML payloads", () => {
+    assert.equal(
+      classifySamlValidationError(new Error("Invalid document signature")),
+      "InvalidSignature",
+    );
+    assert.equal(
+      classifySamlValidationError(new Error("SAML assertion audience mismatch")),
+      "AudienceMismatch",
+    );
+    assert.equal(
+      classifySamlValidationError(new Error("SAML assertion expired")),
+      "SAMLAssertionExpired",
+    );
+    assert.equal(
+      classifySamlValidationError(new Error("InResponseTo is not valid")),
+      "InvalidSAMLResponse",
+    );
+  });
+
   it("creates unpredictable RelayState values with sufficient length", () => {
     const first = createRelayState();
     const second = createRelayState();

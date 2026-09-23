@@ -73,6 +73,18 @@ export function getSsoBaseUrl(request?: Request): string {
   return "http://localhost:3000";
 }
 
+export function classifySamlValidationError(error: unknown): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (message.includes("signature")) return "InvalidSignature";
+  if (message.includes("audience")) return "AudienceMismatch";
+  if (message.includes("expired") || message.includes("not yet valid")) {
+    return "SAMLAssertionExpired";
+  }
+
+  return "InvalidSAMLResponse";
+}
+
 export function isConfiguredSsoOrigin(request: Request): boolean {
   const expectedOrigin = getSsoBaseUrl();
   const receivedOrigin = request.headers.get("origin")?.trim();

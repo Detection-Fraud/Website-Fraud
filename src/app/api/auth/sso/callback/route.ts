@@ -1,5 +1,6 @@
 import { saml } from "@/lib/saml";
 import {
+  classifySamlValidationError,
   extractNip,
   getRelayStateCookieOptions,
   getSsoBaseUrl,
@@ -79,10 +80,11 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch {
-    console.error("[SSO CALLBACK] SAML validation failed");
+  } catch (error) {
+    const errorCode = classifySamlValidationError(error);
+    console.error("[SSO CALLBACK] SAML validation failed", { errorCode });
 
-    return redirectWithError(request, "InvalidSAMLResponse");
+    return redirectWithError(request, errorCode);
   }
 }
 

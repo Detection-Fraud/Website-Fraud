@@ -1,4 +1,4 @@
-import { Pagination, Table } from "@heroui/react";
+import { Pagination, Table, type Selection } from "@heroui/react";
 import { BsFillInboxFill } from "react-icons/bs";
 import type * as React from "react";
 
@@ -13,6 +13,8 @@ export interface PaginationInfo {
   limit: number;
   totalPages: number;
 }
+
+type TableRowKey = string | number;
 
 interface DataTableProps<T> {
   column: TableColumn[];
@@ -31,8 +33,10 @@ interface DataTableProps<T> {
   haveFilter?: boolean;
   className?: string;
   renderEmptyState?: () => React.ReactNode;
-  getRowKey?: (item: T, index: number) => React.Key;
+  getRowKey?: (item: T, index: number) => TableRowKey;
   getRowClassName?: (item: T, index: number) => string | undefined;
+  selectedRowKey?: TableRowKey | null;
+  onRowSelectionChange?: (key: TableRowKey | null) => void;
   isPaginationDisabled?: boolean;
 }
 
@@ -55,6 +59,8 @@ export default function DataTable<T>({
   renderEmptyState,
   getRowKey,
   getRowClassName,
+  selectedRowKey,
+  onRowSelectionChange,
   isPaginationDisabled = false,
 }: DataTableProps<T>) {
   const showPagination = pagination && pagination.totalPages > 0;
@@ -93,7 +99,23 @@ export default function DataTable<T>({
   return (
     <Table className={`rounded-none p-0 ${className ?? ""}`}>
       <Table.ScrollContainer>
-        <Table.Content aria-label={ariaLabel || "Tabel Data"}>
+        <Table.Content
+          aria-label={ariaLabel || "Tabel Data"}
+          selectionMode={onRowSelectionChange ? "single" : undefined}
+          selectedKeys={
+            onRowSelectionChange
+              ? new Set(selectedRowKey == null ? [] : [selectedRowKey])
+              : undefined
+          }
+          onSelectionChange={
+            onRowSelectionChange
+              ? (selection: Selection) => {
+                  if (selection === "all") return;
+                  onRowSelectionChange(selection.values().next().value ?? null);
+                }
+              : undefined
+          }
+        >
           <Table.Header className="sticky top-0 z-10">
             {column.map((col, idx) => (
               <Table.Column
@@ -125,23 +147,28 @@ export default function DataTable<T>({
               ))
             }
           >
-            {data.map((item, idx) => (
-              <Table.Row
-                key={getRowKey?.(item, idx) ?? idx}
-                className={getRowClassName?.(item, idx)}
-              >
-                {column.map((col) => (
-                  <Table.Cell
-                    className="whitespace-nowrap rounded-none px-6 text-start"
-                    key={col.key}
-                  >
-                    {renderCell
-                      ? renderCell(item, col.key)
-                      : (item as Record<string, React.ReactNode>)[col.key]}
-                  </Table.Cell>
-                ))}
-              </Table.Row>
-            ))}
+            {data.map((item, idx) => {
+              const rowKey = getRowKey?.(item, idx) ?? idx;
+
+              return (
+                <Table.Row
+                  id={rowKey}
+                  key={rowKey}
+                  className={getRowClassName?.(item, idx)}
+                >
+                  {column.map((col) => (
+                    <Table.Cell
+                      className="whitespace-nowrap rounded-none px-6 text-start"
+                      key={col.key}
+                    >
+                      {renderCell
+                        ? renderCell(item, col.key)
+                        : (item as Record<string, React.ReactNode>)[col.key]}
+                    </Table.Cell>
+                  ))}
+                </Table.Row>
+              );
+            })}
           </Table.Body>
         </Table.Content>
       </Table.ScrollContainer>

@@ -54,7 +54,9 @@ export const saml = new SAML({
   idpCert: idpCert || "placeholder-dev-cert",
 
   wantAssertionsSigned: isProd,
-  wantAuthnResponseSigned: isProd,
+  // Require a signed assertion while allowing an unsigned Response wrapper.
+  // Node-SAML still verifies the assertion signature with idpCert.
+  wantAuthnResponseSigned: false,
   audience: isProd ? "aktivasi-budaya-app" : false,
   acceptedClockSkewMs: isProd ? 300_000 : -1,
 
