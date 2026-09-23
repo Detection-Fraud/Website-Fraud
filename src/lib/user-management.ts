@@ -64,6 +64,33 @@ function rejectLocalOperationalMutation(authProvider: string): void {
   }
 }
 
+function rejectImplicitLegacyRoleTransition(
+  user: {
+    authProvider: string;
+    role: string;
+    employeeId: string | null;
+  },
+  requestedRole: "PIC" | "VIEWER",
+): void {
+  if (user.authProvider !== "SSO" || user.employeeId) {
+    return;
+  }
+
+  if (user.role === "ADMIN") {
+    throw new UserManagementError(
+      "Akun ADMIN SSO harus dikelola melalui operasi Admin Employee, bukan PIC operasional",
+      409,
+    );
+  }
+
+  if (user.role === "PIC" && requestedRole === "VIEWER") {
+    throw new UserManagementError(
+      "Perubahan role PIC menjadi VIEWER harus menggunakan operasi demote PIC",
+      409,
+    );
+  }
+}
+
 function boundedPage(
   value: number | undefined,
   fallback: number,
@@ -157,18 +184,22 @@ export async function listEmployeesForManagement(
   const where: Prisma.EmployeeWhereInput = {
     ...(search
       ? {
-          OR: [
+          AND: [
             {
-              name: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-            {
-              nip: {
-                contains: search,
-                mode: "insensitive",
-              },
+              OR: [
+                {
+                  name: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  nip: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              ],
             },
           ],
         }
@@ -351,7 +382,9 @@ export async function searchPicCandidates(
     .filter(
       (employee) =>
         isPicEligible(employee) &&
-        (!employee.user || employee.user.authProvider === "SSO"),
+        (!employee.user ||
+          (employee.user.authProvider === "SSO" &&
+            employee.user.role !== "ADMIN")),
     )
     .map((employee) => ({
       id: employee.user?.id ?? employee.id,
@@ -477,6 +510,7 @@ export async function createOrLinkUser(
           id: true,
           employeeId: true,
           authProvider: true,
+          role: true,
         },
       });
 
@@ -485,6 +519,10 @@ export async function createOrLinkUser(
           "Akun LOCAL/debug tidak dapat digunakan sebagai akun PIC operasional",
           409,
         );
+      }
+
+      if (legacyUser) {
+        rejectImplicitLegacyRoleTransition(legacyUser, input.role);
       }
 
       if (legacyUser?.employeeId) {
@@ -570,6 +608,10 @@ export async function assignPic(
             "Akun LOCAL/debug tidak dapat digunakan sebagai akun PIC operasional",
             409,
           );
+        }
+
+        if (byNip) {
+          rejectImplicitLegacyRoleTransition(byNip, "PIC");
         }
 
         if (byNip?.employeeId && byNip.employeeId !== employee.id) {
