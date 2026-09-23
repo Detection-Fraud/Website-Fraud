@@ -73,12 +73,18 @@ describe("Task 09C workbook reconciliation", () => {
     assert.equal(result[0]?.row.participantCount, null);
   });
 
-  it("rejects empty/value disagreement as an authoritative conflict", () => {
+  it("uses the populated duplicate when another sheet leaves the cell empty", () => {
+    const result = reconcileWorkbookRows(
+      workbook([row("U-001", null)], [row("U-001", 2)]),
+    );
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0]?.row.participantCount, 2);
+  });
+
+  it("rejects conflicting populated duplicate values", () => {
     assert.throws(
-      () =>
-        reconcileWorkbookRows(
-          workbook([row("U-001", null)], [row("U-001", 2)]),
-        ),
+      () => reconcileWorkbookRows(workbook([row("U-001", 2)], [row("U-001", 3)])),
       /Jumlah Partisipasi konflik/,
     );
   });

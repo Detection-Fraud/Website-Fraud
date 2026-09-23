@@ -230,11 +230,22 @@ export function reconcileWorkbookRows(
       continue;
     }
 
-    if (current.row.participantCount !== item.row.participantCount) {
+    const currentParticipantCount = current.row.participantCount;
+    const incomingParticipantCount = item.row.participantCount;
+
+    if (
+      currentParticipantCount !== null &&
+      incomingParticipantCount !== null &&
+      currentParticipantCount !== incomingParticipantCount
+    ) {
       throw new ApiError(
         `Jumlah Partisipasi konflik untuk Kode Unit ${unitCode}; Summary dan sheet unit harus memiliki nilai yang sama`,
         400,
       );
+    }
+
+    if (currentParticipantCount === null && incomingParticipantCount !== null) {
+      current.row = item.row;
     }
 
     current.sourceRows.push(item);

@@ -56,7 +56,7 @@ export const PARTICIPATION_WORKBOOK_INSTRUCTIONS = [
   "Petunjuk Pengisian Workbook Partisipasi",
   "Kode Unit adalah identifier unit dan tidak boleh diubah.",
   "Jumlah Karyawan diisi oleh sistem berdasarkan data Employee.",
-  "Jumlah Partisipasi diisi oleh Admin.",
+  "Jumlah Partisipasi diisi oleh Admin pada sheet Summary; sheet Kanwil, Kancab, dan Divisi boleh dibiarkan kosong atau diisi dengan nilai yang sama.",
   "Isi Jumlah Partisipasi sebagai jumlah peserta (bilangan bulat), bukan persentase.",
   "Persentase hanya merupakan preview hasil perhitungan dari Jumlah Partisipasi dan Jumlah Karyawan; jangan diisi manual.",
   "Untuk periode historis, nama unit dan induk unit mengikuti snapshot historis.",
