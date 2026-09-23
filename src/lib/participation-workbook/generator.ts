@@ -31,10 +31,6 @@ function toExcelRow(
 
 function configureDataWorksheet(worksheet: Worksheet): void {
   worksheet.views = [{ state: "frozen", ySplit: 1 }];
-  worksheet.autoFilter = {
-    from: "A1",
-    to: "G1",
-  };
 
   worksheet.getColumn(1).width = 8;
   worksheet.getColumn(2).width = 20;
