@@ -205,6 +205,22 @@ describe("Task 09D participation workbook service", () => {
     assert.equal(transactionMock.mock.callCount(), 0);
   });
 
+  it("treats a unit with no matching employees as zero headcount", async () => {
+    employeeGroupByMock.mock.mockImplementationOnce(async () => []);
+
+    const result = await previewParticipationWorkbook({
+      buffer: await workbookBuffer([row("U-FIRST", 0)]),
+      categoryId,
+      tw: 1,
+      year: 2026,
+    });
+
+    assert.equal(result.rows[0]?.status, "FIRST");
+    assert.equal(result.rows[0]?.headcount, 0);
+    assert.equal(result.rows[0]?.percentage, 0);
+    assert.equal(result.rows[0]?.warning, "ZERO_HEADCOUNT");
+  });
+
   it("uses only Kode Unit and Jumlah Partisipasi as import authority", async () => {
     const result = await previewParticipationWorkbook({ buffer: await workbookBuffer([row("U-FIRST", 2, { unitName: "Forged", parentUnitName: "Forged Parent", headcount: 9999, percentage: 0.01 })]), categoryId, tw: 1, year: 2026 });
     const preview = result.rows[0];

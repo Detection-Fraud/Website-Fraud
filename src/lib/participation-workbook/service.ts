@@ -295,13 +295,15 @@ async function getCurrentHeadcounts(
     },
   });
 
-  return new Map(
-    grouped
-      .filter(
-        (row): row is typeof row & { unitId: string } => row.unitId !== null,
-      )
-      .map((row) => [row.unitId, row._count._all]),
-  );
+  const headcounts = new Map(unitIds.map((unitId) => [unitId, 0] as const));
+
+  for (const row of grouped) {
+    if (row.unitId !== null) {
+      headcounts.set(row.unitId, row._count._all);
+    }
+  }
+
+  return headcounts;
 }
 
 async function requireExcelImportCategory(categoryId: string) {
