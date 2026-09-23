@@ -69,6 +69,14 @@ enum EmployeeSyncRunStatus {
   FAILED
 }
 
+enum EmployeeSyncPhase {
+  TRIGGERING
+  PENTAHO_RUNNING
+  VALIDATING
+  RECONCILING
+  COMPLETED
+}
+
 enum ParticipationProvenance {
   LEGACY
   EMPLOYEE_SNAPSHOT
@@ -133,6 +141,7 @@ model User {
   assessedParticipations ParticipationData[] @relation("ParticipationAssessors")
   scoreHistoryEntries    ParticipationScoreHistory[] @relation("ScoreHistoryActors")
   correctionAudits       ParticipationCorrectionAudit[] @relation("ParticipationCorrectionActors")
+  employeeSyncRunsTriggered EmployeeSyncRun[] @relation("EmployeeSyncTriggeredBy")
 
   @@index([role])
   @@index([isActive])
@@ -253,11 +262,18 @@ model EmployeeSyncRun {
   sourceSystem String
   sourceMetadata Json?
   status EmployeeSyncRunStatus @default(RUNNING)
+  phase EmployeeSyncPhase?
+  externalJobName String? @unique
+  triggeredById String?
+  triggeredBy User? @relation("EmployeeSyncTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+  triggeredByName String?
+  deadlineAt DateTime?
   startedAt DateTime @default(now())
   completedAt DateTime?
   receivedCount Int @default(0)
   processedCount Int @default(0)
   missingCount Int @default(0)
+  deactivatedCount Int @default(0)
   errorMessage String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -268,15 +284,30 @@ model EmployeeSyncRun {
   @@index([status])
   @@index([startedAt])
   @@index([status, completedAt])
+  @@index([sourceSystem, startedAt])
 }
 
 model Employee {
   id String @id @default(uuid())
   nip String @unique
   name String
+  jobTitle String?
   jenjang String
+  jenjangLabel String?
   kodeStatpeg String
   statKepeg String
+  sourceKodeDolog String?
+  sourceKodeSubdolog String?
+  sourceKodeKansilog String?
+  sourceKodeGudang String?
+  sourceKodeOrg String?
+  sourceNamaOrg String?
+  sourceNamaSatker String?
+  sourceNamaInduk String?
+  sourceCreatedAt DateTime?
+  sourceCreatedBy String?
+  sourceUpdatedAt DateTime?
+  sourceUpdatedBy String?
   unitId String?
   unit Unit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
   isPresentInSource Boolean @default(false)

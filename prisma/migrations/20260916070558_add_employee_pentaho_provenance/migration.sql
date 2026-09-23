@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "Employee" ADD COLUMN     "jenjangLabel" TEXT,
+ADD COLUMN     "jobTitle" TEXT,
+ADD COLUMN     "sourceCreatedAt" TIMESTAMP(3),
+ADD COLUMN     "sourceCreatedBy" TEXT,
+ADD COLUMN     "sourceKodeDolog" TEXT,
+ADD COLUMN     "sourceKodeGudang" TEXT,
+ADD COLUMN     "sourceKodeKansilog" TEXT,
+ADD COLUMN     "sourceKodeOrg" TEXT,
+ADD COLUMN     "sourceKodeSubdolog" TEXT,
+ADD COLUMN     "sourceNamaInduk" TEXT,
+ADD COLUMN     "sourceNamaOrg" TEXT,
+ADD COLUMN     "sourceNamaSatker" TEXT,
+ADD COLUMN     "sourceUpdatedAt" TIMESTAMP(3),
+ADD COLUMN     "sourceUpdatedBy" TEXT;

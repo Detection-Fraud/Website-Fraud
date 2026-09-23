@@ -8,22 +8,39 @@ type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-function isJsonCompatible(value: unknown, seen = new WeakSet<object>): boolean {
+function isJsonCompatible(
+  value: unknown,
+  seen = new WeakSet<object>(),
+): boolean {
   if (value === null) return true;
-  if (typeof value === "string" || typeof value === "boolean") return true;
-  if (typeof value === "number") return Number.isFinite(value);
-  if (typeof value !== "object") return false;
 
-  if (seen.has(value)) return false;
+  if (typeof value === "string" || typeof value === "boolean") {
+    return true;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  if (typeof value !== "object") {
+    return false;
+  }
+
+  if (seen.has(value)) {
+    return false;
+  }
+
   seen.add(value);
 
   const prototype = Object.getPrototypeOf(value);
+
   const compatible = Array.isArray(value)
     ? value.every((child) => isJsonCompatible(child, seen))
     : (prototype === Object.prototype || prototype === null) &&
       Object.values(value).every((child) => isJsonCompatible(child, seen));
 
   seen.delete(value);
+
   return compatible;
 }
 
@@ -35,9 +52,23 @@ const normalizedEmployeeSchema = z
   .object({
     nip: z.string().trim().min(1).max(64),
     name: z.string().trim().min(1).max(200),
+    jobTitle: z.string().trim().min(1).max(200),
     jenjang: z.string().trim().min(1).max(32),
+    jenjangLabel: z.string().trim().min(1).max(200),
     kodeStatpeg: z.string().trim().min(1).max(32),
     statKepeg: z.string().trim().min(1).max(32),
+    sourceKodeDolog: z.string().trim().min(1).max(32),
+    sourceKodeSubdolog: z.string().trim().min(1).max(32),
+    sourceKodeKansilog: z.string().trim().min(1).max(32),
+    sourceKodeGudang: z.string().trim().min(1).max(32),
+    sourceKodeOrg: z.string().trim().min(1).max(64),
+    sourceNamaOrg: z.string().trim().min(1).max(200),
+    sourceNamaSatker: z.string().trim().min(1).max(200),
+    sourceNamaInduk: z.string().trim().max(200).nullable(),
+    sourceCreatedAt: z.date(),
+    sourceCreatedBy: z.string().trim().min(1).max(200),
+    sourceUpdatedAt: z.date(),
+    sourceUpdatedBy: z.string().trim().min(1).max(200),
     externalUnitCode: z.string().trim().min(1).max(128),
   })
   .strict();
@@ -56,6 +87,7 @@ export const employeeSnapshotSchema = z
   .strict()
   .superRefine((snapshot, context) => {
     const seenNips = new Map<string, number>();
+
     snapshot.employees.forEach((employee, index) => {
       const firstIndex = seenNips.get(employee.nip);
 
@@ -65,6 +97,7 @@ export const employeeSnapshotSchema = z
           path: ["employees", index, "nip"],
           message: `NIP duplikat; baris pertama berada pada indeks ${firstIndex}`,
         });
+
         return;
       }
 
