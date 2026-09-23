@@ -95,6 +95,7 @@ describe("participation workbook 09A primitives", () => {
 
     const firstWorksheet = workbook.worksheets[0];
     assert.ok(firstWorksheet);
+    assert.equal(firstWorksheet.autoFilter, undefined);
 
     const headerValues = PARTICIPATION_WORKBOOK_HEADERS.map((_, index) =>
       firstWorksheet.getRow(1).getCell(index + 1).text,
@@ -235,11 +236,43 @@ describe("participation workbook 09A primitives", () => {
     }
 
     const loaded = await loadParticipationWorkbook(await serializeParticipationWorkbook(workbook));
+    assert.equal(validateParticipationWorkbookStructure(loaded).valid, true);
     const parsed = parseParticipationWorkbook(loaded);
     assert.deepEqual(parsed.sheets.summary, [
       { unitCode: "U-002", unitName: "Unit Dua", parentUnitName: "Kanwil Dua", headcount: 125, participantCount: 80, percentage: 64 },
       { unitCode: "U-001", unitName: "Unit Satu", parentUnitName: null, headcount: 10, participantCount: 3, percentage: 30 },
     ]);
+  });
+
+  it("accepts Excel files that omit the optional headerRowCount metadata", () => {
+    const workbook = generateParticipationWorkbook({
+      summary: [
+        {
+          unitCode: "U-001",
+          unitName: "Unit Satu",
+          parentUnitName: null,
+          headcount: 10,
+          participantCount: 3,
+          percentage: 30,
+        },
+      ],
+      kanwil: [],
+      kancab: [],
+      divisi: [],
+    });
+
+    for (const [sheetName, tableName] of [
+      [PARTICIPATION_WORKBOOK_SHEETS.SUMMARY, PARTICIPATION_WORKBOOK_TABLES.SUMMARY],
+      [PARTICIPATION_WORKBOOK_SHEETS.KANWIL, PARTICIPATION_WORKBOOK_TABLES.KANWIL],
+      [PARTICIPATION_WORKBOOK_SHEETS.KANCAB, PARTICIPATION_WORKBOOK_TABLES.KANCAB],
+      [PARTICIPATION_WORKBOOK_SHEETS.DIVISI, PARTICIPATION_WORKBOOK_TABLES.DIVISI],
+    ] as const) {
+      const worksheet = workbook.getWorksheet(sheetName)!;
+      worksheet.getTable(tableName)!.headerRow = false;
+    }
+
+    assert.equal(validateParticipationWorkbookStructure(workbook).valid, true);
+    assert.equal(parseParticipationWorkbook(workbook).sheets.summary[0]?.unitCode, "U-001");
   });
 
   it("parses only rows inside each expected table and ignores outside rows", async () => {

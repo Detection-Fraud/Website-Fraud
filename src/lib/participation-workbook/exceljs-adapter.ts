@@ -86,7 +86,7 @@ export function getParticipationTableBoundary(
 ): ParticipationTableBoundary | null {
   const table = worksheet.getTable(tableName);
 
-  if (!table || !table.headerRow) {
+  if (!table) {
     return null;
   }
 

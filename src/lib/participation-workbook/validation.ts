@@ -84,12 +84,13 @@ function validateDataSheet(
     });
   } else if (
     !getParticipationTableBoundary(worksheet, expectedTableName) ||
+    (!worksheet.getTable(expectedTableName)?.headerRow && !hasExactHeaders(headers)) ||
     !hasExactTableHeaders(worksheet, expectedTableName)
   ) {
     issues.push({
       code: "INVALID_TABLE_HEADERS",
       sheetName: worksheet.name,
-      message: `Tabel ${expectedTableName} harus berada pada A1:G... dengan headerRow aktif dan header sesuai kontrak workbook`,
+      message: `Tabel ${expectedTableName} harus berada pada A1:G... dengan header sesuai kontrak workbook`,
     });
   }
 
