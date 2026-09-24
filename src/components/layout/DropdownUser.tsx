@@ -1,6 +1,9 @@
 "use client";
 
 import { getRoleLabel } from "@/lib/display-labels";
+import { api } from "@/lib/api";
+import { useMutation } from "@tanstack/react-query";
+import { useRef } from "react";
 import { Avatar, Dropdown, Label } from "@heroui/react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -13,12 +16,71 @@ export interface UserData {
   unitId?: string | null;
   unitName?: string | null;
   unitType?: string | null;
+  authProvider?: string | null;
 }
 
 export default function DropdownUser({ user }: { user: UserData }) {
   const router = useRouter();
+  const logoutInProgressRef = useRef(false);
+  const ssoLogoutMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post<{ redirectUrl?: unknown }>(
+        "/auth/sso/logout/start",
+      );
+      const rawRedirectUrl = response.data?.redirectUrl;
+
+      if (typeof rawRedirectUrl !== "string" || !rawRedirectUrl.trim()) {
+        throw new Error("Invalid SSO logout redirect URL");
+      }
+
+      let redirectUrl: URL;
+      try {
+        redirectUrl = new URL(rawRedirectUrl);
+      } catch {
+        throw new Error("Invalid SSO logout redirect URL");
+      }
+
+      if (
+        redirectUrl.protocol !== "https:" ||
+        redirectUrl.username ||
+        redirectUrl.password
+      ) {
+        throw new Error("Invalid SSO logout redirect URL");
+      }
+
+      return redirectUrl.toString();
+    },
+  });
+
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/login" });
+    if (logoutInProgressRef.current) return;
+    logoutInProgressRef.current = true;
+
+    if (user.authProvider !== "SSO") {
+      await signOut({ callbackUrl: "/login" });
+      return;
+    }
+
+    let redirectUrl: string | null = null;
+    try {
+      redirectUrl = await ssoLogoutMutation.mutateAsync();
+    } catch {
+      // Still clear the local application session if SSO preparation fails.
+    }
+
+    let localSignOutSucceeded = true;
+    try {
+      await signOut({ redirect: false });
+    } catch {
+      localSignOutSucceeded = false;
+    }
+
+    if (redirectUrl && localSignOutSucceeded) {
+      window.location.assign(redirectUrl);
+      return;
+    }
+
+    router.replace("/login?logout=failed");
   };
 
   let unitName = "";
@@ -91,6 +153,7 @@ export default function DropdownUser({ user }: { user: UserData }) {
             textValue={"Logout"}
             variant="danger"
             onPress={handleLogout}
+            isDisabled={ssoLogoutMutation.isPending}
           >
             <div className="flex w-full items-center justify-between gap-2">
               <Label>Logout</Label>

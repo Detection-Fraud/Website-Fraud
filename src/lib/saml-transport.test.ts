@@ -5,9 +5,13 @@ import {
   classifySamlValidationError,
   createRelayState,
   extractNip,
+  getSamlLogoutContextCookieOptions,
+  getSamlLogoutRelayStateCookieOptions,
   getSsoBaseUrl,
   isConfiguredSsoOrigin,
   relayStateMatches,
+  SAML_LOGOUT_CONTEXT_COOKIE,
+  SAML_LOGOUT_RELAY_STATE_COOKIE,
 } from "./saml-transport";
 
 function setEnv(name: string, value: string | undefined): void {
@@ -190,6 +194,38 @@ describe("SAML transport helpers", () => {
       );
     } finally {
       setEnv("NEXT_PUBLIC_APP_URL", previousAppUrl);
+    }
+  });
+
+  it("uses scoped SLO cookie settings", () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+
+    setEnv("NODE_ENV", "production");
+
+    try {
+      assert.equal(SAML_LOGOUT_CONTEXT_COOKIE, "sso_logout_context");
+      assert.equal(
+        SAML_LOGOUT_RELAY_STATE_COOKIE,
+        "sso_logout_relay_state",
+      );
+
+      assert.deepEqual(getSamlLogoutContextCookieOptions(), {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60,
+        path: "/api/auth/sso",
+      });
+
+      assert.deepEqual(getSamlLogoutRelayStateCookieOptions(), {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 5 * 60,
+        path: "/api/auth/sso",
+      });
+    } finally {
+      setEnv("NODE_ENV", previousNodeEnv);
     }
   });
 });

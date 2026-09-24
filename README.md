@@ -30,6 +30,28 @@ set `SSO_ALLOW_UNTRUSTED_INGRESS=true`. In that mode only, SSO initiation falls
 back to the existing forwarded-address rate-limit identity. Keep the flag unset
 for public environments.
 
+## SAML service provider metadata
+
+`NEXT_PUBLIC_APP_URL` is the application origin used to form the service
+provider endpoints:
+
+- ACS: `${NEXT_PUBLIC_APP_URL}/api/auth/sso/callback` using HTTP-POST.
+- SLS: `${NEXT_PUBLIC_APP_URL}/api/auth/sso/sls` using HTTP-Redirect only.
+
+The SLS endpoint accepts inbound `SAMLRequest` through Redirect GET only.
+Runtime POST support for `SAMLResponse` does not add a POST SLS binding to the
+metadata.
+
+Configure the BULOG test IdP endpoints and persistent NameID format as follows:
+
+```env
+SAML_SP_ENTITY_ID=aktivasi-budaya-app
+SAML_IDP_ISSUER=https://sso-test.bulog.co.id/saml/saml2/idp/metadata.php
+SAML_ENTRY_POINT=https://sso-test.bulog.co.id/saml/saml2/idp/SSOService.php
+SAML_LOGOUT_URL=https://sso-test.bulog.co.id/saml/saml2/idp/SingleLogoutService.php
+SAML_NAME_ID_FORMAT=urn:oasis:names:tc:SAML:2.0:nameid-format:persistent
+SAML_IDP_CERT=<active IdP signing certificate>
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
@@ -48,3 +70,4 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```

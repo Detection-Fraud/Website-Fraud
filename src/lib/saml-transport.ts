@@ -6,6 +6,12 @@ export const SSO_TEMP_TOKEN_COOKIE = "sso_temp_token";
 
 const SSO_RELAY_STATE_MAX_AGE_SECONDS = 5 * 60;
 
+export const SAML_LOGOUT_CONTEXT_COOKIE = "sso_logout_context";
+export const SAML_LOGOUT_RELAY_STATE_COOKIE = "sso_logout_relay_state";
+
+const SAML_LOGOUT_CONTEXT_MAX_AGE_SECONDS = 24 * 60 * 60;
+const SAML_LOGOUT_RELAY_STATE_MAX_AGE_SECONDS = 5 * 60;
+
 export function createRelayState(): string {
   return crypto.randomBytes(32).toString("base64url");
 }
@@ -40,6 +46,34 @@ export function getTempTokenCookieOptions(maxAge: number) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
+    maxAge,
+    path: "/api/auth/sso",
+  };
+}
+
+export function getSamlLogoutContextCookieOptions(
+  maxAge = SAML_LOGOUT_CONTEXT_MAX_AGE_SECONDS,
+) {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax" as const,
+    maxAge,
+    path: "/api/auth/sso",
+  };
+}
+
+export function getSamlLogoutRelayStateCookieOptions(
+  maxAge = SAML_LOGOUT_RELAY_STATE_MAX_AGE_SECONDS,
+) {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? ("none" as const) : ("lax" as const),
     maxAge,
     path: "/api/auth/sso",
   };

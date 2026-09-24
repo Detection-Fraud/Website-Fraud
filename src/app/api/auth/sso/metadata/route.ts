@@ -1,11 +1,8 @@
-// Bisa dijadikan API route: src/app/api/auth/sso/metadata/route.ts
-import { saml } from "@/lib/saml";
+import { generateSamlServiceProviderMetadata } from "@/lib/saml";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  // Parameter 1: SP decryption certificate (null jika tidak ada)
-  // Parameter 2: SP signing certificate (null jika tidak ada)
-  const metadata = saml.generateServiceProviderMetadata(null, null);
+  const metadata = generateSamlServiceProviderMetadata();
 
   return new NextResponse(metadata, {
     headers: {

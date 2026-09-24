@@ -1,11 +1,17 @@
 import { saml } from "@/lib/saml";
 import {
+  createLogoutContextToken,
+  extractLogoutProfile,
+} from "@/lib/saml-logout";
+import {
   classifySamlValidationError,
   extractNip,
   getRelayStateCookieOptions,
+  getSamlLogoutContextCookieOptions,
   getSsoBaseUrl,
   getTempTokenCookieOptions,
   relayStateMatches,
+  SAML_LOGOUT_CONTEXT_COOKIE,
   SSO_RELAY_STATE_COOKIE,
   SSO_TEMP_TOKEN_COOKIE,
 } from "@/lib/saml-transport";
@@ -46,11 +52,17 @@ export async function POST(request: NextRequest) {
       return redirectWithError(request, "InvalidSAMLResponse");
     }
 
+    const logoutProfile = extractLogoutProfile(profile);
     const nip = extractNip(profile);
 
     if (!nip) {
       return redirectWithError(request, "MissingNIP");
     }
+
+    const logoutContextToken = createLogoutContextToken({
+      nip,
+      profile: logoutProfile,
+    });
 
     const temporaryToken = jwt.sign(
       {
@@ -74,6 +86,12 @@ export async function POST(request: NextRequest) {
       getTempTokenCookieOptions(60),
     );
 
+    response.cookies.set(
+      SAML_LOGOUT_CONTEXT_COOKIE,
+      logoutContextToken,
+      getSamlLogoutContextCookieOptions(),
+    );
+
     response.cookies.set(SSO_RELAY_STATE_COOKIE, "", {
       ...getRelayStateCookieOptions(),
       maxAge: 0,
@@ -95,6 +113,11 @@ function redirectWithError(request: Request, errorCode: string): NextResponse {
 
   response.cookies.set(SSO_RELAY_STATE_COOKIE, "", {
     ...getRelayStateCookieOptions(),
+    maxAge: 0,
+  });
+
+  response.cookies.set(SAML_LOGOUT_CONTEXT_COOKIE, "", {
+    ...getSamlLogoutContextCookieOptions(0),
     maxAge: 0,
   });
 
