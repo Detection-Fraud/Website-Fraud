@@ -116,6 +116,8 @@ const logoutUrl =
   process.env.SAML_LOGOUT_URL?.trim() || (isProd ? "" : entryPoint);
 
 const idpCert = formatPemCertificate(process.env.SAML_IDP_CERT || "");
+const legacyIdpCertValue = process.env.SAML_IDP_LEGACY_CERT?.trim() || "";
+const legacyIdpCert = formatPemCertificate(legacyIdpCertValue);
 
 const spPrivateKey = formatPemPrivateKey(process.env.SAML_SP_PRIVATE_KEY || "");
 
@@ -141,15 +143,16 @@ if (isProd) {
     throw new Error("[SAML Config Error] SAML_IDP_CERT is missing or invalid.");
   }
 
-  try {
-    const certificate = new X509Certificate(idpCert);
+  if (legacyIdpCertValue && !legacyIdpCert) {
+    throw new Error("[SAML Config Error] SAML_IDP_LEGACY_CERT is invalid.");
+  }
 
-    if (Date.parse(certificate.validTo) <= Date.now()) {
-      throw new Error();
-    }
+  try {
+    new X509Certificate(idpCert);
+    if (legacyIdpCert) new X509Certificate(legacyIdpCert);
   } catch {
     throw new Error(
-      "[SAML Config Error] SAML_IDP_CERT must be a valid active X.509 certificate.",
+      "[SAML Config Error] IdP signing certificates must be valid X.509 certificates.",
     );
   }
 
@@ -188,7 +191,9 @@ export const saml = new SAML({
   logoutUrl,
   logoutCallbackUrl: `${ssoBaseUrl}/api/auth/sso/sls`,
   identifierFormat: SAML_NAME_ID_FORMAT,
-  idpCert: idpCert || "placeholder-dev-cert",
+  idpCert: idpCert && legacyIdpCert
+    ? [idpCert, legacyIdpCert]
+    : idpCert || legacyIdpCert || "placeholder-dev-cert",
 
   ...optionalSigningOptions,
 

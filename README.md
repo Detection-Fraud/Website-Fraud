@@ -51,6 +51,13 @@ SAML_ENTRY_POINT=https://sso-test.bulog.co.id/saml/saml2/idp/SSOService.php
 SAML_LOGOUT_URL=https://sso-test.bulog.co.id/saml/saml2/idp/SingleLogoutService.php
 SAML_NAME_ID_FORMAT=urn:oasis:names:tc:SAML:2.0:nameid-format:persistent
 SAML_IDP_CERT=<active IdP signing certificate>
+SAML_IDP_LEGACY_CERT=<temporary legacy IdP signing certificate during rollover>
+```
+
+During the BULOG test IdP key rollover, configure both explicitly trusted
+signing certificates. Signature verification remains mandatory; remove
+`SAML_IDP_LEGACY_CERT` after the IdP removes the legacy key from its signing
+metadata.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
