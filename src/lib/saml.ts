@@ -192,7 +192,7 @@ export const saml = new SAML({
 
   ...optionalSigningOptions,
 
-  wantAssertionsSigned: isProd,
+  wantAssertionsSigned: false,
   wantAuthnResponseSigned: false,
   audience: isProd ? spEntityId : false,
   acceptedClockSkewMs: isProd ? 300_000 : -1,
