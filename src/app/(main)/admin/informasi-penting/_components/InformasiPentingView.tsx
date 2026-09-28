@@ -324,7 +324,7 @@ export default function InformasiPentingView() {
                 key={i}
                 className="overflow-hidden border border-slate-200 bg-white p-0 animate-pulse"
               >
-                <div className="aspect-[2/1] w-full bg-slate-200" />
+                <div className="aspect-[21/9] w-full bg-slate-200" />
                 <div className="p-4 space-y-3">
                   <div className="h-4 w-1/3 bg-slate-200 rounded" />
                   <div className="h-8 bg-slate-200 rounded" />

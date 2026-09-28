@@ -209,7 +209,7 @@ export default function BerandaPicView() {
 
         {isImportantInfoLoading ? (
           <Card className="border border-slate-200 shadow-sm rounded-lg overflow-hidden bg-white p-0">
-            <Skeleton className="aspect-2/1 w-full" />
+            <Skeleton className="aspect-[21/9] w-full" />
           </Card>
         ) : isImportantInfoError ? (
           <Card className="border border-red-200 bg-red-50/50 shadow-sm rounded-lg p-4">

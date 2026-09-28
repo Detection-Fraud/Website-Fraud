@@ -1,8 +1,10 @@
 import { api } from "@/lib/api";
-import { ProgramBudaya } from "@generated/prisma";
+import type { ProgramBudayaWithCategory } from "@/hooks/useProgramQuery";
 import { toast, useOverlayState } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+
+type ProgramBannerState = "NONE" | "UNCHANGED" | "REPLACED" | "REMOVED";
 
 interface ProgramPayload {
   name: string;
@@ -14,14 +16,31 @@ interface ProgramPayload {
   isActive: boolean;
   categoryId?: string | null;
   description?: string | null;
+  bannerState?: ProgramBannerState;
   bannerUrl?: string | null;
+  bannerPublicId?: string;
+  bannerDescriptor?: string;
+  bannerCleanupToken?: string;
+  expectedUpdatedAt?: string;
+}
+
+type ApiError = {
+  response?: { data?: { message?: string } };
+  message?: string;
+};
+
+function getErrorMessage(error: unknown) {
+  const apiError = error as ApiError;
+  return (
+    apiError.response?.data?.message || apiError.message || "Unknown error"
+  );
 }
 
 export function useProgramMutation() {
   const queryClient = useQueryClient();
   const modalState = useOverlayState();
   const modalAddState = useOverlayState();
-  const [selectedProgram, setSelectedProgram] = useState<ProgramBudaya | null>(
+  const [selectedProgram, setSelectedProgram] = useState<ProgramBudayaWithCategory | null>(
     null,
   );
 
@@ -46,17 +65,17 @@ export function useProgramMutation() {
       programId
         ? api.put(`/programs/${programId}`, payload)
         : api.post("/programs", payload),
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       await invalidateProgramQueries();
-      modalAddState.close();
+      if (variables.programId) {
+        toast.success("Program berhasil diperbarui");
+      } else {
+        toast.success("Program berhasil ditambahkan");
+      }
     },
-    onError: (error: any) => {
-      toast.danger("Gagal menyimpan", {
-        description:
-          error.response?.data?.message ||
-          error.message ||
-          "Gagal menyimpan program",
-      });
+    onError: (error: unknown, variables) => {
+      const action = variables.programId ? "memperbarui" : "menambahkan";
+      toast.danger(`Gagal ${action} program: ` + getErrorMessage(error));
     },
   });
 
@@ -64,13 +83,24 @@ export function useProgramMutation() {
     mutationFn: ({
       programId,
       isActive,
+      expectedUpdatedAt,
     }: {
       programId: string;
       isActive: boolean;
-    }) => api.patch(`/programs/${programId}`, { isActive }),
-    onSuccess: async () => {
+      expectedUpdatedAt: string;
+    }) => api.patch(`/programs/${programId}`, { isActive, expectedUpdatedAt }),
+    onSuccess: async (_data, variables) => {
       await invalidateProgramQueries();
       modalState.close();
+      toast.success(
+        variables.isActive
+          ? "Program berhasil diaktifkan"
+          : "Program berhasil dinonaktifkan",
+      );
+    },
+    onError: (error: unknown, variables) => {
+      const action = variables.isActive ? "mengaktifkan" : "menonaktifkan";
+      toast.danger(`Gagal ${action} program: ` + getErrorMessage(error));
     },
   });
 
@@ -79,17 +109,21 @@ export function useProgramMutation() {
     modalAddState.open();
   };
 
-  const handleEditToggleClick = (program: ProgramBudaya) => {
+  const handleEditToggleClick = (program: ProgramBudayaWithCategory) => {
     setSelectedProgram(program);
     modalAddState.open();
   };
 
-  const handleToggleClick = (program: ProgramBudaya) => {
+  const handleToggleClick = (program: ProgramBudayaWithCategory) => {
     setSelectedProgram(program);
     modalState.open();
   };
 
-  const handleAddProgram = (formData: FormData) => {
+  const handleAddProgram = async (formData: FormData) => {
+    const bannerState = String(
+      formData.get("bannerState") || "NONE",
+    ) as ProgramBannerState;
+
     const payload: ProgramPayload = {
       name: String(formData.get("name") || ""),
       frequency: Number(formData.get("frequency")),
@@ -100,10 +134,36 @@ export function useProgramMutation() {
       isActive: true,
       categoryId: String(formData.get("categoryId") || "") || null,
       description: String(formData.get("description") || "") || null,
-      bannerUrl: String(formData.get("bannerUrl") || "") || null,
+      bannerState,
     };
 
-    saveMutation.mutate({ payload, programId: selectedProgram?.id });
+    if (bannerState === "REPLACED") {
+      payload.bannerUrl = String(formData.get("bannerUrl") || "");
+      payload.bannerPublicId = String(
+        formData.get("bannerPublicId") || "",
+      );
+      payload.bannerDescriptor = String(
+        formData.get("bannerDescriptor") || "",
+      );
+      payload.bannerCleanupToken = String(
+        formData.get("bannerCleanupToken") || "",
+      );
+    }
+
+    if (bannerState === "REMOVED") {
+      payload.bannerUrl = null;
+    }
+
+    if (selectedProgram) {
+      payload.expectedUpdatedAt = String(
+        formData.get("expectedUpdatedAt") || "",
+      );
+    }
+
+    await saveMutation.mutateAsync({
+      payload,
+      programId: selectedProgram?.id,
+    });
   };
 
   const handleConfirmToggle = () => {
@@ -111,6 +171,7 @@ export function useProgramMutation() {
     toggleMutation.mutate({
       programId: selectedProgram.id,
       isActive: !selectedProgram.isActive,
+      expectedUpdatedAt: selectedProgram.updatedAt,
     });
   };
 

@@ -36,8 +36,8 @@ export default function InformasiPentingCardItem({
 
   return (
     <Card className="overflow-hidden border border-slate-200/80 bg-white shadow-sm flex flex-col justify-between">
-      {/* Media Image with 2:1 ratio */}
-      <div className="relative aspect-[2/1] w-full overflow-hidden bg-slate-100">
+      {/* Media Image with 21:9 ratio */}
+      <div className="relative aspect-[21/9] w-full overflow-hidden bg-slate-100">
         <Image
           src={item.imageUrl}
           alt={item.altText}

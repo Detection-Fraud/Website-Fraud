@@ -15,8 +15,9 @@ export default function InformasiPentingPreview({
   altText,
   dimensions,
 }: InformasiPentingPreviewProps) {
+  const currentRatio = dimensions ? dimensions.width / dimensions.height : null;
   const mismatched = Boolean(
-    dimensions && dimensions.width !== 2 * dimensions.height,
+    currentRatio && Math.abs(currentRatio - 21 / 9) > 0.08,
   );
 
   return (
@@ -25,7 +26,7 @@ export default function InformasiPentingPreview({
         Preview tampilan PIC
       </Label>
 
-      <div className="relative aspect-[2/1] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center">
+      <div className="relative aspect-[21/9] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center">
         {previewUrl ? (
           <img
             src={previewUrl}
@@ -34,7 +35,7 @@ export default function InformasiPentingPreview({
           />
         ) : (
           <div className="flex size-full items-center justify-center text-sm text-slate-400">
-            Preview 2:1
+            Preview 21:9
           </div>
         )}
       </div>
@@ -48,8 +49,8 @@ export default function InformasiPentingPreview({
         <Alert status="warning">
           <Alert.Indicator />
           <Alert.Content>
-            Rasio gambar tidak 2:1. Sebagian gambar mungkin tidak terlihat pada
-            tampilan PIC.
+            Rasio gambar tidak mendekati 21:9. Sebagian gambar mungkin tidak
+            terlihat pada tampilan PIC.
           </Alert.Content>
         </Alert>
       )}

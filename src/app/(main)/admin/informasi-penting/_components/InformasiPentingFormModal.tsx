@@ -219,7 +219,7 @@ export default function InformasiPentingFormModal({
                               : "Pilih file gambar"}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-400">
-                          JPEG/PNG, maksimal 2 MB (rekomendasi rasio 2:1)
+                          JPEG/PNG, maksimal 2 MB (rekomendasi rasio 21:9)
                         </p>
                         <input
                           ref={fileInputRef}

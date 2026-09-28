@@ -100,7 +100,7 @@ export default function ImportantInformationCarousel({
               role="group"
               aria-roledescription="slide"
               aria-label={`Informasi ${index + 1} dari ${items.length}`}
-              className="relative aspect-2/1 w-full min-w-0 flex-[0_0_100%] overflow-hidden bg-slate-100"
+              className="relative aspect-[21/9] w-full min-w-0 flex-[0_0_100%] overflow-hidden bg-slate-100"
             >
               <Image
                 src={item.imageUrl}
