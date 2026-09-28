@@ -6,6 +6,17 @@ import {
 import { toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+type CategoryBannerUploadFields = {
+  bannerState?: "NONE" | "UNCHANGED" | "REPLACED" | "REMOVED";
+  bannerPublicId?: string;
+  bannerDescriptor?: string;
+  bannerCleanupToken?: string;
+  expectedUpdatedAt?: string;
+};
+
+type CreateCategoryPayload = CreateCategoryInput & CategoryBannerUploadFields;
+type UpdateCategoryPayload = UpdateCategoryInput & CategoryBannerUploadFields;
+
 type ApiError = {
   response?: { data?: { message?: string } };
   message?: string;
@@ -39,7 +50,7 @@ export function useCategoryMutation() {
   };
 
   const createCategoryMutation = useMutation({
-    mutationFn: (data: CreateCategoryInput) =>
+    mutationFn: (data: CreateCategoryPayload) =>
       api.post("/programs/categories", data).then((res) => res.data),
     onSuccess: () => {
       invalidateCategories();
@@ -50,7 +61,7 @@ export function useCategoryMutation() {
   });
 
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateCategoryInput }) =>
+    mutationFn: ({ id, data }: { id: string; data: UpdateCategoryPayload }) =>
       api.put(`/programs/categories/${id}`, data).then((res) => res.data),
     onSuccess: () => {
       invalidateCategories();
@@ -60,8 +71,8 @@ export function useCategoryMutation() {
       toast.danger("Gagal memperbarui kategori: " + getErrorMessage(error)),
   });
   const deleteCategoryMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.delete(`/programs/categories/${id}`).then((res) => res.data),
+    mutationFn: ({ id, expectedUpdatedAt }: { id: string; expectedUpdatedAt: string }) =>
+      api.delete(`/programs/categories/${id}`, { data: { expectedUpdatedAt } }).then((res) => res.data),
     onSuccess: () => {
       invalidateCategories();
       toast.success("Kategori berhasil dihapus");
