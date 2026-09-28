@@ -100,7 +100,20 @@ export function useUploadMutation() {
   };
 }
 
-export function useTemporaryUpload(options: UploadOptions, isActive = true) {
+const defaultUploadOptions: UploadOptions = {
+  purpose: "EVIDENCE",
+  mode: "CREATE",
+};
+
+export function useTemporaryUpload(
+  optionsOrActive?: UploadOptions | boolean,
+  isActiveProp = true,
+) {
+  const isOptions =
+    typeof optionsOrActive === "object" && optionsOrActive !== null;
+  const options = isOptions ? optionsOrActive : defaultUploadOptions;
+  const isActive = isOptions ? isActiveProp : (optionsOrActive ?? true);
+
   const {
     uploadFile,
     deleteUploadedFile,

@@ -10,6 +10,31 @@ export interface Banner {
   period: string;
   order: number;
   isActive: boolean;
+  updatedAt: string;
+}
+
+export interface BannerPage {
+  items: Banner[];
+  total: number;
+  activeCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface BannerWriteData {
+  imageUrl: string;
+  name: string;
+  role: string;
+  unit: string;
+  period: string;
+  order: number;
+  isActive?: boolean;
+  bannerState?: "NONE" | "UNCHANGED" | "REPLACED" | "REMOVED";
+  publicId?: string;
+  descriptor?: string;
+  cleanupToken?: string;
+  expectedUpdatedAt?: string;
 }
 
 export function useBanners() {
@@ -23,12 +48,12 @@ export function useBanners() {
     });
   };
 
-  const useGetAllBanners = () => {
-    return useQuery<Banner[]>({
-      queryKey: ["banners", "all"],
+  const useGetAllBanners = (page = 1, pageSize = 100) => {
+    return useQuery<BannerPage>({
+      queryKey: ["banners", "all", page, pageSize],
       queryFn: () =>
         api
-          .get("/banners", { params: { all: "true" } })
+          .get("/banners", { params: { all: "true", page, pageSize } })
           .then((res) => res.data),
       staleTime: 5 * 60 * 1000,
     });
@@ -36,7 +61,7 @@ export function useBanners() {
 
   const useCreateBanner = () => {
     return useMutation({
-      mutationFn: (data: Omit<Banner, "id" | "isActive">) =>
+      mutationFn: (data: BannerWriteData) =>
         api.post("/banners", data),
       onSuccess: () => {
         queryClient.invalidateQueries({
@@ -48,7 +73,7 @@ export function useBanners() {
 
   const useUpdateBanner = () => {
     return useMutation({
-      mutationFn: ({ id, ...data }: Partial<Banner> & { id: string }) =>
+      mutationFn: ({ id, ...data }: Partial<BannerWriteData> & { id: string }) =>
         api.patch(`/banners/${id}`, data),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["banners"] });
@@ -58,7 +83,8 @@ export function useBanners() {
 
   const useDeleteBanner = () => {
     return useMutation({
-      mutationFn: (id: string) => api.delete(`/banners/${id}`),
+      mutationFn: ({ id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) =>
+        api.delete(`/banners/${id}`, { data: { expectedUpdatedAt } }),
       onSuccess: () => {
         queryClient.invalidateQueries({
           queryKey: ["banners"],
@@ -69,7 +95,16 @@ export function useBanners() {
 
   const useReorderBanners = () => {
     return useMutation({
-      mutationFn: (ids: string[]) => api.post("/banners/reorder", { ids }),
+      mutationFn: ({
+        id,
+        direction,
+        expectedUpdatedAt,
+      }: {
+        id: string;
+        direction: "up" | "down";
+        expectedUpdatedAt: string;
+      }) =>
+        api.post("/banners/reorder", { id, direction, expectedUpdatedAt }),
       onSuccess: () => {
         queryClient.invalidateQueries({
           queryKey: ["banners"],

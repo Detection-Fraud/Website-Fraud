@@ -3,7 +3,10 @@
 import Dropzone from "@/components/ui/Dropzone";
 import { CategoryWithStats } from "@/hooks/useCategoryList";
 import { useCategoryMutation } from "@/hooks/useCategoryMutation";
-import { useTemporaryUpload } from "@/hooks/useUploadMutation";
+import {
+  useTemporaryUpload,
+  type UploadReceipt,
+} from "@/hooks/useUploadMutation";
 import {
   CATEGORY_CAPABILITY_PRESETS,
   getCategoryCapabilityPreset,
@@ -26,7 +29,13 @@ import {
   TextField,
   parseColor,
 } from "@heroui/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FiTrash2 } from "react-icons/fi";
 
 interface ModalFormCategoryProps {
@@ -35,27 +44,39 @@ interface ModalFormCategoryProps {
   initialData?: CategoryWithStats | null;
 }
 
+type CategoryBannerState = "NONE" | "UNCHANGED" | "REPLACED" | "REMOVED";
+
 export default function ModalFormCategory({
   isOpen,
   onClose,
   initialData,
 }: ModalFormCategoryProps) {
+  const isEdit = !!initialData;
   const { createCategory, updateCategory, isCreating, isUpdating } =
     useCategoryMutation();
+  const uploadOptions = useMemo(
+    () => ({
+      purpose: "CATEGORY_BANNER" as const,
+      mode: isEdit ? ("REPLACEMENT" as const) : ("CREATE" as const),
+    }),
+    [isEdit],
+  );
   const {
     uploadTemporaryFile,
     discardTemporaryUpload,
     preserveTemporaryUpload,
     isUploading,
     isDeletingUpload,
-  } = useTemporaryUpload(isOpen);
-
-  const isEdit = !!initialData;
+  } = useTemporaryUpload(uploadOptions, isOpen);
   const [color, setColor] = useState(() => parseColor("#3b82f6"));
   const [capabilityPresetId, setCapabilityPresetId] = useState<string>(
     CATEGORY_CAPABILITY_PRESETS[0].id,
   );
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [bannerState, setBannerState] = useState<CategoryBannerState>("NONE");
+  const [bannerReceipt, setBannerReceipt] = useState<UploadReceipt | null>(
+    null,
+  );
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
 
@@ -72,6 +93,8 @@ export default function ModalFormCategory({
     if (initialData) {
       setColor(parseColor(initialData.color || "#3b82f6"));
       setBannerUrl(initialData.bannerUrl || null);
+      setBannerState(initialData.bannerUrl ? "UNCHANGED" : "NONE");
+      setBannerReceipt(null);
       setImagePreview(initialData.bannerUrl || null);
       const persistedPreset = getCategoryCapabilityPreset({
         targetUnit: initialData.targetUnit,
@@ -86,6 +109,8 @@ export default function ModalFormCategory({
     } else {
       setColor(parseColor("#3b82f6"));
       setBannerUrl(null);
+      setBannerState("NONE");
+      setBannerReceipt(null);
       setImagePreview(null);
       setCapabilityPresetId(CATEGORY_CAPABILITY_PRESETS[0].id);
     }
@@ -112,16 +137,20 @@ export default function ModalFormCategory({
       if (!res) {
         revokePreviewObjectUrl();
         setBannerUrl(null);
+        setBannerReceipt(null);
         setImagePreview(null);
         return;
       }
 
       revokePreviewObjectUrl();
       setBannerUrl(res.url);
+      setBannerState("REPLACED");
+      setBannerReceipt(res);
       setImagePreview(res.url);
     } catch {
       revokePreviewObjectUrl();
       setBannerUrl(null);
+      setBannerReceipt(null);
       setImagePreview(null);
     }
   };
@@ -131,6 +160,8 @@ export default function ModalFormCategory({
       await discardTemporaryUpload();
       revokePreviewObjectUrl();
       setBannerUrl(null);
+      setBannerReceipt(null);
+      setBannerState(initialData?.bannerUrl ? "REMOVED" : "NONE");
       setImagePreview(null);
     } catch {
       // Error toast ditangani oleh useUploadMutation.
@@ -152,6 +183,14 @@ export default function ModalFormCategory({
       name: formData.get("name") as string,
       color: color.toString("hex"),
       bannerUrl,
+      bannerState,
+      bannerPublicId: bannerReceipt?.publicId,
+      bannerDescriptor: bannerReceipt?.descriptor,
+      bannerCleanupToken: bannerReceipt?.cleanupToken,
+      expectedUpdatedAt:
+        isEdit && initialData?.updatedAt
+          ? new Date(initialData.updatedAt).toISOString()
+          : undefined,
       targetUnit: capabilityPreset.targetUnit,
       evidenceMode: capabilityPreset.evidenceMode,
       scoreInputMode: capabilityPreset.scoreInputMode,

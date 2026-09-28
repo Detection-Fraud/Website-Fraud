@@ -38,7 +38,10 @@ export default function CategoriesView() {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await deleteCategory(deleteTarget.id);
+      await deleteCategory({
+        id: deleteTarget.id,
+        expectedUpdatedAt: new Date(deleteTarget.updatedAt).toISOString(),
+      });
       setDeleteTarget(null);
     } catch (err) {
       // Error handled by mutation toast

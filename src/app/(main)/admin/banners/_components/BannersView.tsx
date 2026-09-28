@@ -3,15 +3,19 @@
 import AppBar from "@/components/layout/Appbar";
 import { Banner, useBanners } from "@/hooks/useBanners";
 import { Card, useOverlayState } from "@heroui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PiCheckCircleFill, PiImageFill, PiXCircleFill } from "react-icons/pi";
 import BannerFormModal, { BannerFormData } from "./BannerFormModal";
 import BannerPreviewSimulator from "./BannerPreviewSimulator";
 import BannerCardGrid from "./BannerCardGrid";
 import ModalConfirmAction from "@/components/ui/ModalConfirmAction";
+import PaginationFooter from "@/components/ui/PaginationFooter";
+
+const BANNER_PAGE_SIZE = 100;
 
 export default function BannersView() {
   const {
+    useGetBanners,
     useGetAllBanners,
     useCreateBanner,
     useUpdateBanner,
@@ -19,7 +23,12 @@ export default function BannersView() {
     useReorderBanners,
   } = useBanners();
 
-  const { data: banners, isLoading } = useGetAllBanners();
+  const [page, setPage] = useState(1);
+  const { data: bannerPage, isLoading } = useGetAllBanners(
+    page,
+    BANNER_PAGE_SIZE,
+  );
+  const { data: activeBanners = [] } = useGetBanners();
   const createMutation = useCreateBanner();
   const updateMutation = useUpdateBanner();
   const deleteMutation = useDeleteBanner();
@@ -29,6 +38,14 @@ export default function BannersView() {
   const deleteModalState = useOverlayState();
 
   const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null);
+
+  useEffect(() => {
+    if (!bannerPage) return;
+    if (bannerPage.totalPages === 0 && page > 1) setPage(1);
+    else if (bannerPage.totalPages > 0 && page > bannerPage.totalPages) {
+      setPage(bannerPage.totalPages);
+    }
+  }, [bannerPage, page]);
 
   const handleAddClick = () => {
     setSelectedBanner(null);
@@ -49,48 +66,36 @@ export default function BannersView() {
     updateMutation.mutate({
       id: banner.id,
       isActive: !banner.isActive,
+      expectedUpdatedAt: banner.updatedAt,
     });
   };
 
-  const handleFormSubmit = (data: BannerFormData) => {
+  const handleFormSubmit = async (data: BannerFormData) => {
     if (selectedBanner) {
-      updateMutation.mutate(
-        { id: selectedBanner.id, ...data },
-        { onSuccess: () => formModalState.close() },
-      );
+      await updateMutation.mutateAsync({ id: selectedBanner.id, ...data });
     } else {
-      createMutation.mutate(data, {
-        onSuccess: () => formModalState.close(),
-      });
+      await createMutation.mutateAsync(data);
     }
   };
 
   const handleConfirmDelete = () => {
     if (!selectedBanner) return;
-    deleteMutation.mutate(selectedBanner.id, {
+    deleteMutation.mutate({
+      id: selectedBanner.id,
+      expectedUpdatedAt: selectedBanner.updatedAt,
+    }, {
       onSuccess: () => deleteModalState.close(),
     });
   };
 
   const handleReorder = (bannerId: string, direction: "up" | "down") => {
-    if (!banners) return;
-
-    const currentIndex = banners.findIndex((b: Banner) => b.id === bannerId);
-    if (currentIndex === -1) return;
-
-    const targetIndex =
-      direction === "up" ? currentIndex - 1 : currentIndex + 1;
-
-    if (targetIndex < 0 || targetIndex >= banners.length) return;
-
-    const reordered = [...banners];
-    [reordered[currentIndex], reordered[targetIndex]] = [
-      reordered[targetIndex],
-      reordered[currentIndex],
-    ];
-
-    const orderIds = reordered.map((b) => b.id);
-    reorderMutation.mutate(orderIds);
+    const banner = bannerPage?.items.find((item) => item.id === bannerId);
+    if (!banner) return;
+    reorderMutation.mutate({
+      id: banner.id,
+      direction,
+      expectedUpdatedAt: banner.updatedAt,
+    });
   };
 
   const isMutating =
@@ -99,9 +104,10 @@ export default function BannersView() {
     deleteMutation.isPending ||
     reorderMutation.isPending;
 
-  const bannerList = (banners as Banner[]) || [];
-  const activeCount = bannerList.filter((b: Banner) => b.isActive).length;
-  const inactiveCount = bannerList.length - activeCount;
+  const bannerList = bannerPage?.items ?? [];
+  const totalBanners = bannerPage?.total ?? 0;
+  const activeCount = bannerPage?.activeCount ?? 0;
+  const inactiveCount = totalBanners - activeCount;
 
   return (
     <div className="space-y-6 mb-12">
@@ -121,7 +127,7 @@ export default function BannersView() {
           <div>
             <p className="text-xs text-slate-500 font-medium">Total Banner</p>
             <h4 className="text-xl font-extrabold text-slate-800">
-              {bannerList.length}
+              {totalBanners}
             </h4>
           </div>
         </Card>
@@ -154,7 +160,7 @@ export default function BannersView() {
       </div>
 
       {/* 1. Live Simulator Section */}
-      <BannerPreviewSimulator banners={bannerList} />
+      <BannerPreviewSimulator banners={activeBanners} />
 
       {/* 2. Visual Card Grid Section Header */}
       <div className="space-y-4 pt-2">
@@ -177,11 +183,23 @@ export default function BannersView() {
         ) : (
           <BannerCardGrid
             banners={bannerList}
+            globalOffset={(page - 1) * BANNER_PAGE_SIZE}
+            totalBanners={totalBanners}
             onEdit={handleEditClick}
             onDelete={handleDeleteClick}
             onToggleStatus={handleToggleStatus}
             onReorder={handleReorder}
             isUpdating={isMutating}
+          />
+        )}
+        {!isLoading && bannerPage && bannerPage.totalPages > 1 && (
+          <PaginationFooter
+            page={bannerPage.page}
+            totalPages={bannerPage.totalPages}
+            totalItems={bannerPage.total}
+            itemsPerPage={bannerPage.pageSize}
+            itemLabel="banner"
+            onPageChange={setPage}
           />
         )}
       </div>

@@ -10,7 +10,7 @@ import { Banner } from "@/hooks/useBanners";
 import { Button, Chip } from "@heroui/react";
 import Autoplay from "embla-carousel-autoplay";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import {
   PiImage,
@@ -33,7 +33,7 @@ export default function BannerPreviewSimulator({
   const [isPlaying, setIsPlaying] = useState(true);
 
   const activeBanners = (banners || []).filter((b) => b.isActive);
-  const autoplayRef = useRef(
+  const [autoplay] = useState(() =>
     Autoplay({ delay: 4000, stopOnInteraction: false }),
   );
 
@@ -49,9 +49,6 @@ export default function BannerPreviewSimulator({
   }, [api]);
 
   const toggleAutoplay = () => {
-    const autoplay = autoplayRef.current;
-    if (!autoplay) return;
-
     if (isPlaying) {
       autoplay.stop();
       setIsPlaying(false);
@@ -97,7 +94,7 @@ export default function BannerPreviewSimulator({
       </div>
 
       {/* Main Display */}
-      <div className="relative w-full h-[320px] md:h-[380px] rounded-xl overflow-hidden bg-slate-950 border border-slate-800/80 group">
+      <div className="relative w-full h-80 md:h-95 rounded-xl overflow-hidden bg-slate-950 border border-slate-800/80 group">
         {activeBanners.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-2 p-6 text-center">
             <PiImage className="w-12 h-12 text-slate-700" />
@@ -105,18 +102,18 @@ export default function BannerPreviewSimulator({
               Tidak Ada Banner Aktif
             </p>
             <p className="text-xs text-slate-600 max-w-sm">
-              Aktifkan minimal satu banner pada daftar di bawah agar tayang
-              pada carousel halaman login.
+              Aktifkan minimal satu banner pada daftar di bawah agar tayang pada
+              carousel halaman login.
             </p>
           </div>
         ) : (
           <Carousel
             setApi={setApi}
-            plugins={[autoplayRef.current]}
+            plugins={[autoplay]}
             opts={{ loop: true, align: "start" }}
             className="w-full h-full"
           >
-            <CarouselContent className="-ml-0 h-[320px] md:h-[380px]">
+            <CarouselContent className="ml-0 h-80 md:h-95">
               {activeBanners.map((banner) => (
                 <CarouselItem
                   key={banner.id}
@@ -133,7 +130,7 @@ export default function BannerPreviewSimulator({
                         priority
                       />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-slate-950/35 to-transparent" />
                   </div>
 
                   {/* Badge Status Best PIC */}

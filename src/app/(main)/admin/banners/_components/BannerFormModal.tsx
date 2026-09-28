@@ -1,7 +1,7 @@
 import MonthPicker from "@/components/ui/month-picker";
-import { Banner } from "@/hooks/useBanners";
+import { Banner, BannerWriteData } from "@/hooks/useBanners";
 import { useSearchPic } from "@/hooks/useSearchPic";
-import { useTemporaryUpload } from "@/hooks/useUploadMutation";
+import { useTemporaryUpload, type UploadReceipt } from "@/hooks/useUploadMutation";
 import { PicSearchResult } from "@/types/pic.types";
 import {
   Autocomplete,
@@ -20,7 +20,7 @@ import {
   TextField,
 } from "@heroui/react";
 import { parseDate } from "@internationalized/date";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FiSave } from "react-icons/fi";
 import { PiUploadSimple } from "react-icons/pi";
 import BannerPreviewCard from "./BannerPreviewCard";
@@ -28,18 +28,17 @@ import BannerPreviewCard from "./BannerPreviewCard";
 interface BannerFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: BannerFormData) => void;
+  onSubmit: (data: BannerFormData) => Promise<void>;
   isLoading?: boolean;
   banner?: Banner | null; // null = mode tambah, Banner = mode edit
 }
 
-export interface BannerFormData {
+export interface BannerFormData extends BannerWriteData {
   imageUrl: string;
   name: string;
   role: string;
   unit: string;
   period: string;
-  order: number;
 }
 
 const BULAN_INDO = [
@@ -92,11 +91,20 @@ export default function BannerFormModal({
   banner,
 }: BannerFormModalProps) {
   const isEditMode = !!banner;
+  const uploadOptions = useMemo(
+    () => ({
+      purpose: "LOGIN_BANNER" as const,
+      mode: isEditMode ? ("REPLACEMENT" as const) : ("CREATE" as const),
+    }),
+    [isEditMode],
+  );
   const {
     uploadTemporaryFile,
+    discardTemporaryUpload,
+    preserveTemporaryUpload,
     isUploading,
     isDeletingUpload,
-  } = useTemporaryUpload(isOpen);
+  } = useTemporaryUpload(uploadOptions, isOpen);
 
   const {
     query: picQuery,
@@ -114,6 +122,7 @@ export default function BannerFormModal({
   const [selectedUnitName, setSelectedUnitName] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState("");
+  const [uploadReceipt, setUploadReceipt] = useState<UploadReceipt | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const periodText = formatPeriod(periodDate);
@@ -134,6 +143,7 @@ export default function BannerFormModal({
       setPeriodDate(parsePeriod(banner.period));
       setImagePreview(banner.imageUrl);
       setUploadedUrl(banner.imageUrl);
+      setUploadReceipt(null);
       setUploadError(null);
       setPicQuery(banner.name);
     } else if (isOpen && !banner) {
@@ -144,6 +154,7 @@ export default function BannerFormModal({
       setPicNameState("");
       setImagePreview(null);
       setUploadedUrl("");
+      setUploadReceipt(null);
       setUploadError(null);
       clearPicSelected();
     }
@@ -184,6 +195,7 @@ export default function BannerFormModal({
       }
 
       setUploadedUrl(result.url);
+      setUploadReceipt(result);
     } catch (err) {
       console.error("Upload gagal:", err);
       setUploadError("Upload gagal. Coba lagi.");
@@ -191,7 +203,8 @@ export default function BannerFormModal({
     }
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
+    await discardTemporaryUpload();
     onClose();
   };
 
@@ -217,7 +230,7 @@ export default function BannerFormModal({
   /**
    * Handler submit form
    */
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!uploadedUrl) {
@@ -230,14 +243,21 @@ export default function BannerFormModal({
       return;
     }
 
-    onSubmit({
+    await onSubmit({
       imageUrl: uploadedUrl,
       name: picNameState,
       role: jabatan,
       unit: selectedUnitName,
       period: periodText,
       order: banner?.order ?? 0,
+      bannerState: uploadReceipt ? "REPLACED" : "UNCHANGED",
+      publicId: uploadReceipt?.publicId,
+      descriptor: uploadReceipt?.descriptor,
+      cleanupToken: uploadReceipt?.cleanupToken,
+      expectedUpdatedAt: banner?.updatedAt,
     });
+    preserveTemporaryUpload();
+    onClose();
   };
 
   return (
