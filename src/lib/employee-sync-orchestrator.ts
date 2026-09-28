@@ -8,7 +8,7 @@ import {
   type PentahoJobState,
 } from "@/lib/pentaho-service";
 import { readPentahoEmployeeMirror } from "@/lib/pentaho-stage-mirror";
-import { syncEmployeeSnapshotForRun } from "@/lib/employee-sync";
+import { recoverExpiredEmployeeExcelRuns, syncEmployeeSnapshotForRun } from "@/lib/employee-sync";
 import { PENTAHO_SOURCE_SYSTEM } from "@/lib/pentaho-unit-mapping";
 import type { NormalizedEmployeeSnapshot } from "@/lib/employee-sync-contract";
 import type {
@@ -26,6 +26,7 @@ const FAILED_RECONCILIATION = "PENTAHO_RECONCILIATION_FAILED";
 type RunRecord = {
   id: string;
   sourceSystem: string;
+  channel: "PENTAHO" | "EXCEL_IMPORT";
   status: "RUNNING" | "SUCCEEDED" | "FAILED";
   phase: "TRIGGERING" | "PENTAHO_RUNNING" | "VALIDATING" | "RECONCILING" | "COMPLETED" | null;
   externalJobName: string | null;
@@ -58,11 +59,13 @@ type OrchestratorDependencies = {
   getConfig: typeof getPentahoServiceConfig;
   now: () => Date;
   recoverExpiredReconciliation: (runId: string, now: Date) => Promise<RunRecord | null>;
+  recoverExpiredExcelRuns: (now: Date) => Promise<void>;
 };
 
 const selectRun = {
   id: true,
   sourceSystem: true,
+  channel: true,
   status: true,
   phase: true,
   externalJobName: true,
@@ -109,6 +112,7 @@ const defaultDependencies: OrchestratorDependencies = {
 
     return tx.employeeSyncRun.findUnique({ where: { id: runId }, select: selectRun });
   }),
+  recoverExpiredExcelRuns: recoverExpiredEmployeeExcelRuns,
 };
 
 function isUniqueConflict(error: unknown): boolean {
@@ -126,6 +130,7 @@ function project(run: RunRecord): EmployeeSyncStatus {
   return {
     runId: run.id,
     sourceSystem: run.sourceSystem,
+    channel: run.channel,
     status: run.status,
     phase: run.phase,
     startedAt: run.startedAt.toISOString(),
@@ -206,12 +211,20 @@ async function transitionPhase(
 }
 
 function executeIsAmbiguous(error: unknown): boolean {
-  return error instanceof PentahoServiceError ? error.ambiguous : true;
+  return error instanceof PentahoServiceError
+    ? error.ambiguous || error.code === "CONTRACT"
+    : true;
 }
 
 async function start(deps: OrchestratorDependencies, actor: { id: string; name: string }) {
+  await deps.recoverExpiredExcelRuns(deps.now());
   const existing = await deps.runs.findFirst(activeRunWhere());
-  if (existing) return { ...project(existing), disposition: "REUSED" } satisfies EmployeeSyncStartResult;
+  if (existing) {
+    return {
+      ...project(existing),
+      disposition: existing.channel === "PENTAHO" ? "REUSED" : "OTHER_CHANNEL_ACTIVE",
+    } satisfies EmployeeSyncStartResult;
+  }
 
   const config = deps.getConfig();
   const deadlineAt = new Date(deps.now().getTime() + config.syncDeadlineMinutes * 60_000);
@@ -220,6 +233,7 @@ async function start(deps: OrchestratorDependencies, actor: { id: string; name: 
     run = await deps.runs.create({
       data: {
         sourceSystem: SOURCE_SYSTEM,
+        channel: "PENTAHO",
         status: "RUNNING",
         phase: "TRIGGERING",
         triggeredById: actor.id,
@@ -236,7 +250,10 @@ async function start(deps: OrchestratorDependencies, actor: { id: string; name: 
     if (!isUniqueConflict(error)) throw error;
     const winner = await deps.runs.findFirst(activeRunWhere());
     if (!winner) throw error;
-    return { ...project(winner), disposition: "REUSED" } satisfies EmployeeSyncStartResult;
+    return {
+      ...project(winner),
+      disposition: winner.channel === "PENTAHO" ? "REUSED" : "OTHER_CHANNEL_ACTIVE",
+    } satisfies EmployeeSyncStartResult;
   }
 
   const externalJobName = `employee-sync-${run.id}`;
@@ -276,6 +293,7 @@ async function advance(deps: OrchestratorDependencies, runId: string) {
   let run = await deps.runs.findUnique({ where: { id: runId }, select: selectRun });
   if (!run) throw new Error("EMPLOYEE_SYNC_RUN_NOT_FOUND");
   if (run.sourceSystem !== SOURCE_SYSTEM) throw new Error("EMPLOYEE_SYNC_RUN_SOURCE_MISMATCH");
+  if (run.channel !== "PENTAHO") throw new Error("EMPLOYEE_SYNC_RUN_CHANNEL_MISMATCH");
   if (run.status !== "RUNNING") return project(run);
 
   const now = deps.now();
@@ -310,17 +328,11 @@ async function advance(deps: OrchestratorDependencies, runId: string) {
     let state: PentahoJobState;
     try {
       ({ state } = await deps.status({ jobName: run.externalJobName }));
-    } catch (error) {
-      if (error instanceof PentahoServiceError && !error.ambiguous) {
-        const failed = await failRun(
-          deps,
-          run.id,
-          FAILED_STATUS,
-          ["TRIGGERING", "PENTAHO_RUNNING"],
-        );
-        if (!failed) throw new Error("EMPLOYEE_SYNC_RUN_UPDATE_FAILED");
-        return project(failed);
-      }
+    } catch {
+      return project(run);
+    }
+
+    if (state !== "RUNNING" && state !== "SUCCEEDED" && state !== "FAILED") {
       return project(run);
     }
 
@@ -376,7 +388,10 @@ async function advance(deps: OrchestratorDependencies, runId: string) {
   }
 
   try {
-    await deps.reconcile(run.id, snapshot, { allowReconcilePhase: true });
+    await deps.reconcile(run.id, snapshot, {
+      allowReconcilePhase: true,
+      expectedChannel: "PENTAHO",
+    });
   } catch (error) {
     if (error instanceof Error && error.name === "EmployeeSnapshotClaimLostError") {
       const current = await deps.runs.findUnique({ where: { id: run.id }, select: selectRun });
@@ -403,6 +418,7 @@ export function createEmployeePentahoOrchestrator(overrides: Partial<Orchestrato
   return {
     startEmployeePentahoSync: (actor: { id: string; name: string }) => start(deps, actor),
     getLatestEmployeePentahoSync: async () => {
+      await deps.recoverExpiredExcelRuns(deps.now());
       const active = await deps.runs.findFirst({
         where: { sourceSystem: SOURCE_SYSTEM, status: "RUNNING" },
         orderBy: [{ startedAt: "desc" }, { id: "desc" }],

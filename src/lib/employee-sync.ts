@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -32,6 +33,10 @@ export type EmployeeSyncOptions = {
   allowEmptySnapshot?: boolean;
   /** Internal seam for an orchestrator that atomically claimed RECONCILING. */
   allowReconcilePhase?: boolean;
+  /** Internal run-channel expectation; Pentaho remains the compatibility default. */
+  expectedChannel?: "PENTAHO" | "EXCEL_IMPORT";
+  /** Runs under the source lock before any Employee or User reads/writes. */
+  transactionGuard?: (tx: Prisma.TransactionClient) => Promise<void>;
 };
 
 export type EmployeeSyncResult = {
@@ -42,6 +47,39 @@ export type EmployeeSyncResult = {
   missingCount: number;
   deactivatedCount: number;
 };
+
+/**
+ * Releases crashed Excel imports once their bounded reconciliation window has
+ * elapsed. The source advisory lock makes this mutually exclusive with both
+ * Pentaho and Excel reconciliation transactions.
+ */
+export async function recoverExpiredEmployeeExcelRuns(now = new Date()): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const lock = await tx.$queryRaw<Array<{ locked: boolean }>>(Prisma.sql`
+      SELECT pg_try_advisory_xact_lock(hashtext(${`employee-sync:${PENTAHO_SOURCE_SYSTEM}`})::bigint) AS locked
+    `);
+    if (!lock[0]?.locked) return;
+
+    await tx.employeeSyncRun.updateMany({
+      where: {
+        sourceSystem: PENTAHO_SOURCE_SYSTEM,
+        channel: "EXCEL_IMPORT",
+        status: "RUNNING",
+        phase: { in: ["VALIDATING", "RECONCILING"] },
+        deadlineAt: { lte: now },
+      },
+      data: {
+        status: "FAILED",
+        phase: "COMPLETED",
+        completedAt: now,
+        processedCount: 0,
+        missingCount: 0,
+        deactivatedCount: 0,
+        errorMessage: "EMPLOYEE_IMPORT_DEADLINE_EXCEEDED",
+      },
+    });
+  });
+}
 
 export function shouldDeactivateLinkedPicUser(
   existingEmployee: ExistingEmployeeForSync,
@@ -267,7 +305,8 @@ async function reconcileWithinTransaction(
     id: string;
     startedAt: Date;
   },
-  reconciliationAt: Date,
+  transactionGuard?: (tx: Prisma.TransactionClient) => Promise<void>,
+  channel: "PENTAHO" | "EXCEL_IMPORT" = "PENTAHO",
 ): Promise<{
   processedCount: number;
   missingCount: number;
@@ -281,6 +320,10 @@ async function reconcileWithinTransaction(
       FROM pg_advisory_xact_lock(hashtext(${lockKey})::bigint)
     `,
   );
+
+  await transactionGuard?.(tx);
+
+  const reconciliationAt = new Date();
 
   const newerSuccessfulRun = await tx.employeeSyncRun.findFirst({
     where: {
@@ -301,117 +344,40 @@ async function reconcileWithinTransaction(
     );
   }
 
-  const nips = snapshot.employees.map((employee) => employee.nip);
-
-  const externalUnitCodes = [
-    ...new Set(snapshot.employees.map((employee) => employee.externalUnitCode)),
-  ];
-
-  const unitIdByExternalCode = await resolveUnitMappings(
-    tx,
-    snapshot.sourceSystem,
-    externalUnitCodes,
-  );
-
-  const existingEmployees = await tx.employee.findMany({
-    where: {
-      nip: {
-        in: nips,
-      },
-    },
-    select: {
-      id: true,
-      nip: true,
-      unitId: true,
-      user: {
-        select: {
-          id: true,
-          role: true,
-          isActive: true,
-          authProvider: true,
-        },
-      },
-    },
+  const excelImport = channel === "EXCEL_IMPORT";
+  const inspection = await inspectEmployeeSnapshot(tx, snapshot, {
+    ignoreSourceAuditMetadata: excelImport,
   });
+  const { unitIdByExternalCode, missingIds: missingEmployeeIds } = inspection;
+  const uniquePicUserIds = inspection.picUserIdsToDeactivate;
+  const excelAuditByNip = new Map<string, {
+    sourceCreatedAt: Date | null;
+    sourceCreatedBy: string | null;
+    sourceUpdatedAt: Date | null;
+    sourceUpdatedBy: string | null;
+  }>();
 
-  const existingByNip = new Map(
-    existingEmployees.map((employee) => [employee.nip, employee]),
-  );
-
-  const missingCandidates = await tx.employee.findMany({
-    where: {
-      isPresentInSource: true,
-      nip: {
-        notIn: nips,
-      },
-    },
-    select: {
-      id: true,
-      nip: true,
-      user: {
-        select: {
-          id: true,
-          isActive: true,
-          authProvider: true,
-        },
-      },
-    },
-  });
-
-  const missingLocalMutationCandidates = missingCandidates.filter(
-    (employee) => employee.user !== null && isActiveNonSsoUser(employee.user),
-  );
-
-  if (missingLocalMutationCandidates.length > 0) {
-    throw new EmployeeSnapshotValidationError(
-      `Snapshot akan menonaktifkan User non-SSO yang masih aktif untuk NIP: ${missingLocalMutationCandidates
-        .map((employee) => employee.nip)
-        .join(", ")}`,
-    );
-  }
-
-  const picUserIdsToDeactivate: string[] = [];
-
-  for (const employee of snapshot.employees) {
-    const unitId = unitIdByExternalCode.get(employee.externalUnitCode);
-
-    if (!unitId) {
-      throw new EmployeeSnapshotValidationError(
-        `UnitExternalMapping tidak ditemukan untuk kode ${employee.externalUnitCode}`,
-      );
-    }
-
-    const existing = existingByNip.get(employee.nip);
-
-    if (!existing?.user) {
-      continue;
-    }
-
-    const nextEmployee = {
-      ...toEligibilityInput(employee),
-      unitId,
-    };
-
-    if (!shouldDeactivateLinkedPicUser(existing, nextEmployee)) {
-      continue;
-    }
-
-    if (existing.user.authProvider === "SSO") {
-      if (existing.user.isActive) {
-        picUserIdsToDeactivate.push(existing.user.id);
+  if (excelImport) {
+    for (const employee of snapshot.employees) {
+      const existing = inspection.existingByNip.get(employee.nip);
+      if (!existing) {
+        excelAuditByNip.set(employee.nip, {
+          sourceCreatedAt: reconciliationAt,
+          sourceCreatedBy: "Excel Import",
+          sourceUpdatedAt: reconciliationAt,
+          sourceUpdatedBy: "Excel Import",
+        });
+      } else {
+        const changed = inspection.changedNips.has(employee.nip);
+        excelAuditByNip.set(employee.nip, {
+          sourceCreatedAt: existing.sourceCreatedAt,
+          sourceCreatedBy: existing.sourceCreatedBy,
+          sourceUpdatedAt: changed ? reconciliationAt : existing.sourceUpdatedAt,
+          sourceUpdatedBy: changed ? "Excel Import" : existing.sourceUpdatedBy,
+        });
       }
-
-      continue;
-    }
-
-    if (existing.user.isActive) {
-      throw new EmployeeSnapshotValidationError(
-        `Snapshot akan menonaktifkan User non-SSO yang masih aktif untuk NIP ${employee.nip}`,
-      );
     }
   }
-
-  const uniquePicUserIds = [...new Set(picUserIdsToDeactivate)];
 
   let deactivatedCount = 0;
 
@@ -434,7 +400,7 @@ async function reconcileWithinTransaction(
 
   for (const employee of snapshot.employees) {
     const unitId = unitIdByExternalCode.get(employee.externalUnitCode);
-
+    const audit = excelAuditByNip.get(employee.nip) ?? employee;
     if (!unitId) {
       throw new EmployeeSnapshotValidationError(
         `UnitExternalMapping tidak ditemukan untuk kode ${employee.externalUnitCode}`,
@@ -461,10 +427,10 @@ async function reconcileWithinTransaction(
         sourceNamaOrg: employee.sourceNamaOrg,
         sourceNamaSatker: employee.sourceNamaSatker,
         sourceNamaInduk: employee.sourceNamaInduk,
-        sourceCreatedAt: employee.sourceCreatedAt,
-        sourceCreatedBy: employee.sourceCreatedBy,
-        sourceUpdatedAt: employee.sourceUpdatedAt,
-        sourceUpdatedBy: employee.sourceUpdatedBy,
+        sourceCreatedAt: audit.sourceCreatedAt,
+        sourceCreatedBy: audit.sourceCreatedBy,
+        sourceUpdatedAt: audit.sourceUpdatedAt,
+        sourceUpdatedBy: audit.sourceUpdatedBy,
         unitId,
         isPresentInSource: true,
         lastSeenAt: reconciliationAt,
@@ -485,10 +451,10 @@ async function reconcileWithinTransaction(
         sourceNamaOrg: employee.sourceNamaOrg,
         sourceNamaSatker: employee.sourceNamaSatker,
         sourceNamaInduk: employee.sourceNamaInduk,
-        sourceCreatedAt: employee.sourceCreatedAt,
-        sourceCreatedBy: employee.sourceCreatedBy,
-        sourceUpdatedAt: employee.sourceUpdatedAt,
-        sourceUpdatedBy: employee.sourceUpdatedBy,
+        sourceCreatedAt: audit.sourceCreatedAt,
+        sourceCreatedBy: audit.sourceCreatedBy,
+        sourceUpdatedAt: audit.sourceUpdatedAt,
+        sourceUpdatedBy: audit.sourceUpdatedBy,
         unitId,
         isPresentInSource: true,
         lastSeenAt: reconciliationAt,
@@ -496,8 +462,6 @@ async function reconcileWithinTransaction(
       },
     });
   }
-
-  const missingEmployeeIds = missingCandidates.map((employee) => employee.id);
 
   if (missingEmployeeIds.length > 0) {
     await tx.employee.updateMany({
@@ -560,13 +524,19 @@ async function reconcileWithinTransaction(
 async function reconcileSnapshotForRun(
   run: { id: string; startedAt: Date },
   snapshot: NormalizedEmployeeSnapshot,
+  transactionGuard?: (tx: Prisma.TransactionClient) => Promise<void>,
+  channel: "PENTAHO" | "EXCEL_IMPORT" = "PENTAHO",
 ): Promise<EmployeeSyncResult> {
-  const reconciliationAt = new Date();
-
   try {
     const result = await prisma.$transaction(
       async (tx) =>
-        reconcileWithinTransaction(tx, snapshot, run, reconciliationAt),
+        reconcileWithinTransaction(
+          tx,
+          snapshot,
+          run,
+          transactionGuard,
+          channel,
+        ),
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         timeout: EMPLOYEE_SYNC_TRANSACTION_TIMEOUT_MS,
@@ -584,6 +554,173 @@ async function reconcileSnapshotForRun(
 
     throw error;
   }
+}
+
+type EmployeeSnapshotImpact = {
+  newCount: number;
+  changedCount: number;
+  unchangedCount: number;
+  missingCount: number;
+  deactivationCount: number;
+  details: Array<{ nip: string; change: "NEW" | "CHANGED" | "UNCHANGED" | "MISSING" | "DEACTIVATION" }>;
+};
+
+function sameDate(left: Date | null, right: Date): boolean {
+  return left !== null && left.getTime() === right.getTime();
+}
+
+async function inspectEmployeeSnapshot(
+  tx: Prisma.TransactionClient,
+  snapshot: NormalizedEmployeeSnapshot,
+  options: { ignoreSourceAuditMetadata?: boolean } = {},
+) {
+  const nips = snapshot.employees.map((employee) => employee.nip);
+  const externalUnitCodes = [...new Set(snapshot.employees.map((employee) => employee.externalUnitCode))];
+  const unitIdByExternalCode = await resolveUnitMappings(tx, snapshot.sourceSystem, externalUnitCodes);
+  const existingEmployees = await tx.employee.findMany({
+    where: { nip: { in: nips } },
+    select: {
+      id: true, nip: true, name: true, jobTitle: true, jenjang: true, jenjangLabel: true,
+      kodeStatpeg: true, statKepeg: true, sourceKodeDolog: true, sourceKodeSubdolog: true,
+      sourceKodeKansilog: true, sourceKodeGudang: true, sourceKodeOrg: true,
+      sourceNamaOrg: true, sourceNamaSatker: true, sourceNamaInduk: true,
+      sourceCreatedAt: true, sourceCreatedBy: true, sourceUpdatedAt: true, sourceUpdatedBy: true,
+      unitId: true, isPresentInSource: true,
+      user: { select: { id: true, role: true, isActive: true, authProvider: true } },
+    },
+  });
+  const existingByNip = new Map(existingEmployees.map((employee) => [employee.nip, employee]));
+  const missingCandidates = await tx.employee.findMany({
+    where: { isPresentInSource: true, nip: { notIn: nips } },
+    select: {
+      id: true, nip: true,
+      user: { select: { id: true, isActive: true, authProvider: true } },
+    },
+  });
+
+  const missingLocalMutationCandidates = missingCandidates.filter(
+    (employee) => employee.user !== null && isActiveNonSsoUser(employee.user),
+  );
+  if (missingLocalMutationCandidates.length > 0) {
+    throw new EmployeeSnapshotValidationError(
+      `Snapshot akan menonaktifkan User non-SSO yang masih aktif untuk NIP: ${missingLocalMutationCandidates.map((employee) => employee.nip).join(", ")}`,
+    );
+  }
+
+  const picUserIdsToDeactivate: string[] = [];
+  const details: EmployeeSnapshotImpact["details"] = [];
+  let newCount = 0;
+  let changedCount = 0;
+  let unchangedCount = 0;
+  const changedNips = new Set<string>();
+  const fingerprintRows: unknown[] = [];
+
+  for (const employee of snapshot.employees) {
+    const unitId = unitIdByExternalCode.get(employee.externalUnitCode);
+    if (!unitId) throw new EmployeeSnapshotValidationError("UnitExternalMapping tidak ditemukan");
+    const existing = existingByNip.get(employee.nip);
+    if (!existing) {
+      newCount++;
+      details.push({ nip: employee.nip, change: "NEW" });
+    } else {
+      const changed = !existing.isPresentInSource || existing.name !== employee.name ||
+        existing.jobTitle !== employee.jobTitle || existing.jenjang !== employee.jenjang ||
+        existing.jenjangLabel !== employee.jenjangLabel || existing.kodeStatpeg !== employee.kodeStatpeg ||
+        existing.statKepeg !== employee.statKepeg || existing.sourceKodeDolog !== employee.sourceKodeDolog ||
+        existing.sourceKodeSubdolog !== employee.sourceKodeSubdolog || existing.sourceKodeKansilog !== employee.sourceKodeKansilog ||
+        existing.sourceKodeGudang !== employee.sourceKodeGudang || existing.sourceKodeOrg !== employee.sourceKodeOrg ||
+        existing.sourceNamaOrg !== employee.sourceNamaOrg || existing.sourceNamaSatker !== employee.sourceNamaSatker ||
+        existing.sourceNamaInduk !== employee.sourceNamaInduk ||
+        (!options.ignoreSourceAuditMetadata && (
+          !sameDate(existing.sourceCreatedAt, employee.sourceCreatedAt) ||
+          existing.sourceCreatedBy !== employee.sourceCreatedBy ||
+          !sameDate(existing.sourceUpdatedAt, employee.sourceUpdatedAt) ||
+          existing.sourceUpdatedBy !== employee.sourceUpdatedBy
+        )) || existing.unitId !== unitId;
+      if (changed) {
+        changedCount++;
+        changedNips.add(employee.nip);
+        details.push({ nip: employee.nip, change: "CHANGED" });
+      } else {
+        unchangedCount++;
+        details.push({ nip: employee.nip, change: "UNCHANGED" });
+      }
+
+      const nextEmployee = { ...toEligibilityInput(employee), unitId };
+      if (existing.user && shouldDeactivateLinkedPicUser(existing, nextEmployee)) {
+        if (existing.user.authProvider === "SSO") {
+          if (existing.user.isActive) {
+            picUserIdsToDeactivate.push(existing.user.id);
+            details.push({ nip: employee.nip, change: "DEACTIVATION" });
+          }
+        } else if (existing.user.isActive) {
+          throw new EmployeeSnapshotValidationError(
+            `Snapshot akan menonaktifkan User non-SSO yang masih aktif untuk NIP ${employee.nip}`,
+          );
+        }
+      }
+    }
+    if (existing && options.ignoreSourceAuditMetadata) {
+      const existingWithoutSourceAuditMetadata = {
+        id: existing.id,
+        nip: existing.nip,
+        name: existing.name,
+        jobTitle: existing.jobTitle,
+        jenjang: existing.jenjang,
+        jenjangLabel: existing.jenjangLabel,
+        kodeStatpeg: existing.kodeStatpeg,
+        statKepeg: existing.statKepeg,
+        sourceKodeDolog: existing.sourceKodeDolog,
+        sourceKodeSubdolog: existing.sourceKodeSubdolog,
+        sourceKodeKansilog: existing.sourceKodeKansilog,
+        sourceKodeGudang: existing.sourceKodeGudang,
+        sourceKodeOrg: existing.sourceKodeOrg,
+        sourceNamaOrg: existing.sourceNamaOrg,
+        sourceNamaSatker: existing.sourceNamaSatker,
+        sourceNamaInduk: existing.sourceNamaInduk,
+        unitId: existing.unitId,
+        isPresentInSource: existing.isPresentInSource,
+        user: existing.user,
+      };
+      fingerprintRows.push({ nip: employee.nip, unitId, existing: existingWithoutSourceAuditMetadata });
+    } else {
+      fingerprintRows.push({ nip: employee.nip, unitId, existing: existing ?? null });
+    }
+  }
+
+  const missingIds = missingCandidates.map((employee) => employee.id);
+  const missingSsoUsers = missingCandidates.filter(
+    (employee) => employee.user?.authProvider === "SSO" && employee.user.isActive,
+  );
+  for (const employee of missingCandidates) {
+    details.push({ nip: employee.nip, change: "MISSING" });
+    fingerprintRows.push({ nip: employee.nip, missing: true, user: employee.user });
+  }
+  for (const employee of missingSsoUsers) {
+    details.push({ nip: employee.nip, change: "DEACTIVATION" });
+  }
+  const deactivationCount = new Set([
+    ...picUserIdsToDeactivate,
+    ...missingSsoUsers.flatMap((employee) => employee.user ? [employee.user.id] : []),
+  ]).size;
+
+  const impact: EmployeeSnapshotImpact = {
+    newCount, changedCount, unchangedCount, missingCount: missingCandidates.length,
+    deactivationCount, details: details.slice(0, 100),
+  };
+  const impactHash = createHash("sha256")
+    .update(JSON.stringify({ rows: fingerprintRows.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), impact: { newCount, changedCount, unchangedCount, missingCount: missingCandidates.length, deactivationCount } }))
+    .digest("hex");
+  return { unitIdByExternalCode, existingByNip, changedNips, missingCandidates, missingIds, picUserIdsToDeactivate: [...new Set(picUserIdsToDeactivate)], impact, impactHash };
+}
+
+export async function inspectEmployeeSnapshotForPreview(
+  tx: Prisma.TransactionClient,
+  snapshot: NormalizedEmployeeSnapshot,
+  options: { ignoreSourceAuditMetadata?: boolean } = {},
+) {
+  const inspected = await inspectEmployeeSnapshot(tx, snapshot, options);
+  return { ...inspected.impact, impactHash: inspected.impactHash };
 }
 
 class EmployeeSnapshotClaimLostError extends Error {
@@ -605,6 +742,7 @@ export async function syncEmployeeSnapshotForRun(
       sourceSystem: true,
       status: true,
       phase: true,
+      channel: true,
       startedAt: true,
     },
   });
@@ -620,6 +758,12 @@ export async function syncEmployeeSnapshotForRun(
   }
 
   try {
+    if (run.channel !== (options.expectedChannel ?? "PENTAHO")) {
+      throw new EmployeeSnapshotValidationError(
+        "EmployeeSyncRun channel tidak sesuai dengan caller reconciliation",
+      );
+    }
+
     const snapshot = parseEmployeeSnapshot(input);
 
     if (
@@ -660,7 +804,7 @@ export async function syncEmployeeSnapshotForRun(
       throw new EmployeeSnapshotClaimLostError();
     }
 
-    return reconcileSnapshotForRun(run, snapshot);
+    return reconcileSnapshotForRun(run, snapshot, options.transactionGuard, run.channel);
   } catch (error) {
     if (!(error instanceof EmployeeSnapshotClaimLostError)) {
       await markRunFailed(run.id, error);

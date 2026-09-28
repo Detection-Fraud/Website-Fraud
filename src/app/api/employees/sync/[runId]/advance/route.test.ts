@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { before, describe, it, mock } from "node:test";
 import type { advanceEmployeePentahoSync } from "@/lib/employee-sync-orchestrator";
+import { PentahoServiceError } from "@/lib/pentaho-service";
 import type { EmployeeSyncStatus } from "@/types/employee-sync.types";
 
 const requireAdminMock = mock.fn(async () => ({ user: { id: "admin-1", role: "ADMIN" } }));
+class MockApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
 const advanceMock = mock.fn<typeof advanceEmployeePentahoSync>(async () => ({
   runId: "00000000-0000-4000-8000-000000000001",
   sourceSystem: "PENTAHO",
+      channel: "PENTAHO",
   status: "SUCCEEDED" as const,
   phase: "COMPLETED" as const,
   startedAt: "2026-09-22T00:00:00.000Z",
@@ -22,7 +27,7 @@ const advanceMock = mock.fn<typeof advanceEmployeePentahoSync>(async () => ({
 } as EmployeeSyncStatus));
 
 mock.module("@/lib/api/auth-guard", {
-  namedExports: { requireAdmin: requireAdminMock, ApiError: class ApiError extends Error {} },
+  namedExports: { requireAdmin: requireAdminMock, ApiError: MockApiError },
 });
 mock.module("@/lib/employee-sync-orchestrator", {
   namedExports: { advanceEmployeePentahoSync: advanceMock },
@@ -44,6 +49,30 @@ describe("POST /api/employees/sync/[runId]/advance", () => {
     assert.equal(advanceMock.mock.callCount(), 0);
   });
 
+  it("returns 401 from the Admin guard before advancing", async () => {
+    requireAdminMock.mock.mockImplementationOnce(async () => {
+      throw new MockApiError("Unauthorized", 401);
+    });
+    advanceMock.mock.resetCalls();
+    const response = await POST(new Request("http://localhost"), {
+      params: Promise.resolve({ runId: "00000000-0000-4000-8000-000000000001" }),
+    });
+    assert.equal(response.status, 401);
+    assert.equal(advanceMock.mock.callCount(), 0);
+  });
+
+  it("returns 403 from the Admin guard before advancing", async () => {
+    requireAdminMock.mock.mockImplementationOnce(async () => {
+      throw new MockApiError("Forbidden", 403);
+    });
+    advanceMock.mock.resetCalls();
+    const response = await POST(new Request("http://localhost"), {
+      params: Promise.resolve({ runId: "00000000-0000-4000-8000-000000000001" }),
+    });
+    assert.equal(response.status, 403);
+    assert.equal(advanceMock.mock.callCount(), 0);
+  });
+
   it("awaits params, advances the run, and returns only safe status data", async () => {
     advanceMock.mock.resetCalls();
     const runId = "00000000-0000-4000-8000-000000000001";
@@ -54,6 +83,7 @@ describe("POST /api/employees/sync/[runId]/advance", () => {
     assert.equal(response.status, 200);
     assert.deepEqual(advanceMock.mock.calls[0]?.arguments, [runId]);
     assert.equal(body.data.responseMetadata, undefined);
+    assert.equal(body.data.channel, "PENTAHO");
   });
 
   it("maps a missing run to a sanitized 404", async () => {
@@ -73,6 +103,7 @@ describe("POST /api/employees/sync/[runId]/advance", () => {
     advanceMock.mock.mockImplementationOnce(async () => ({
       runId: "00000000-0000-4000-8000-000000000001",
       sourceSystem: "PENTAHO",
+      channel: "PENTAHO",
       status: "RUNNING" as const,
       phase: "PENTAHO_RUNNING" as const,
       startedAt: "2026-09-22T00:00:00.000Z",
@@ -93,5 +124,31 @@ describe("POST /api/employees/sync/[runId]/advance", () => {
     const body = await response.json();
     assert.equal(response.status, 202);
     assert.equal(body.status, 202);
+  });
+
+  it("maps an Excel channel run to a generic 409 without exposing internals", async () => {
+    advanceMock.mock.mockImplementationOnce(async () => {
+      throw new Error("EMPLOYEE_SYNC_RUN_CHANNEL_MISMATCH");
+    });
+    const response = await POST(new Request("http://localhost"), {
+      params: Promise.resolve({ runId: "00000000-0000-4000-8000-000000000001" }),
+    });
+    const body = await response.json();
+    assert.equal(response.status, 409);
+    assert.equal(body.message.includes("EMPLOYEE_SYNC_RUN_CHANNEL_MISMATCH"), false);
+  });
+
+  it("sanitizes Pentaho service failures", async () => {
+    advanceMock.mock.mockImplementationOnce(async () => {
+      throw new PentahoServiceError("HTTP", "raw Pentaho secret detail", {
+        statusCode: 503,
+      });
+    });
+    const response = await POST(new Request("http://localhost"), {
+      params: Promise.resolve({ runId: "00000000-0000-4000-8000-000000000001" }),
+    });
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(JSON.stringify(body).includes("raw Pentaho secret detail"), false);
   });
 });

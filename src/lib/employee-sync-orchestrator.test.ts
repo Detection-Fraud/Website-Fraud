@@ -11,6 +11,7 @@ function run(overrides: Partial<any> = {}): any {
   return {
     id: "run-1",
     sourceSystem: "PENTAHO",
+    channel: "PENTAHO",
     status: "RUNNING",
     phase: "PENTAHO_RUNNING",
     externalJobName: "employee-sync-run-1",
@@ -62,16 +63,42 @@ function deps(initial = run()) {
     getConfig: () => ({ baseUrl: "http://pentaho.test", jobLocation: "sync_budaya.kjb", requestTimeoutMs: 1000, syncDeadlineMinutes: 30 }),
     now: () => new Date("2026-09-22T00:30:00.000Z"),
     recoverExpiredReconciliation: async () => null,
+    recoverExpiredExcelRuns: async () => {},
+    setCurrent: (next: any) => { current = next; },
     get executeCalls() { return executeCalls; },
     get reconcileCalls() { return reconcileCalls; },
-  };
+};
 }
 
 test("projects only safe run fields", async () => {
   const d = deps(run({ sourceMetadata: { secret: "no" } }));
   const result = await createEmployeePentahoOrchestrator(d).getLatestEmployeePentahoSync();
   assert.equal((result as EmployeeSyncStatus).runId, "run-1");
+  assert.equal((result as EmployeeSyncStatus).channel, "PENTAHO");
   assert.equal(Object.hasOwn(result ?? {}, "sourceMetadata"), false);
+});
+
+test("recovers an expired Excel run before Pentaho start reads the active source run", async () => {
+  const d = deps(run({ channel: "EXCEL_IMPORT", phase: "VALIDATING" }));
+  d.recoverExpiredExcelRuns = async () => d.setCurrent(run({
+    channel: "EXCEL_IMPORT", status: "FAILED", phase: "COMPLETED",
+    errorMessage: "EMPLOYEE_IMPORT_DEADLINE_EXCEEDED",
+  }));
+  const result = await createEmployeePentahoOrchestrator(d).startEmployeePentahoSync({ id: "admin-1", name: "Admin" });
+  assert.equal(result.disposition, "STARTED");
+  assert.equal(result.channel, "PENTAHO");
+  assert.equal(d.executeCalls, 1);
+});
+
+test("recovers an expired Excel run before latest status reads the active source run", async () => {
+  const d = deps(run({ channel: "EXCEL_IMPORT", phase: "RECONCILING" }));
+  d.recoverExpiredExcelRuns = async () => d.setCurrent(run({
+    channel: "EXCEL_IMPORT", status: "FAILED", phase: "COMPLETED",
+    errorMessage: "EMPLOYEE_IMPORT_DEADLINE_EXCEEDED",
+  }));
+  const result = await createEmployeePentahoOrchestrator(d).getLatestEmployeePentahoSync();
+  assert.equal(result?.status, "FAILED");
+  assert.equal(result?.channel, "EXCEL_IMPORT");
 });
 
 test("start executes exactly once and does not send response metadata to the run", async () => {
@@ -79,6 +106,7 @@ test("start executes exactly once and does not send response metadata to the run
   const result = await createEmployeePentahoOrchestrator(d).startEmployeePentahoSync({ id: "admin-1", name: "Admin" });
   assert.equal(d.executeCalls, 1);
   assert.equal(result.phase, "PENTAHO_RUNNING");
+  assert.equal(result.channel, "PENTAHO");
   assert.equal(result.disposition, "STARTED");
   assert.equal(Object.hasOwn(result, "responseMetadata"), false);
 });
@@ -152,12 +180,22 @@ test("reconciliation or Unit mapping failure is sanitized on the same run", asyn
   assert.equal(result.errorMessage, "PENTAHO_RECONCILIATION_FAILED");
 });
 
-test("malformed status fails the run instead of remaining pending", async () => {
+test("malformed status remains pending instead of failing or reconciling", async () => {
   const d = deps();
   d.status = async () => { throw new PentahoServiceError("CONTRACT", "invalid response"); };
   const result = await createEmployeePentahoOrchestrator(d).advanceEmployeePentahoSync("run-1");
-  assert.equal(result.status, "FAILED");
-  assert.equal(result.errorMessage, "PENTAHO_JOB_FAILED");
+  assert.equal(result.status, "RUNNING");
+  assert.equal(result.phase, "PENTAHO_RUNNING");
+  assert.equal(result.errorMessage, null);
+  assert.equal(d.reconcileCalls, 0);
+});
+
+test("unknown runtime status remains pending", async () => {
+  const d = deps();
+  d.status = async () => ({ state: "UNKNOWN" as never, responseMetadata: {} });
+  const result = await createEmployeePentahoOrchestrator(d).advanceEmployeePentahoSync("run-1");
+  assert.equal(result.status, "RUNNING");
+  assert.equal(result.phase, "PENTAHO_RUNNING");
   assert.equal(d.reconcileCalls, 0);
 });
 
@@ -209,14 +247,15 @@ test("a VALIDATING run resumes from the mirror without querying Pentaho again", 
   assert.equal(d.reconcileCalls, 1);
 });
 
-test("invalid execute contract fails the run without retry", async () => {
+test("invalid execute contract is ambiguous, remains pollable, and is never retried", async () => {
   const d = deps(run({ status: "SUCCEEDED", phase: "COMPLETED", externalJobName: null }));
   let executeCalls = 0;
   d.execute = async () => { executeCalls += 1; throw new PentahoServiceError("CONTRACT", "ambiguous response"); };
   const result = await createEmployeePentahoOrchestrator(d).startEmployeePentahoSync({ id: "admin-1", name: "Admin" });
   assert.equal(result.disposition, "STARTED");
-  assert.equal(result.status, "FAILED");
-  assert.equal(result.errorMessage, "PENTAHO_EXECUTE_REJECTED");
+  assert.equal(result.status, "RUNNING");
+  assert.equal(result.phase, "PENTAHO_RUNNING");
+  assert.equal(result.errorMessage, null);
   assert.equal(executeCalls, 1);
 });
 
@@ -231,4 +270,38 @@ test("ambiguous execute transport moves the run to polling without retry", async
   assert.equal(result.disposition, "STARTED");
   assert.equal(result.phase, "PENTAHO_RUNNING");
   assert.equal(executeCalls, 1);
+});
+
+test("an active Excel import is returned as safe status without starting Pentaho", async () => {
+  const d = deps(run({ channel: "EXCEL_IMPORT", phase: "RECONCILING" }));
+  let activeQuery: any;
+  const findFirst = d.runs.findFirst;
+  d.runs.findFirst = async (args: any) => {
+    activeQuery = args;
+    return findFirst(args);
+  };
+  const result = await createEmployeePentahoOrchestrator(d).startEmployeePentahoSync({ id: "admin-2", name: "Other Admin" });
+  assert.equal(result.channel, "EXCEL_IMPORT");
+  assert.equal(result.status, "RUNNING");
+  assert.equal(result.disposition, "OTHER_CHANNEL_ACTIVE");
+  assert.deepEqual(activeQuery.where, { sourceSystem: "PENTAHO", status: "RUNNING" });
+  assert.equal(d.executeCalls, 0);
+});
+
+test("shared latest status can project an Excel import channel", async () => {
+  const d = deps(run({ channel: "EXCEL_IMPORT", phase: "RECONCILING" }));
+  const result = await createEmployeePentahoOrchestrator(d).getLatestEmployeePentahoSync();
+  assert.equal(result?.channel, "EXCEL_IMPORT");
+});
+
+test("advance rejects an Excel channel run before polling or mutation", async () => {
+  const d = deps(run({ channel: "EXCEL_IMPORT" }));
+  let statusCalls = 0;
+  d.status = async () => { statusCalls += 1; return { state: "FAILED" as const, responseMetadata: {} }; };
+  await assert.rejects(
+    createEmployeePentahoOrchestrator(d).advanceEmployeePentahoSync("run-1"),
+    /EMPLOYEE_SYNC_RUN_CHANNEL_MISMATCH/,
+  );
+  assert.equal(statusCalls, 0);
+  assert.equal(d.reconcileCalls, 0);
 });

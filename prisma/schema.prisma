@@ -69,6 +69,11 @@ enum EmployeeSyncRunStatus {
   FAILED
 }
 
+enum EmployeeSyncChannel {
+  PENTAHO
+  EXCEL_IMPORT
+}
+
 enum EmployeeSyncPhase {
   TRIGGERING
   PENTAHO_RUNNING
@@ -142,6 +147,7 @@ model User {
   scoreHistoryEntries    ParticipationScoreHistory[] @relation("ScoreHistoryActors")
   correctionAudits       ParticipationCorrectionAudit[] @relation("ParticipationCorrectionActors")
   employeeSyncRunsTriggered EmployeeSyncRun[] @relation("EmployeeSyncTriggeredBy")
+    employeeImportPreviews EmployeeImportPreview[] @relation("EmployeeImportPreviewInitiator")
 
   @@index([role])
   @@index([isActive])
@@ -260,6 +266,7 @@ model ParticipationScoreHistory {
 model EmployeeSyncRun {
   id String @id @default(uuid())
   sourceSystem String
+  channel EmployeeSyncChannel @default(PENTAHO)
   sourceMetadata Json?
   status EmployeeSyncRunStatus @default(RUNNING)
   phase EmployeeSyncPhase?
@@ -280,11 +287,31 @@ model EmployeeSyncRun {
 
   employeesLastSeen Employee[] @relation("EmployeeLastSeenSyncRun")
   participationSnapshots ParticipationData[] @relation("ParticipationEmployeeSyncRun")
+  importPreviews EmployeeImportPreview[] @relation("EmployeeImportPreviewBaseline")
 
   @@index([status])
   @@index([startedAt])
   @@index([status, completedAt])
   @@index([sourceSystem, startedAt])
+  @@index([sourceSystem, channel, startedAt])
+}
+
+model EmployeeImportPreview {
+  id String @id @default(uuid())
+  tokenHash String @unique @db.Char(64)
+  initiatedById String?
+  initiatedBy User? @relation("EmployeeImportPreviewInitiator", fields: [initiatedById], references: [id], onDelete: SetNull)
+  fileHash String @db.Char(64)
+  baselineRunId String?
+  baselineRun EmployeeSyncRun? @relation("EmployeeImportPreviewBaseline", fields: [baselineRunId], references: [id], onDelete: Restrict)
+  impactHash String @db.Char(64)
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([initiatedById, expiresAt])
+  @@index([baselineRunId])
+  @@index([expiresAt])
 }
 
 model Employee {
