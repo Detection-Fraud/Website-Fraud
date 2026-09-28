@@ -56,7 +56,7 @@ export default function DetailView({ id }: { id: string }) {
       <div className="space-y-3">
         {/* UPDATED: text-slate-500 */}
         <Link
-          href={`/pic/halaman-utama`}
+          href={`/pic/dashboard`}
           className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors mb-2 text-sm font-medium"
         >
           <FiArrowLeft className="w-4 h-4" />
