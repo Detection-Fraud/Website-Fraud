@@ -2,13 +2,12 @@ import { Button, Card, Chip } from "@heroui/react";
 import { BiCheckCircle, BiPowerOff } from "react-icons/bi";
 import { FiCalendar, FiEdit2, FiGrid, FiTarget } from "react-icons/fi";
 import { ProgramBudayaWithCategory } from "@/hooks/useProgramQuery";
-import { ProgramBudaya } from "@generated/prisma";
 import { ProgramCardBanner } from "./ProgramCardBanner";
 
 interface ProgramCardItemProps {
   program: ProgramBudayaWithCategory;
-  onEdit?: (program: ProgramBudaya) => void;
-  onToggleStatus?: (program: ProgramBudaya) => void;
+  onEdit?: (program: ProgramBudayaWithCategory) => void;
+  onToggleStatus?: (program: ProgramBudayaWithCategory) => void;
 }
 
 const TW_LABELS: Record<number, string> = {

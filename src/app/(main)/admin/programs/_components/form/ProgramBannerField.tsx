@@ -1,46 +1,30 @@
 "use client";
 
 import Dropzone from "@/components/ui/Dropzone";
-import { useTemporaryUpload } from "@/hooks/useUploadMutation";
 import { Button, Label } from "@heroui/react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
 import { FiX } from "react-icons/fi";
 
 interface ProgramBannerFieldProps {
-  initialBannerUrl?: string | null;
-  isOpen: boolean;
-  onUploadingChange: (isUploading: boolean) => void;
+  bannerUrl: string | null;
+  isUploading: boolean;
+  isDeletingUpload: boolean;
+  onUpload: (file: File) => Promise<void>;
+  onRemove: () => Promise<void>;
 }
 
 export default function ProgramBannerField({
-  initialBannerUrl,
-  isOpen,
-  onUploadingChange,
+  bannerUrl,
+  isUploading,
+  isDeletingUpload,
+  onUpload,
+  onRemove,
 }: ProgramBannerFieldProps) {
-  const {
-    uploadTemporaryFile,
-    discardTemporaryUpload,
-    isUploading,
-    isDeletingUpload,
-  } = useTemporaryUpload(isOpen);
-  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen) setBannerUrl(initialBannerUrl ?? null);
-  }, [initialBannerUrl, isOpen]);
-
-  useEffect(() => {
-    onUploadingChange(isUploading || isDeletingUpload);
-  }, [isDeletingUpload, isUploading, onUploadingChange]);
-
   const handleBannerUpload = async (file?: File) => {
     if (!file) return;
 
     try {
-      const result = await uploadTemporaryFile(file);
-      if (!result) return;
-      setBannerUrl(result.url);
+      await onUpload(file);
     } catch (error) {
       console.error("Gagal mengunggah banner", error);
     }
@@ -48,8 +32,7 @@ export default function ProgramBannerField({
 
   const handleRemoveBanner = async () => {
     try {
-      await discardTemporaryUpload();
-      setBannerUrl(null);
+      await onRemove();
     } catch {
       // Error toast ditangani oleh useUploadMutation.
     }
@@ -94,8 +77,6 @@ export default function ProgramBannerField({
           variant="compact"
         />
       )}
-
-      <input name="bannerUrl" type="hidden" value={bannerUrl ?? ""} />
     </div>
   );
 }

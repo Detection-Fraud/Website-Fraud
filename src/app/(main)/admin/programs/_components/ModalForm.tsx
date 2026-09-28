@@ -1,7 +1,8 @@
 "use client";
 
 import { useProgramCategoryQuery } from "@/hooks/useProgramCategoryQuery";
-import { ProgramBudaya, ProgramCategory } from "@generated/prisma";
+import { ProgramCategory } from "@generated/prisma";
+import type { ProgramBudayaWithCategory } from "@/hooks/useProgramQuery";
 import {
   Button,
   Description,
@@ -18,6 +19,10 @@ import {
   TextArea,
   TextField,
 } from "@heroui/react";
+import {
+  useTemporaryUpload,
+  type UploadReceipt,
+} from "@/hooks/useUploadMutation";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { useEffect, useMemo, useState } from "react";
 import { FiFolder, FiLayers, FiTarget } from "react-icons/fi";
@@ -39,9 +44,9 @@ const TW_MONTH_RANGES = {
 interface ModalFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (formData: FormData) => void;
+  onSubmit: (formData: FormData) => Promise<unknown>;
   isLoading?: boolean;
-  program?: ProgramBudaya | null;
+  program?: ProgramBudayaWithCategory | null;
 }
 
 export default function ModalForm({
@@ -62,7 +67,30 @@ export default function ModalForm({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     null,
   );
-  const [isBannerUploading, setIsBannerUploading] = useState(false);
+
+  type ProgramBannerState = "NONE" | "UNCHANGED" | "REPLACED" | "REMOVED";
+
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [bannerReceipt, setBannerReceipt] = useState<UploadReceipt | null>(
+    null,
+  );
+  const [bannerState, setBannerState] = useState<ProgramBannerState>("NONE");
+
+  const uploadOptions = useMemo(
+    () => ({
+      purpose: "PROGRAM_BANNER" as const,
+      mode: program ? ("REPLACEMENT" as const) : ("CREATE" as const),
+    }),
+    [program],
+  );
+
+  const {
+    uploadTemporaryFile,
+    discardTemporaryUpload,
+    preserveTemporaryUpload,
+    isUploading: isBannerUploadingMutation,
+    isDeletingUpload,
+  } = useTemporaryUpload(uploadOptions, isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -73,6 +101,9 @@ export default function ModalForm({
     setUploadDeadline(toCalendarDate(program?.uploadDeadline));
     setFrequencyValue(program?.frequency?.toString() ?? "1");
     setSelectedCategoryId(program?.categoryId ?? null);
+    setBannerUrl(program?.bannerUrl ?? null);
+    setBannerReceipt(null);
+    setBannerState(program?.bannerUrl ? "UNCHANGED" : "NONE");
   }, [isOpen, program]);
 
   const evidenceCategories = useMemo(
@@ -155,14 +186,51 @@ export default function ModalForm({
     }
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleBannerUpload = async (file: File) => {
+    const uploaded = await uploadTemporaryFile(file);
+
+    if (!uploaded) return;
+
+    setBannerUrl(uploaded.url);
+    setBannerReceipt(uploaded);
+    setBannerState("REPLACED");
+  };
+
+  const handleBannerRemove = async () => {
+    await discardTemporaryUpload();
+
+    setBannerReceipt(null);
+    setBannerUrl(null);
+    setBannerState(program?.bannerUrl ? "REMOVED" : "NONE");
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSubmit(new FormData(event.currentTarget));
+
+    const formData = new FormData(event.currentTarget);
+    formData.set("bannerUrl", bannerUrl ?? "");
+    formData.set("bannerState", bannerState);
+    formData.set("bannerPublicId", bannerReceipt?.publicId ?? "");
+    formData.set("bannerDescriptor", bannerReceipt?.descriptor ?? "");
+    formData.set("bannerCleanupToken", bannerReceipt?.cleanupToken ?? "");
+
+    if (program?.updatedAt) {
+      formData.set("expectedUpdatedAt", program.updatedAt);
+    }
+
+    try {
+      await onSubmit(formData);
+      preserveTemporaryUpload();
+      onClose();
+    } catch {
+      // Mutation menangani toast/error response.
+    }
   };
 
   const submitDisabled =
     isLoading ||
-    isBannerUploading ||
+    isBannerUploadingMutation ||
+    isDeletingUpload ||
     !selectedTw ||
     !startDate ||
     !endDate ||
@@ -342,9 +410,11 @@ export default function ModalForm({
                       </TextField>
 
                       <ProgramBannerField
-                        initialBannerUrl={program?.bannerUrl}
-                        isOpen={isOpen}
-                        onUploadingChange={setIsBannerUploading}
+                        bannerUrl={bannerUrl}
+                        isDeletingUpload={isDeletingUpload}
+                        isUploading={isBannerUploadingMutation}
+                        onRemove={handleBannerRemove}
+                        onUpload={handleBannerUpload}
                       />
                     </FieldGroup>
 

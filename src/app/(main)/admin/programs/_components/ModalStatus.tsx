@@ -1,11 +1,11 @@
-import { Button, CloseButton, Modal } from "@heroui/react";
+import { Button, Modal } from "@heroui/react";
 import { BiCheckCircle, BiPowerOff } from "react-icons/bi";
-import { ProgramBudaya } from "@generated/prisma";
+import type { ProgramBudayaWithCategory } from "@/hooks/useProgramQuery";
 
 interface ModalStatusProps {
   isOpen: boolean;
   onClose: () => void;
-  program: ProgramBudaya | null;
+  program: ProgramBudayaWithCategory | null;
   onConfirm: () => void;
   isLoading?: boolean;
 }

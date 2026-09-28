@@ -1,12 +1,11 @@
 import { ProgramBudayaWithCategory } from "@/hooks/useProgramQuery";
-import { ProgramBudaya } from "@generated/prisma";
 import { FiGrid } from "react-icons/fi";
 import { ProgramCardItem } from "./cards/ProgramCardItem";
 
 interface CardProgramsProps {
   programs: ProgramBudayaWithCategory[];
-  onEdit?: (program: ProgramBudaya) => void;
-  onToggleStatus?: (program: ProgramBudaya) => void;
+  onEdit?: (program: ProgramBudayaWithCategory) => void;
+  onToggleStatus?: (program: ProgramBudayaWithCategory) => void;
 }
 
 export default function CardPrograms({
