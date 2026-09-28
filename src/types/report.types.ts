@@ -63,7 +63,16 @@ export interface ReportFormData {
   tanggalKegiatan: string;
   lokasi: string;
   description: string;
-  uploadedPhotos?: { originalName: string; imageUrl: string }[];
+  uploadedPhotos?: ReportPhotoUpload[];
+  photos?: ReportPhotoUpload[];
+}
+
+export interface ReportPhotoUpload {
+  originalName: string;
+  imageUrl: string;
+  publicId: string;
+  descriptor: string;
+  cleanupToken: string;
 }
 
 export interface InitialData {

@@ -11,8 +11,11 @@ export const createReportSchema = z.object({
   uploadedPhotos: z
     .array(
       z.object({
-        originalName: z.string(),
+        originalName: z.string().min(1),
         imageUrl: z.string().min(1, "URL foto tidak valid"),
+        publicId: z.string().min(1).max(256),
+        descriptor: z.string().min(1).max(4096),
+        cleanupToken: z.string().min(1).max(4096),
       }),
     )
     .min(1, "Minimal 1 foto")
@@ -39,6 +42,7 @@ export const reviewReportSchema = z
   });
 
 export const updateReportSchema = z.object({
+  expectedUpdatedAt: z.string().min(1, "Versi laporan wajib diisi"),
   activityName: z
     .string()
     .min(5, "Nama aktivitas minimal 5 karakter")
@@ -54,8 +58,10 @@ export const updateReportSchema = z.object({
     .array(
       z.object({
         imageUrl: z.string().min(1, "URL foto tidak valid"),
-        originalName: z.string(),
-        publicId: z.string().optional().nullable(),
+        originalName: z.string().min(1),
+        publicId: z.string().min(1).max(256),
+        descriptor: z.string().min(1).max(4096),
+        cleanupToken: z.string().min(1).max(4096),
       }),
     )
     .min(1, "Minimal 1 foto")

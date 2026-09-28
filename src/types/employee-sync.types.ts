@@ -1,6 +1,7 @@
 export type EmployeeSyncStatus = {
   runId: string;
   sourceSystem: string;
+  channel: "PENTAHO" | "EXCEL_IMPORT";
   status: "RUNNING" | "SUCCEEDED" | "FAILED";
   phase: "TRIGGERING" | "PENTAHO_RUNNING" | "VALIDATING" | "RECONCILING" | "COMPLETED" | null;
   startedAt: string;
@@ -15,5 +16,5 @@ export type EmployeeSyncStatus = {
 };
 
 export type EmployeeSyncStartResult = EmployeeSyncStatus & {
-  disposition: "STARTED" | "REUSED";
+  disposition: "STARTED" | "REUSED" | "OTHER_CHANNEL_ACTIVE";
 };

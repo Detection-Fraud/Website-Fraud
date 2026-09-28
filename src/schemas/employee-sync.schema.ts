@@ -6,6 +6,7 @@ export const employeeSyncStatusSchema = z
   .object({
     runId: z.string().uuid(),
     sourceSystem: z.string().min(1).max(64),
+    channel: z.enum(["PENTAHO", "EXCEL_IMPORT"]),
     status: z.enum(["RUNNING", "SUCCEEDED", "FAILED"]),
     phase: z
       .enum([
@@ -29,4 +30,3 @@ export const employeeSyncStatusSchema = z
   .strict();
 
 export type EmployeeSyncStatusResponse = z.infer<typeof employeeSyncStatusSchema>;
-
