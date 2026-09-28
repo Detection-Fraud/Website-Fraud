@@ -1,8 +1,7 @@
 "use client";
 
-import { useProgramList } from "@/hooks/useProgramList";
+import { useProgramList, type ProgramWithCategory } from "@/hooks/useProgramList";
 import { cn } from "@/lib/utils";
-import { ProgramBudaya } from "@generated/prisma";
 import { Label, ListBox, Select } from "@heroui/react";
 
 interface FilterProgramProps {
@@ -51,7 +50,7 @@ export default function FilterProgram({
               <ListBox.ItemIndicator />
               Semua Program
             </ListBox.Item>
-            {programList.map((program: ProgramBudaya) => (
+            {programList.map((program: ProgramWithCategory) => (
               <ListBox.Item
                 key={program.id}
                 id={program.id}

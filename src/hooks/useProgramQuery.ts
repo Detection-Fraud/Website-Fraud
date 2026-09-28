@@ -16,7 +16,8 @@ export type PaginationData = {
   totalPages: number;
 };
 
-export type ProgramBudayaWithCategory = ProgramBudaya & {
+export type ProgramBudayaWithCategory = Omit<ProgramBudaya, "updatedAt"> & {
+  updatedAt: string;
   category: ProgramCategory | null;
 };
 

@@ -2,7 +2,8 @@ import { api } from "@/lib/api";
 import { ProgramBudaya, ProgramCategory, ProgramUnit } from "@generated/prisma";
 import { useQuery } from "@tanstack/react-query";
 
-export type ProgramWithCategory = ProgramBudaya & {
+export type ProgramWithCategory = Omit<ProgramBudaya, "updatedAt"> & {
+  updatedAt: string;
   category?: ProgramCategory | null;
 };
 interface ProgramListPayload {
@@ -28,7 +29,7 @@ export function useProgramList(filters?: string | ProgramListFilter) {
   });
 
   return {
-    programs: data?.data ?? ([] as ProgramBudaya[]),
+    programs: data?.data ?? [],
     isLoading,
     error: error ? (error as Error).message : null,
   };
