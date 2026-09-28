@@ -7,6 +7,7 @@ import {
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { prisma } from "@/lib/prisma";
+import { verifyLegacyReportPhoto } from "@/lib/api/legacy-upload-capability";
 import {
   isActivityDateInsideProgram,
   isProgramUploadOpen,
@@ -249,6 +250,22 @@ export async function POST(request: Request) {
       uploadedPhotos,
     } = parsedData.data;
 
+    const seenUploads = new Set<string>();
+    for (const photo of uploadedPhotos) {
+      if (
+        seenUploads.has(photo.publicId) ||
+        !(await verifyLegacyReportPhoto(photo, user.id, {
+          purpose: "EVIDENCE",
+          mode: "CREATE",
+        }))
+      ) {
+        return NextResponse.json(errorResponse("File upload tidak valid", 400), {
+          status: 400,
+        });
+      }
+      seenUploads.add(photo.publicId);
+    }
+
     const programData = await prisma.programBudaya.findUnique({
       where: { id: programId },
       include: { category: true },
@@ -330,6 +347,7 @@ export async function POST(request: Request) {
               uploadedPhotos?.map((photo: UploadedPhoto) => ({
                 originalName: photo.originalName,
                 imageUrl: photo.imageUrl,
+                publicId: photo.publicId,
               })) || [],
           },
           logs: {

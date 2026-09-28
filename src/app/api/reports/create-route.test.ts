@@ -84,6 +84,11 @@ const successResponseMock = mock.fn((data: unknown, message: string) => ({
 const formatZodErrorMock = mock.fn(() => "payload tidak valid");
 const isProgramUploadOpenMock = mock.fn(() => true);
 const isActivityDateInsideProgramMock = mock.fn(() => true);
+const verifyLegacyReportPhotoMock = mock.fn(async () => true);
+
+mock.module("@/lib/api/legacy-upload-capability", {
+  namedExports: { verifyLegacyReportPhoto: verifyLegacyReportPhotoMock },
+});
 
 mock.module("@/auth", { namedExports: { auth: authMock } });
 mock.module("@/lib/api/auth-guard", {
@@ -182,6 +187,8 @@ beforeEach(() => {
   );
   isProgramUploadOpenMock.mock.mockImplementation(() => true);
   isActivityDateInsideProgramMock.mock.mockImplementation(() => true);
+  verifyLegacyReportPhotoMock.mock.resetCalls();
+  verifyLegacyReportPhotoMock.mock.mockImplementation(async () => true);
 });
 
 function request(
@@ -201,6 +208,9 @@ function request(
       uploadedPhotos: Array.from({ length: photos }, (_, index) => ({
         originalName: `foto-${index}.jpg`,
         imageUrl: `/uploads/foto-${index}.jpg`,
+        publicId: `foto-${index}.jpg`,
+        descriptor: "signed-descriptor",
+        cleanupToken: "signed-cleanup",
       })),
     }),
     headers: { "content-type": "application/json" },
@@ -237,6 +247,12 @@ test("menerima tepat satu atau dua foto, menolak nol atau tiga foto", async () =
   assert.equal((await POST(request(1))).status, 201);
   created = false;
   assert.equal((await POST(request(2))).status, 201);
+});
+
+test("menolak bukti foto yang tidak dimiliki PIC sebelum menulis laporan", async () => {
+  verifyLegacyReportPhotoMock.mock.mockImplementationOnce(async () => false);
+  assert.equal((await POST(request(1))).status, 400);
+  assert.equal(reportCreateMock.mock.callCount(), 0);
 });
 
 test("mengesampingkan lastSubmittedAt dari request client dan memakai timestamp server", async () => {

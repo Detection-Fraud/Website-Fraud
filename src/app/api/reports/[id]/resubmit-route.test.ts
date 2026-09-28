@@ -87,6 +87,11 @@ const successResponseMock = (data: unknown, message: string) => ({
 });
 const isProgramUploadOpenMock = mock.fn(() => true);
 const isActivityDateInsideProgramMock = mock.fn(() => true);
+const verifyLegacyReportPhotoMock = mock.fn(async () => true);
+
+mock.module("@/lib/api/legacy-upload-capability", {
+  namedExports: { verifyLegacyReportPhoto: verifyLegacyReportPhotoMock },
+});
 
 mock.module("@/auth", { namedExports: { auth: authMock } });
 mock.module("@/lib/api/auth-guard", {
@@ -177,6 +182,8 @@ beforeEach(() => {
   userFindFirstMock.mock.mockImplementation(async () => ({ id: "pic-1" }));
   isProgramUploadOpenMock.mock.mockImplementation(() => true);
   isActivityDateInsideProgramMock.mock.mockImplementation(() => true);
+  verifyLegacyReportPhotoMock.mock.resetCalls();
+  verifyLegacyReportPhotoMock.mock.mockImplementation(async () => true);
 });
 
 function request(photos: number, clientLastSubmittedAt?: string) {
@@ -185,10 +192,13 @@ function request(photos: number, clientLastSubmittedAt?: string) {
     tanggalKegiatan: "2026-06-01",
     lokasi: "Aula",
     description: "Dokumentasi kegiatan budaya",
+    expectedUpdatedAt: "2026-06-01T00:00:00.000Z",
     photos: Array.from({ length: photos }, (_, index) => ({
       originalName: `baru-${index}.jpg`,
       imageUrl: `/uploads/baru-${index}.jpg`,
-      publicId: null,
+      publicId: `baru-${index}.jpg`,
+      descriptor: "signed-descriptor",
+      cleanupToken: "signed-cleanup",
     })),
     ...(clientLastSubmittedAt !== undefined
       ? { lastSubmittedAt: clientLastSubmittedAt }
@@ -255,6 +265,12 @@ test("PENDING dan APPROVED immutable untuk PIC", async () => {
   assert.equal(transactionMock.mock.callCount(), 0);
 });
 
+test("menolak bukti pengganti yang tidak dimiliki PIC sebelum transaksi", async () => {
+  verifyLegacyReportPhotoMock.mock.mockImplementationOnce(async () => false);
+  assert.equal((await run()).status, 400);
+  assert.equal(transactionMock.mock.callCount(), 0);
+});
+
 test("resubmit memakai ID yang sama, kembali ke PENDING, dan menulis RESUBMITTED", async () => {
   const clientLastSubmittedAt = "2000-01-01T00:00:00.000Z";
 
@@ -288,7 +304,7 @@ test("resubmit memakai ID yang sama, kembali ke PENDING, dan menulis RESUBMITTED
           {
             imageUrl: "/uploads/baru-0.jpg",
             originalName: "baru-0.jpg",
-            publicId: null,
+            publicId: "baru-0.jpg",
           },
         ],
       },

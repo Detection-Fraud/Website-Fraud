@@ -102,6 +102,8 @@ beforeEach(() => {
 
 function uploadRequest() {
   const formData = new FormData();
+  formData.set("purpose", "EVIDENCE");
+  formData.set("mode", "CREATE");
   formData.set(
     "file",
     new File([new Uint8Array([0xff, 0xd8, 0xff])], "foto.jpg", {
@@ -119,6 +121,7 @@ async function uploadTemporaryFile() {
   assert.equal(response.status, 200);
   return response.json() as Promise<{
     publicId: string;
+    descriptor: string;
     cleanupToken: string;
   }>;
 }
@@ -133,11 +136,15 @@ function deleteRequest(body: unknown) {
 
 function cleanupCredential(uploaded: {
   publicId: string;
+  descriptor: string;
   cleanupToken: string;
 }) {
   return {
     publicId: uploaded.publicId,
+    descriptor: uploaded.descriptor,
     cleanupToken: uploaded.cleanupToken,
+    purpose: "EVIDENCE",
+    mode: "CREATE",
   };
 }
 
@@ -147,6 +154,7 @@ test("uploaded temporary file can be deleted with its cleanup credential", async
   assert.match(uploaded.publicId, /^[0-9a-f-]+\.jpg$/);
   assert.equal(typeof uploaded.cleanupToken, "string");
   assert.ok(uploaded.cleanupToken.length > 0);
+  assert.ok(uploaded.descriptor.length > 0);
 
   const deleteResponse = await DELETE(deleteRequest(cleanupCredential(uploaded)));
   const deleted = (await deleteResponse.json()) as { deleted: boolean };
@@ -165,8 +173,8 @@ test("cleanup rejects path traversal and tampered credentials", async () => {
 
   const traversalResponse = await DELETE(
     deleteRequest({
+      ...cleanupCredential(uploaded),
       publicId: `../${uploaded.publicId}`,
-      cleanupToken: uploaded.cleanupToken,
     }),
   );
   assert.equal(traversalResponse.status, 400);
@@ -186,6 +194,17 @@ test("cleanup credential is bound to the authenticated uploader", async () => {
   currentUserId = "user-2";
 
   const response = await DELETE(deleteRequest(cleanupCredential(uploaded)));
+
+  assert.equal(response.status, 403);
+  assert.equal(unlinkMock.mock.calls.length, 0);
+});
+
+test("cleanup rejects a descriptor with a changed purpose", async () => {
+  const uploaded = await uploadTemporaryFile();
+  const response = await DELETE(deleteRequest({
+    ...cleanupCredential(uploaded),
+    purpose: "PROGRAM_BANNER",
+  }));
 
   assert.equal(response.status, 403);
   assert.equal(unlinkMock.mock.calls.length, 0);

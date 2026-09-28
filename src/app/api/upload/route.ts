@@ -2,7 +2,13 @@ import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
-import { createHmac, randomUUID, timingSafeEqual } from "crypto";
+import {
+  mintLegacyCleanupToken,
+  mintLegacyUploadDescriptor,
+  verifyLegacyCleanupToken,
+  verifyLegacyUploadDescriptor,
+} from "@/lib/api/legacy-upload-capability";
+import { randomUUID } from "crypto";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
@@ -11,12 +17,20 @@ import { z } from "zod";
 
 const UPLOAD_NAME_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.jpg$/;
-const CLEANUP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const uploadContextSchema = z.object({
+  purpose: z.enum(["EVIDENCE", "PROGRAM_BANNER", "CATEGORY_BANNER", "LOGIN_BANNER"]),
+  mode: z.enum(["CREATE", "REPLACEMENT"]),
+  reportId: z.uuid().optional(),
+}).strict();
 
 const deleteUploadSchema = z
   .object({
     publicId: z.string().regex(UPLOAD_NAME_PATTERN),
     cleanupToken: z.string().min(1).max(256),
+    descriptor: z.string().min(1).max(256),
+    purpose: uploadContextSchema.shape.purpose,
+    mode: uploadContextSchema.shape.mode,
+    reportId: uploadContextSchema.shape.reportId,
   })
   .strict();
 
@@ -30,44 +44,6 @@ function getUploadPath(publicId: string) {
   const uploadDir = getUploadDirectory();
   const filePath = path.resolve(uploadDir, publicId);
   return path.dirname(filePath) === uploadDir ? filePath : null;
-}
-
-function getCleanupSecret() {
-  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!secret) throw new Error("Upload cleanup secret is not configured");
-  return secret;
-}
-
-function cleanupSignature(publicId: string, userId: string, expiresAt: number) {
-  return createHmac("sha256", getCleanupSecret())
-    .update(`upload-cleanup\n${publicId}\n${userId}\n${expiresAt}`)
-    .digest("base64url");
-}
-
-function createCleanupToken(publicId: string, userId: string) {
-  const expiresAt = Date.now() + CLEANUP_TOKEN_TTL_MS;
-  return `${expiresAt}.${cleanupSignature(publicId, userId, expiresAt)}`;
-}
-
-function isValidCleanupToken(
-  publicId: string,
-  userId: string,
-  cleanupToken: string,
-) {
-  const separator = cleanupToken.indexOf(".");
-  if (separator <= 0) return false;
-
-  const expiresAt = Number(cleanupToken.slice(0, separator));
-  const received = cleanupToken.slice(separator + 1);
-  if (!Number.isSafeInteger(expiresAt) || expiresAt < Date.now()) return false;
-
-  const expected = cleanupSignature(publicId, userId, expiresAt);
-  const receivedBuffer = Buffer.from(received);
-  const expectedBuffer = Buffer.from(expected);
-  return (
-    receivedBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(receivedBuffer, expectedBuffer)
-  );
 }
 
 async function isUploadReferenced(publicId: string) {
@@ -100,9 +76,20 @@ export async function POST(request: Request) {
     const session = await requireAuth();
 
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const file = formData.get("file");
+    const context = uploadContextSchema.safeParse({
+      purpose: formData.get("purpose"),
+      mode: formData.get("mode"),
+      reportId: formData.get("reportId") || undefined,
+    });
 
-    if (!file) {
+    if (!context.success) {
+      return NextResponse.json(errorResponse("Konteks upload tidak valid", 400), {
+        status: 400,
+      });
+    }
+
+    if (!(file instanceof File)) {
       return NextResponse.json(errorResponse("File wajib diisi", 400), {
         status: 400,
       });
@@ -162,7 +149,8 @@ export async function POST(request: Request) {
       });
     }
 
-    const cleanupToken = createCleanupToken(uniqueName, session.user.id);
+    const cleanupToken = mintLegacyCleanupToken(uniqueName, session.user.id);
+    const descriptor = mintLegacyUploadDescriptor(uniqueName, session.user.id, context.data);
     await writeFile(filePath, compressedBuffer);
 
     return NextResponse.json(
@@ -170,6 +158,7 @@ export async function POST(request: Request) {
         message: "Upload Berhasil",
         url: `/uploads/${uniqueName}`,
         publicId: uniqueName,
+        descriptor,
         cleanupToken,
         size: compressedBuffer.length,
       },
@@ -194,8 +183,11 @@ export async function DELETE(request: Request) {
       });
     }
 
-    const { publicId, cleanupToken } = parsed.data;
-    if (!isValidCleanupToken(publicId, session.user.id, cleanupToken)) {
+    const { publicId, cleanupToken, descriptor, purpose, mode, reportId } = parsed.data;
+    if (
+      !verifyLegacyCleanupToken(publicId, session.user.id, cleanupToken) ||
+      !verifyLegacyUploadDescriptor(publicId, session.user.id, descriptor, { purpose, mode, reportId })
+    ) {
       return NextResponse.json(
         errorResponse("Kredensial cleanup tidak valid atau kedaluwarsa", 403),
         { status: 403 },

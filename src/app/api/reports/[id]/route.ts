@@ -5,6 +5,7 @@ import {
   requirePic,
 } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { verifyLegacyReportPhoto } from "@/lib/api/legacy-upload-capability";
 import {
   isActivityDateInsideProgram,
   isProgramUploadOpen,
@@ -205,6 +206,24 @@ export async function PUT(
         ),
         { status: 400 },
       );
+    }
+    if (photos) {
+      const seenUploads = new Set<string>();
+      for (const photo of photos) {
+        if (
+          seenUploads.has(photo.publicId) ||
+          !(await verifyLegacyReportPhoto(photo, session.user.id, {
+            purpose: "EVIDENCE",
+            mode: "REPLACEMENT",
+            reportId: id,
+          }))
+        ) {
+          return NextResponse.json(errorResponse("File upload tidak valid", 400), {
+            status: 400,
+          });
+        }
+        seenUploads.add(photo.publicId);
+      }
     }
     const finalProgramId = targetProgramId || existingReport.programId;
     if (!finalProgramId) {
