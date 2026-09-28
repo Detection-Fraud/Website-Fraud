@@ -6,7 +6,8 @@ import type { Key } from "@heroui/react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { useEffect, useMemo, useState } from "react";
 
-export type ProgramWithCategory = ProgramBudaya & {
+export type ProgramWithCategory = Omit<ProgramBudaya, "updatedAt"> & {
+  updatedAt: string;
   category?: ProgramCategory | null;
 };
 

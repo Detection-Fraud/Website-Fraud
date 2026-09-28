@@ -94,7 +94,6 @@ export default function PicView() {
           <div className="absolute inset-0 bg-slate-950/20" />
         </div>
 
-        {/* Left Content Column â€” lives inside the dark reading zone */}
         <div className="relative z-10 flex flex-col items-start justify-between gap-5 p-6 md:p-8 max-w-md">
           <div className="space-y-2">
             <div className="flex items-center gap-2">

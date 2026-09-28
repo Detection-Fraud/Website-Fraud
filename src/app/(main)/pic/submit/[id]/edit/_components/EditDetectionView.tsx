@@ -40,6 +40,7 @@ export default function EditDetectionView() {
           : undefined,
         lokasi: report.lokasi,
         description: report.description,
+        updatedAt: report.updatedAt,
       }
     : undefined;
 

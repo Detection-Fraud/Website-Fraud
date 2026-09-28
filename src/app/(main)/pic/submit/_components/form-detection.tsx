@@ -1,5 +1,5 @@
-import { useFormDetectionLogic } from "@/hooks/useFormDetectionLogic";
-import { ProgramBudaya, ProgramCategory } from "@generated/prisma";
+import { useFormDetectionLogic, type ProgramWithCategory } from "@/hooks/useFormDetectionLogic";
+import { ProgramCategory } from "@generated/prisma";
 import {
   Button,
   Card,
@@ -20,6 +20,7 @@ export interface InitialData {
   tanggalKegiatan?: string;
   lokasi?: string;
   description?: string;
+  updatedAt?: string;
 }
 
 import { useReportSubmission } from "@/hooks/useReportSubmission";
@@ -28,7 +29,7 @@ import { useMemo } from "react";
 import { FiCheckCircle, FiInfo } from "react-icons/fi";
 
 interface PropTypes {
-  programs: ProgramBudaya[];
+  programs: ProgramWithCategory[];
   initialData?: InitialData;
   reportId?: string;
 }
@@ -37,7 +38,7 @@ export default function FormDetection({
   initialData,
   reportId,
 }: PropTypes) {
-  const { state, actions } = useReportSubmission(reportId);
+  const { state, actions } = useReportSubmission(reportId, undefined, initialData?.updatedAt);
   const {
     loadingText,
     adaGambarIdle,
@@ -79,7 +80,7 @@ export default function FormDetection({
   const uniqueCategories = useMemo(() => {
     const categoryMap = new Map();
     availablePrograms.forEach(
-      (p: ProgramBudaya & { category?: ProgramCategory }) => {
+      (p: ProgramWithCategory) => {
         if (p.category && p.categoryId) {
           categoryMap.set(p.categoryId, p.category);
         }
@@ -206,7 +207,7 @@ export default function FormDetection({
                     </Select.Trigger>
                     <Select.Popover>
                       <ListBox>
-                        {programsInCategory.map((program: ProgramBudaya) => (
+                        {programsInCategory.map((program: ProgramWithCategory) => (
                           <ListBox.Item
                             key={program.id}
                             id={program.id}
