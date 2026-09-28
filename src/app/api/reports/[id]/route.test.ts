@@ -6,8 +6,36 @@ const authMock = mock.fn(async () => null as any);
 const findFirstMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
 const findUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
 
-mock.module("@/auth", {
-  namedExports: { auth: authMock },
+class TestApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
+async function requireAuthMock() {
+  const session = await authMock();
+  if (!session) throw new TestApiError("Unauthorized", 401);
+  return session;
+}
+
+mock.module("@/lib/api/auth-guard", {
+  namedExports: {
+    ApiError: TestApiError,
+    requireAuth: requireAuthMock,
+    requirePic: requireAuthMock,
+    handleApiError: (error: unknown) => {
+      const status = error instanceof TestApiError ? error.status : 500;
+      return Response.json(
+        {
+          status,
+          error: true,
+          message: error instanceof Error ? error.message : "Internal error",
+          data: null,
+        },
+        { status },
+      );
+    },
+  },
 });
 
 mock.module("@/lib/prisma", {
@@ -174,7 +202,11 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
     assert.equal(callArgs.where.createdById, "pic-1");
   });
 
-  it("PIC with KANTOR_WILAYAH role receives 200 with parent/branch OR query scope", async () => {
+  it("Kanwil PIC can read a direct-child Kancab report from another PIC", async () => {
+    const kancabReport = {
+      ...safeReportFixture,
+      createdBy: { id: "pic-kancab-1", name: "PIC Kancab" },
+    };
     authMock.mock.mockImplementation(async () => ({
       user: {
         id: "pic-kanwil-1",
@@ -183,7 +215,18 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
         unitType: "KANTOR_WILAYAH",
       },
     }));
-    findFirstMock.mock.mockImplementation(async () => safeReportFixture);
+    findFirstMock.mock.mockImplementation(async (query: any) => {
+      const where = query.where;
+      const inKanwilScope =
+        where.id === kancabReport.id &&
+        where.OR?.some(
+          (condition: any) =>
+            condition.unit?.parentId === kancabReport.unit.parentId,
+        );
+      const ownerMatches =
+        !where.createdById || where.createdById === kancabReport.createdBy.id;
+      return inKanwilScope && ownerMatches ? kancabReport : null;
+    });
 
     const response = await GET(createRequest("report-1"), {
       params: Promise.resolve({ id: "report-1" }),
@@ -192,17 +235,57 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
 
     assert.equal(response.status, 200);
     assert.equal(body.error, false);
+    assert.equal(body.data.createdBy.id, "pic-kancab-1");
 
     assert.equal(findFirstMock.mock.callCount(), 1);
     const callArgs = findFirstMock.mock.calls[0].arguments[0] as unknown as {
       where: Record<string, unknown>;
     };
     assert.equal(callArgs.where.id, "report-1");
-    assert.equal(callArgs.where.createdById, "pic-kanwil-1");
+    assert.equal("createdById" in callArgs.where, false);
     assert.deepEqual(callArgs.where.OR, [
       { unitId: "unit-wilayah-1" },
       { unit: { parentId: "unit-wilayah-1" } },
     ]);
+  });
+
+  it("Kanwil PIC cannot read a report from another Kanwil", async () => {
+    const otherKanwilReport = {
+      ...safeReportFixture,
+      unit: {
+        ...safeReportFixture.unit,
+        parentId: "unit-wilayah-2",
+        parent: { id: "unit-wilayah-2", name: "Kantor Wilayah 2" },
+      },
+    };
+    authMock.mock.mockImplementation(async () => ({
+      user: {
+        id: "pic-kanwil-1",
+        role: "PIC",
+        unitId: "unit-wilayah-1",
+        unitType: "KANTOR_WILAYAH",
+      },
+    }));
+    findFirstMock.mock.mockImplementation(async (query: any) => {
+      const where = query.where;
+      const inKanwilScope =
+        where.id === otherKanwilReport.id &&
+        (where.OR?.some(
+          (condition: any) =>
+            condition.unitId === otherKanwilReport.unit.id ||
+            condition.unit?.parentId === otherKanwilReport.unit.parentId,
+        ) ?? false);
+      return inKanwilScope ? otherKanwilReport : null;
+    });
+
+    const response = await GET(createRequest("report-1"), {
+      params: Promise.resolve({ id: "report-1" }),
+    });
+    const body = await responseBody(response);
+
+    assert.equal(response.status, 404);
+    assert.equal(body.error, true);
+    assert.equal(findFirstMock.mock.callCount(), 1);
   });
 
   it("PIC without unitId receives 404 not found", async () => {

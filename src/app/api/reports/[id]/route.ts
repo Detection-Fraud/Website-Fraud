@@ -14,11 +14,27 @@ import {
   requiresEvidence,
 } from "@/lib/program-capabilities";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
+import {
+  UploadLifecycleError,
+  captureActivityPhotoOwner,
+  capturePersistedOldCleanup,
+  cleanupPersistedOldUploadAfterCommit,
+  createServerOwnedUploadContext,
+  findUploadReferences,
+  getUploadLifecycleTransaction,
+  matchesExpectedUpdatedAt,
+  parseExpectedUpdatedAt,
+  readVerifiedNewUpload,
+  rollbackVerifiedNewUpload,
+  verifyNewUpload,
+  withUploadLifecycleTransaction,
+  type PersistedOldCleanup,
+  type VerifiedNewUpload,
+} from "@/lib/api/upload-lifecycle";
+import { classifyStorageKey, resolveUploadReference } from "@/lib/api/upload-storage";
 import { updateReportSchema } from "@/schemas/report.schema";
 import { Prisma } from "@generated/prisma";
-import { unlink } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 
 const reportDetailSelect = Prisma.validator<Prisma.ActivityReportSelect>()({
   id: true,
@@ -47,7 +63,9 @@ const reportDetailSelect = Prisma.validator<Prisma.ActivityReportSelect>()({
     },
   },
   createdBy: { select: { id: true, name: true } },
-  photos: { select: { id: true, originalName: true, imageUrl: true } },
+  photos: {
+    select: { id: true, originalName: true, imageUrl: true },
+  },
   logs: {
     orderBy: { createdAt: "asc" },
     select: {
@@ -89,7 +107,9 @@ export async function GET(
     const report = await prisma.activityReport.findFirst({
       where: {
         ...scopeWhere,
-        ...(user.role === "PIC" && { createdById: user.id }),
+        ...(user.role === "PIC" && user.unitType !== "KANTOR_WILAYAH" && {
+          createdById: user.id,
+        }),
       },
       select: reportDetailSelect,
     });
@@ -112,6 +132,8 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const verifiedUploads: VerifiedNewUpload[] = [];
+
   try {
     const session = await requirePic();
     const { id } = await params;
@@ -120,10 +142,13 @@ export async function PUT(
     if (!parsedData.success) {
       const errorMessage = formatZodError(parsedData.error);
       return NextResponse.json(
-        errorResponse(`Validasi gagal: ${errorMessage}`, 400),
+        errorResponse("Validasi gagal: " + errorMessage, 400),
         { status: 400 },
       );
     }
+
+    const { expectedUpdatedAt, photos } = parsedData.data;
+    const expectedVersion = parseExpectedUpdatedAt(expectedUpdatedAt);
     const existingReport = await prisma.activityReport.findUnique({
       where: { id },
       include: { photos: true },
@@ -135,27 +160,26 @@ export async function PUT(
     }
     if (existingReport.createdById !== session.user.id) {
       return NextResponse.json(
-        errorResponse(
-          "Hanya pengunggah asli yang dapat memperbarui laporan ini",
-          403,
-        ),
+        errorResponse("Hanya pengunggah asli yang dapat memperbarui laporan ini", 403),
         { status: 403 },
       );
     }
     if (existingReport.status !== "REJECTED") {
       return NextResponse.json(
-        errorResponse(
-          "Hanya laporan dengan status ditolak yang dapat diedit",
-          409,
-        ),
+        errorResponse("Hanya laporan dengan status ditolak yang dapat diedit", 409),
         { status: 409 },
       );
     }
-
     if (!session.user.unitId || session.user.unitId !== existingReport.unitId) {
       return NextResponse.json(
         errorResponse("Anda tidak memiliki akses ke unit laporan ini", 403),
         { status: 403 },
+      );
+    }
+    if (!matchesExpectedUpdatedAt(expectedUpdatedAt, existingReport.updatedAt)) {
+      return NextResponse.json(
+        errorResponse("Laporan telah berubah. Muat ulang sebelum mengirim ulang.", 409),
+        { status: 409 },
       );
     }
 
@@ -163,7 +187,7 @@ export async function PUT(
       where: {
         id: session.user.id,
         isActive: true,
-        unitId: session.user.unitId,
+        unitId: existingReport.unitId,
       },
       select: { id: true },
     });
@@ -173,192 +197,285 @@ export async function PUT(
         { status: 403 },
       );
     }
-    const {
-      activityName,
-      programId: targetProgramId,
-      tanggalKegiatan,
-      lokasi,
-      description,
-      photos,
-    } = parsedData.data;
-    // UPDATED: Validasi server jaminan 1-2 foto (Blocker 5)
-    if (photos !== undefined) {
-      if (photos.length < 1 || photos.length > 2) {
-        return NextResponse.json(
-          errorResponse(
-            "Jumlah foto dokumentasi wajib antara 1 hingga 2 foto",
-            400,
-          ),
-          { status: 400 },
-        );
-      }
-    } else if (
-      existingReport.photos.length < 1 ||
-      existingReport.photos.length > 2
-    ) {
+
+    if (photos === undefined && (existingReport.photos.length < 1 || existingReport.photos.length > 2)) {
       return NextResponse.json(
-        errorResponse(
-          "Laporan harus memiliki 1 hingga 2 foto dokumentasi",
-          400,
-        ),
+        errorResponse("Laporan harus memiliki 1 hingga 2 foto dokumentasi", 400),
         { status: 400 },
       );
     }
-    const finalProgramId = targetProgramId || existingReport.programId;
-    if (!finalProgramId) {
+
+    const targetProgramId = parsedData.data.programId ?? existingReport.programId;
+    if (!targetProgramId) {
       return NextResponse.json(errorResponse("Program ID wajib diisi", 400), {
         status: 400,
       });
     }
-    const programData = await prisma.programBudaya.findUnique({
-      where: { id: finalProgramId },
-      include: { category: true },
-    });
-    if (!programData || !programData.category) {
-      return NextResponse.json(errorResponse("Program tidak ditemukan", 404), {
-        status: 404,
-      });
-    }
-    if (!programData.isActive) {
+
+    const managedOldPhotos = photos === undefined
+      ? []
+      : existingReport.photos.flatMap((photo) => {
+          const publicId = photo.publicId ?? "";
+          const imageKey = photo.imageUrl.startsWith("/uploads/")
+            ? photo.imageUrl.slice("/uploads/".length)
+            : "";
+          const key = classifyStorageKey(publicId) === "report"
+            ? publicId
+            : classifyStorageKey(imageKey) === "report"
+              ? imageKey
+              : null;
+          return key && key.startsWith("reports/" + existingReport.unitId + "/")
+            ? [{ photo, key, field: key === publicId ? "publicId" as const : "imageUrl" as const }]
+            : [];
+        });
+    const candidateIds = photos?.map((photo) => photo.publicId) ?? [];
+    if (new Set(candidateIds).size !== candidateIds.length) {
       return NextResponse.json(
-        errorResponse("Program sedang tidak aktif", 400),
-        {
-          status: 400,
-        },
-      );
-    }
-    const capabilityError = getCapabilityError(programData.category);
-    if (capabilityError) {
-      return NextResponse.json(errorResponse(capabilityError, 422), {
-        status: 422,
-      });
-    }
-    if (!requiresEvidence(programData.category)) {
-      return NextResponse.json(
-        errorResponse("Program ini tidak menerima unggahan bukti foto", 422),
-        { status: 422 },
-      );
-    }
-    if (!isProgramUploadOpen(programData)) {
-      return NextResponse.json(
-        errorResponse("Jendela upload program sedang tertutup", 403),
-        { status: 403 },
-      );
-    }
-    const finalDate = tanggalKegiatan
-      ? new Date(tanggalKegiatan)
-      : existingReport.tanggalKegiatan;
-    if (!isActivityDateInsideProgram(finalDate, programData)) {
-      return NextResponse.json(
-        errorResponse("Tanggal kegiatan di luar periode program", 400),
+        errorResponse("Foto yang sama tidak dapat dipakai lebih dari sekali", 400),
         { status: 400 },
       );
     }
-    const category = programData.category;
 
-    // UPDATED: Transaksi atomik dengan compare-and-set pada resubmit.
-    const [updatedReport] = await prisma.$transaction(async (tx) => {
-      const resubmittedAt = new Date();
+    const finalFields = {
+      activityName: parsedData.data.activityName ?? existingReport.activityName,
+      programId: targetProgramId,
+      tanggalKegiatan: parsedData.data.tanggalKegiatan ?? existingReport.tanggalKegiatan,
+      lokasi: parsedData.data.lokasi ?? existingReport.lokasi,
+      description: parsedData.data.description ?? existingReport.description,
+    };
+    const entities = [
+      { model: "ActivityReport", id },
+      { model: "ProgramBudaya", id: targetProgramId },
+      { model: "Unit", id: existingReport.unitId },
+      ...(photos === undefined
+        ? []
+        : existingReport.photos.map((photo) => ({
+            model: "ActivityPhoto",
+            id: String(photo.id),
+          }))),
+    ];
+    const fileKeys = [
+      ...managedOldPhotos.map(({ key }) => key),
+      ...candidateIds,
+    ];
+    const oldCleanup: PersistedOldCleanup[] = [];
 
-      const transition = await tx.activityReport.updateMany({
-        where: { id, status: "REJECTED" },
-        data: {
-          status: "PENDING",
-          notes: null,
-          lastSubmittedAt: resubmittedAt,
-        },
-      });
+    const updatedReport = await withUploadLifecycleTransaction(
+      prisma,
+      { entities, fileKeys },
+      async (lifecycle) => {
+        const tx = getUploadLifecycleTransaction(lifecycle);
+        const lockedReport = await tx.activityReport.findUnique({
+          where: { id },
+          include: { photos: true },
+        });
+        if (!lockedReport) throw new ApiError("Laporan tidak ditemukan", 404);
+        if (lockedReport.createdById !== session.user.id) {
+          throw new ApiError("Hanya pengunggah asli yang dapat memperbarui laporan ini", 403);
+        }
+        if (!lockedReport.unitId || lockedReport.unitId !== session.user.unitId) {
+          throw new ApiError("Anda tidak memiliki akses ke unit laporan ini", 403);
+        }
+        if (lockedReport.status !== "REJECTED") {
+          throw new ApiError("Hanya laporan dengan status ditolak yang dapat diedit", 409);
+        }
+        if (!matchesExpectedUpdatedAt(expectedUpdatedAt, lockedReport.updatedAt)) {
+          throw new ApiError("Laporan telah berubah. Muat ulang sebelum mengirim ulang.", 409);
+        }
 
-      if (transition.count !== 1) {
-        throw new ApiError(
-          "Laporan tidak ditemukan atau statusnya sudah berubah",
-          409,
-        );
-      }
-
-      if (category.scoreInputMode === "DIRECT_ADMIN") {
-        await tx.$queryRaw(
-          Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`direct-report:${existingReport.unitId}:${finalProgramId}`}))::text`,
-        );
-
-        const duplicateOtherReport = await tx.activityReport.findFirst({
+        const lockedPic = await tx.user.findFirst({
           where: {
-            id: { not: id },
-            unitId: existingReport.unitId,
-            programId: finalProgramId,
+            id: session.user.id,
+            isActive: true,
+            unitId: lockedReport.unitId,
           },
           select: { id: true },
         });
+        if (!lockedPic) throw new ApiError("Akun PIC atau unit kerja tidak aktif", 403);
 
-        if (duplicateOtherReport) {
-          throw new ApiError(
-            "Unit Anda sudah memiliki laporan lain untuk program penilaian ini",
-            409,
-          );
-        }
-      }
-
-      if (photos && photos.length > 0) {
-        await tx.activityPhoto.deleteMany({ where: { reportId: id } });
-      }
-
-      const reportUpdated = await tx.activityReport.update({
-        where: { id },
-        data: {
-          activityName,
-          programId: finalProgramId,
-          tanggalKegiatan: finalDate,
-          lokasi,
-          description,
-          ...(photos &&
-            photos.length > 0 && {
-              photos: {
-                create: photos.map((p: any) => ({
-                  imageUrl: p.imageUrl,
-                  originalName: p.originalName,
-                  publicId: p.publicId ?? null,
-                })),
-              },
-            }),
-        },
-      });
-
-      await tx.activityLog.create({
-        data: {
-          reportId: id,
-          action: "RESUBMITTED",
-          createdAt: resubmittedAt,
-          notes: null,
-          actorId: session.user.id,
-          actorName: session.user.name,
-          actorRole: session.user.role,
-        },
-      });
-
-      return [reportUpdated];
-    });
-
-    if (photos && photos.length > 0) {
-      for (const photo of existingReport.photos) {
-        if (photo.publicId && !photo.imageUrl.startsWith("http")) {
-          try {
-            await unlink(
-              path.join(process.cwd(), "public", "uploads", photo.publicId),
+        if (photos !== undefined) {
+          const snapshot = (rows: typeof existingReport.photos) =>
+            JSON.stringify(
+              rows
+                .map(({ id: photoId, imageUrl, publicId }) => ({
+                  photoId,
+                  imageUrl,
+                  publicId,
+                }))
+                .sort((left, right) => left.photoId - right.photoId),
             );
-          } catch {
-            // The database update succeeded; leave an orphaned local file for cleanup.
+          if (snapshot(lockedReport.photos) !== snapshot(existingReport.photos)) {
+            throw new ApiError(
+              "Foto laporan telah berubah. Muat ulang sebelum mengirim ulang.",
+              409,
+            );
           }
         }
+
+        if (
+          photos === undefined &&
+          (lockedReport.photos.length < 1 || lockedReport.photos.length > 2)
+        ) {
+          throw new ApiError("Laporan harus memiliki 1 hingga 2 foto dokumentasi", 400);
+        }
+
+        const targetProgram = await tx.programBudaya.findUnique({
+          where: { id: targetProgramId },
+          include: { category: true },
+        });
+        if (!targetProgram || !targetProgram.category) {
+          throw new ApiError("Program tidak ditemukan", 404);
+        }
+        if (!targetProgram.isActive) throw new ApiError("Program sedang tidak aktif", 400);
+        const capabilityError = getCapabilityError(targetProgram.category);
+        if (capabilityError) throw new ApiError(capabilityError, 422);
+        if (!requiresEvidence(targetProgram.category)) {
+          throw new ApiError("Program ini tidak menerima unggahan bukti foto", 422);
+        }
+        if (!isProgramUploadOpen(targetProgram)) {
+          throw new ApiError("Jendela upload program sedang tertutup", 403);
+        }
+        if (!isActivityDateInsideProgram(finalFields.tanggalKegiatan, targetProgram)) {
+          throw new ApiError("Tanggal kegiatan di luar periode program", 400);
+        }
+
+        if (targetProgram.category.scoreInputMode === "DIRECT_ADMIN") {
+          const duplicateReport = await tx.activityReport.findFirst({
+            where: {
+              id: { not: id },
+              unitId: lockedReport.unitId,
+              programId: targetProgramId,
+            },
+            select: { id: true },
+          });
+          if (duplicateReport) {
+            throw new ApiError(
+              "Unit Anda sudah memiliki laporan lain untuk program penilaian ini",
+              409,
+            );
+          }
+        }
+
+        const uploaded: { originalName: string; imageUrl: string; publicId: string }[] = [];
+        for (const photo of photos ?? []) {
+          const context = createServerOwnedUploadContext({
+            userId: session.user.id,
+            purpose: "EVIDENCE",
+            mode: "REPLACEMENT",
+            publicId: photo.publicId,
+            unitId: lockedReport.unitId,
+            reportId: id,
+          });
+          const handle = verifyNewUpload(photo.descriptor, photo.cleanupToken, context);
+          verifiedUploads.push(handle);
+          const state = readVerifiedNewUpload(handle);
+          const resolved = await resolveUploadReference(state.url);
+          if (
+            resolved.kind !== "local" ||
+            !resolved.exists ||
+            !resolved.isRegularFile ||
+            resolved.storageKey !== state.publicId
+          ) {
+            throw new ApiError("File foto tidak tersedia atau tidak valid", 400);
+          }
+          if ((await findUploadReferences(lifecycle, state.publicId)).length > 0) {
+            throw new ApiError("File foto telah digunakan oleh laporan lain", 409);
+          }
+          uploaded.push({
+            originalName: photo.originalName,
+            imageUrl: state.url,
+            publicId: state.publicId,
+          });
+        }
+
+        for (const oldPhoto of lockedReport.photos) {
+          const old = managedOldPhotos.find(({ photo }) => photo.id === oldPhoto.id);
+          if (!old) continue;
+          const owner = await captureActivityPhotoOwner(
+            lifecycle,
+            { id: oldPhoto.id, expectedReportId: id },
+            old.field,
+          );
+          oldCleanup.push(capturePersistedOldCleanup(lifecycle, owner));
+        }
+
+        const submittedAt = new Date();
+        const transition = await tx.activityReport.updateMany({
+          where: {
+            id,
+            status: "REJECTED",
+            updatedAt: expectedVersion,
+          },
+          data: {
+            status: "PENDING",
+            notes: null,
+            lastSubmittedAt: submittedAt,
+            updatedAt: submittedAt,
+          },
+        });
+        if (transition.count !== 1) {
+          throw new ApiError("Laporan telah berubah. Muat ulang sebelum mengirim ulang.", 409);
+        }
+
+        if (photos !== undefined) {
+          await tx.activityPhoto.deleteMany({ where: { reportId: id } });
+        }
+        const reportUpdated = await tx.activityReport.update({
+          where: { id },
+          data: {
+            ...finalFields,
+            updatedAt: submittedAt,
+            ...(photos !== undefined
+              ? {
+                  photos: {
+                    create: uploaded,
+                  },
+                }
+              : {}),
+          },
+        });
+        await tx.activityLog.create({
+          data: {
+            reportId: id,
+            action: "RESUBMITTED",
+            createdAt: submittedAt,
+            notes: null,
+            actorId: session.user.id,
+            actorName: session.user.name,
+            actorRole: session.user.role,
+          },
+        });
+        return reportUpdated;
+      },
+    );
+
+    const cleanupResults = await Promise.allSettled(
+      oldCleanup.map((cleanup) =>
+        cleanupPersistedOldUploadAfterCommit(prisma, cleanup),
+      ),
+    );
+    for (const result of cleanupResults) {
+      if (result.status === "rejected") {
+        console.error("Gagal menjalankan cleanup file lama setelah resubmit");
+      } else if (result.value.kind === "failed") {
+        console.error("Gagal membersihkan file lama setelah resubmit", result.value.fileKey);
       }
     }
 
     return NextResponse.json(
       successResponse(updatedReport, "Laporan berhasil diperbarui"),
-      {
-        status: 200,
-      },
+      { status: 200 },
     );
   } catch (error) {
+    await Promise.allSettled(
+      verifiedUploads.map((upload) => rollbackVerifiedNewUpload(prisma, upload)),
+    );
+    if (error instanceof UploadLifecycleError) {
+      return NextResponse.json(
+        errorResponse("Upload foto tidak valid atau tidak dapat diproses", 400),
+        { status: 400 },
+      );
+    }
     return handleApiError(error, "PUT /api/reports/[id]");
   }
 }
