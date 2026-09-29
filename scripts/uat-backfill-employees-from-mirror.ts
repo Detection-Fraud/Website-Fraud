@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 import { prisma } from "../src/lib/prisma";
 import { readPentahoEmployeeMirror } from "../src/lib/pentaho-stage-mirror";
 import { syncEmployeeSnapshot } from "../src/lib/employee-sync";
-import { assertUatMirrorTarget, expectedUatMirrorTarget } from "./uat-mirror-guard";
+import {
+  assertUatMirrorTarget,
+  expectedUatMirrorTarget,
+  readUatMirrorTarget,
+} from "./uat-mirror-guard";
 
 const APPLY_FLAG = "--apply";
 const CONFIRM_FLAG = "--confirm-uat-mirror-backfill";
@@ -12,19 +16,8 @@ const CONFIRMATION = "I_UNDERSTAND_UAT_MIRROR_BACKFILL";
 
 async function main() {
   const expected = expectedUatMirrorTarget(process.env);
-  const [actual] = await prisma.$queryRaw<
-    Array<{ host: string | null; database: string; mirrorCount: bigint }>
-  >`
-    SELECT host(inet_server_addr()) AS "host",
-           current_database() AS "database",
-           (SELECT count(*) FROM "pentaho_stage"."employee_mirror") AS "mirrorCount"
-  `;
-  if (!actual) throw new Error("Cannot read UAT database identity.");
-  assertUatMirrorTarget(expected, {
-    host: actual.host,
-    database: actual.database,
-    mirrorCount: Number(actual.mirrorCount),
-  });
+  const actual = await readUatMirrorTarget(process.env.DATABASE_URL ?? "");
+  assertUatMirrorTarget(expected, actual);
   if (process.argv.includes("--target-only")) {
     console.log(`UAT target verified: ${actual.database} @ ${actual.host}; mirror: ${actual.mirrorCount}`);
     return;
@@ -72,7 +65,12 @@ async function main() {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main()
     .catch((error: unknown) => {
-      console.error("UAT mirror backfill failed:", error instanceof Error ? error.name : "unknown error");
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "unknown";
+      const metaCode = error && typeof error === "object" && "meta" in error &&
+        error.meta && typeof error.meta === "object" && "code" in error.meta
+        ? String(error.meta.code)
+        : "unknown";
+      console.error("UAT mirror backfill failed:", error instanceof Error ? error.name : "unknown error", code, metaCode);
       process.exitCode = 1;
     })
     .finally(async () => prisma.$disconnect());

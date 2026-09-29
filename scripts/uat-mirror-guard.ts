@@ -1,3 +1,5 @@
+import { Client } from "pg";
+
 export type UatMirrorTarget = {
   host: string;
   database: string;
@@ -14,6 +16,35 @@ export function expectedUatMirrorTarget(env: NodeJS.ProcessEnv): UatMirrorTarget
   }
 
   return { host, database, mirrorCount };
+}
+
+export async function readUatMirrorTarget(connectionString: string): Promise<{
+  host: string | null;
+  database: string;
+  mirrorCount: number;
+}> {
+  const client = new Client({ connectionString });
+  await client.connect();
+  try {
+    const result = await client.query<{
+      host: string | null;
+      database: string;
+      mirror_count: string;
+    }>(`
+      SELECT host(inet_server_addr()) AS host,
+             current_database() AS database,
+             (SELECT count(*) FROM pentaho_stage.employee_mirror) AS mirror_count
+    `);
+    const row = result.rows[0];
+    if (!row) throw new Error("Cannot read UAT database identity.");
+    return {
+      host: row.host,
+      database: row.database,
+      mirrorCount: Number(row.mirror_count),
+    };
+  } finally {
+    await client.end();
+  }
 }
 
 export function assertUatMirrorTarget(

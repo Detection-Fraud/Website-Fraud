@@ -10,6 +10,7 @@ import {
 import {
   assertUatMirrorTarget,
   expectedUatMirrorTarget,
+  readUatMirrorTarget,
 } from "../scripts/uat-mirror-guard";
 
 const prisma = new PrismaClient();
@@ -108,19 +109,8 @@ async function main() {
 
   if (uatAdmin) {
     const expected = expectedUatMirrorTarget(process.env);
-    const [actual] = await prisma.$queryRaw<
-      Array<{ host: string | null; database: string; mirrorCount: bigint }>
-    >`
-      SELECT host(inet_server_addr()) AS "host",
-             current_database() AS "database",
-             (SELECT count(*) FROM "pentaho_stage"."employee_mirror") AS "mirrorCount"
-    `;
-    if (!actual) throw new Error("Cannot read UAT database identity.");
-    assertUatMirrorTarget(expected, {
-      host: actual.host,
-      database: actual.database,
-      mirrorCount: Number(actual.mirrorCount),
-    });
+    const actual = await readUatMirrorTarget(process.env.DATABASE_URL ?? "");
+    assertUatMirrorTarget(expected, actual);
     const [userCount, employeeCount] = await Promise.all([
       prisma.user.count(),
       prisma.employee.count(),
