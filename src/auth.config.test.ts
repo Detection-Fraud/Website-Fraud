@@ -67,8 +67,89 @@ describe("protected page authorization", () => {
       request: request("/admin/dashboard"),
     } as never);
 
-    assert.equal((result as Response).headers.get("location"),
-      "http://localhost/pic/halaman-utama");
+    assert.equal(
+      (result as Response).headers.get("location"),
+      "http://localhost/pic/halaman-utama",
+    );
+  });
+
+  it("stale session tetap bisa membuka halaman login", async () => {
+    findUniqueMock.mock.mockImplementationOnce(async () => null);
+
+    const result = await authorized({
+      auth: session({ authProvider: "LOCAL" }),
+      request: request("/login"),
+    } as never);
+
+    assert.equal(result, true);
+  });
+
+  it("still redirects a stale session away from protected pages", async () => {
+    findUniqueMock.mock.mockImplementationOnce(async () => null);
+
+    const result = await authorized({
+      auth: session({ authProvider: "LOCAL" }),
+      request: request("/admin/dashboard"),
+    } as never);
+
+    assert.equal(
+      (result as Response).headers.get("location"),
+      "http://localhost/login",
+    );
+  });
+
+  it("keeps login reachable when current-user lookup fails", async () => {
+    findUniqueMock.mock.mockImplementationOnce(async () => {
+      throw new Error("DB unavailable");
+    });
+
+    const result = await authorized({
+      auth: session({ authProvider: "LOCAL" }),
+      request: request("/login"),
+    } as never);
+
+    assert.equal(result, true);
+  });
+
+  it("keeps login reachable when the current account is inactive", async () => {
+    findUniqueMock.mock.mockImplementationOnce(async () => ({
+      id: "user-1",
+      role: "ADMIN",
+      authProvider: "LOCAL",
+      isActive: false,
+      unitId: null,
+      passwordChangedAt: new Date(),
+      employee: null,
+    }));
+
+    const result = await authorized({
+      auth: session({ authProvider: "LOCAL" }),
+      request: request("/login"),
+    } as never);
+
+    assert.equal(result, true);
+  });
+
+  it("redirects a valid session from login to its dashboard", async () => {
+    findUniqueMock.mock.mockImplementationOnce(async () => ({
+      id: "user-1",
+      role: "ADMIN",
+      authProvider: "LOCAL",
+      isActive: true,
+      unitId: null,
+      passwordChangedAt: new Date(),
+      employee: null,
+    }));
+
+    const result = await authorized({
+      auth: session({ authProvider: "LOCAL" }),
+      request: request("/login"),
+    } as never);
+
+    assert.equal(
+      (result as Response).headers.get("location"),
+      "http://localhost/admin/dashboard",
+    );
   });
 
   it("fails closed when the current provider no longer matches the JWT", async () => {
@@ -87,8 +168,10 @@ describe("protected page authorization", () => {
       request: request("/admin/dashboard"),
     } as never);
 
-    assert.equal((result as Response).headers.get("location"),
-      "http://localhost/login");
+    assert.equal(
+      (result as Response).headers.get("location"),
+      "http://localhost/login",
+    );
   });
 
   it("keeps unauthenticated public login routes public", async () => {

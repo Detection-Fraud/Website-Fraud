@@ -54,9 +54,13 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user?.id;
       const isPublicRoute = PUBLIC_ROUTES.includes(nextUrl.pathname);
       const pathname = nextUrl.pathname;
+      const loginOrRedirect = () =>
+        pathname === "/login"
+          ? true
+          : Response.redirect(new URL("/login", nextUrl));
 
       if (!isLoggedIn && !isPublicRoute) {
-        return Response.redirect(new URL("/login", nextUrl));
+        return loginOrRedirect();
       }
 
       if (!isLoggedIn) return true;
@@ -65,18 +69,18 @@ export const authConfig: NextAuthConfig = {
       const sessionProvider = (auth.user as { authProvider?: unknown })
         .authProvider;
       if (sessionProvider !== "SSO" && sessionProvider !== "LOCAL") {
-        return Response.redirect(new URL("/login", nextUrl));
+        return loginOrRedirect();
       }
 
       let currentUser: Awaited<ReturnType<typeof findCurrentPageUser>>;
       try {
         currentUser = await findCurrentPageUser(auth.user.id);
       } catch {
-        return Response.redirect(new URL("/login", nextUrl));
+        return loginOrRedirect();
       }
 
       if (!currentUser) {
-        return Response.redirect(new URL("/login", nextUrl));
+        return loginOrRedirect();
       }
 
       const decision = evaluateAuthPolicy({
@@ -91,7 +95,7 @@ export const authConfig: NextAuthConfig = {
       });
 
       if (!decision.allowed) {
-        return Response.redirect(new URL("/login", nextUrl));
+        return loginOrRedirect();
       }
 
       const authProvider = currentUser.authProvider;
