@@ -24,7 +24,7 @@ export default function BannersView() {
   } = useBanners();
 
   const [page, setPage] = useState(1);
-  const { data: bannerPage, isLoading } = useGetAllBanners(
+  const { data: bannerPage, isLoading, isError, refetch } = useGetAllBanners(
     page,
     BANNER_PAGE_SIZE,
   );
@@ -127,7 +127,7 @@ export default function BannersView() {
           <div>
             <p className="text-xs text-slate-500 font-medium">Total Banner</p>
             <h4 className="text-xl font-extrabold text-slate-800">
-              {totalBanners}
+              {bannerPage ? totalBanners : "—"}
             </h4>
           </div>
         </Card>
@@ -141,7 +141,7 @@ export default function BannersView() {
               Banner Aktif (Tayang)
             </p>
             <h4 className="text-xl font-extrabold text-slate-800">
-              {activeCount}
+              {bannerPage ? activeCount : "—"}
             </h4>
           </div>
         </Card>
@@ -153,7 +153,7 @@ export default function BannersView() {
           <div>
             <p className="text-xs text-slate-500 font-medium">Non-Aktif</p>
             <h4 className="text-xl font-extrabold text-slate-800">
-              {inactiveCount}
+              {bannerPage ? inactiveCount : "—"}
             </h4>
           </div>
         </Card>
@@ -179,6 +179,22 @@ export default function BannersView() {
             <p className="text-slate-400 text-sm font-medium">
               Memuat data banner...
             </p>
+          </div>
+        ) : isError && !bannerPage ? (
+          <div
+            role="alert"
+            className="flex flex-col items-center gap-3 py-12 px-4 text-center bg-white rounded-xl border border-rose-200"
+          >
+            <p className="text-sm font-medium text-rose-700">
+              Gagal memuat daftar banner. Silakan coba lagi.
+            </p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="text-sm font-semibold text-blue-700 hover:text-blue-800"
+            >
+              Coba lagi
+            </button>
           </div>
         ) : (
           <BannerCardGrid

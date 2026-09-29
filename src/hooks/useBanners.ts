@@ -51,10 +51,24 @@ export function useBanners() {
   const useGetAllBanners = (page = 1, pageSize = 100) => {
     return useQuery<BannerPage>({
       queryKey: ["banners", "all", page, pageSize],
-      queryFn: () =>
-        api
-          .get("/banners", { params: { all: "true", page, pageSize } })
-          .then((res) => res.data),
+      queryFn: async () => {
+        const res = await api.get("/banners", {
+          params: { all: "true", page, pageSize },
+        });
+        const data = res.data as BannerPage | Banner[];
+
+        if (!Array.isArray(data)) return data;
+
+        const total = data.length;
+        return {
+          items: data.slice((page - 1) * pageSize, page * pageSize),
+          total,
+          activeCount: data.filter((banner) => banner.isActive).length,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize),
+        };
+      },
       staleTime: 5 * 60 * 1000,
     });
   };
