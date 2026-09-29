@@ -1,8 +1,16 @@
+import "dotenv/config";
 import { Prisma, UnitType, PrismaClient } from "@generated/prisma";
 import bcrypt from "bcryptjs";
 import ExcelJS from "exceljs";
 import path from "path";
-import { assertDevelopmentSeedInvocation } from "../scripts/seed-guard";
+import {
+  assertDevelopmentSeedInvocation,
+  assertUatUnitSeedInvocation,
+} from "../scripts/seed-guard";
+import {
+  assertUatMirrorTarget,
+  expectedUatMirrorTarget,
+} from "../scripts/uat-mirror-guard";
 
 const prisma = new PrismaClient();
 
@@ -24,6 +32,22 @@ function getUnitType(kodeDolog: string, kodeSubdolog: string): UnitType {
   if (dolog === "00" && subdolog === "00") return "DIVISI";
   if (dolog !== "00" && subdolog === "00") return "KANTOR_WILAYAH";
   return "KANTOR_CABANG";
+}
+
+function isLegacyLhokseumaweRow(row: ExcelRow): boolean {
+  return (
+    row.KODE_DOLOG.trim() === "01" &&
+    row.KODE_SUBDOLOG.trim() === "01" &&
+    row.KODE_ORG.trim() === "E00C00"
+  );
+}
+
+function isCanonicalLhokseumaweRow(row: ExcelRow): boolean {
+  return (
+    row.KODE_DOLOG.trim() === "01" &&
+    row.KODE_SUBDOLOG.trim() === "01" &&
+    row.KODE_ORG.trim() === "D00C00"
+  );
 }
 
 type SeedUnitData = {
@@ -78,7 +102,35 @@ async function ensureSeedUser({
 // MAIN SEED FUNC
 
 async function main() {
-  assertDevelopmentSeedInvocation(process.env, process.argv);
+  const uatAdmin = process.argv.includes("--uat-units-admin")
+    ? assertUatUnitSeedInvocation(process.env, process.argv)
+    : null;
+
+  if (uatAdmin) {
+    const expected = expectedUatMirrorTarget(process.env);
+    const [actual] = await prisma.$queryRaw<
+      Array<{ host: string | null; database: string; mirrorCount: bigint }>
+    >`
+      SELECT host(inet_server_addr()) AS "host",
+             current_database() AS "database",
+             (SELECT count(*) FROM "pentaho_stage"."employee_mirror") AS "mirrorCount"
+    `;
+    if (!actual) throw new Error("Cannot read UAT database identity.");
+    assertUatMirrorTarget(expected, {
+      host: actual.host,
+      database: actual.database,
+      mirrorCount: Number(actual.mirrorCount),
+    });
+    const [userCount, employeeCount] = await Promise.all([
+      prisma.user.count(),
+      prisma.employee.count(),
+    ]);
+    if (userCount !== 0 || employeeCount !== 0) {
+      throw new Error("UAT Unit seed requires empty User and Employee tables.");
+    }
+  } else {
+    assertDevelopmentSeedInvocation(process.env, process.argv);
+  }
 
   console.log(
     "Mempertahankan data existing; seed melakukan reconcile/upsert aman...",
@@ -100,18 +152,35 @@ async function main() {
     headers.push(String(cell.value ?? "").trim());
   });
 
-  const rows: ExcelRow[] = [];
+  const sourceRows: ExcelRow[] = [];
+
   ws.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
+
     const rowObj: any = {};
+
     row.eachCell((cell, colIndex) => {
       const header = headers[colIndex - 1];
+
       if (header) {
         rowObj[header] = String(cell.value ?? "").trim();
       }
     });
-    if (Object.keys(rowObj).length > 0) rows.push(rowObj);
+
+    if (Object.keys(rowObj).length > 0) {
+      sourceRows.push(rowObj);
+    }
   });
+
+  const rows = sourceRows.filter((row) => !isLegacyLhokseumaweRow(row));
+
+  const canonicalLhokseumaweRows = rows.filter(isCanonicalLhokseumaweRow);
+
+  if (canonicalLhokseumaweRows.length !== 1) {
+    throw new Error(
+      `Expected exactly one canonical Lhokseumawe D00C00 row, found ${canonicalLhokseumaweRows.length}`,
+    );
+  }
 
   console.log(`Total baris dari Excel: ${rows.length}`);
 
@@ -216,6 +285,21 @@ async function main() {
   });
   console.log("Verifikasi Unit");
   unitCounts.forEach((u) => console.log(`   → ${u.type}: ${u._count.id}`));
+
+  if (uatAdmin) {
+    await prisma.user.create({
+      data: {
+        username: uatAdmin.username,
+        password: await bcrypt.hash(uatAdmin.password, 12),
+        name: "Admin UAT",
+        role: "ADMIN",
+        authProvider: "LOCAL",
+        isActive: true,
+      },
+    });
+    console.log("UAT Unit seed and LOCAL Admin bootstrap completed.");
+    return;
+  }
 
   // create dummy users
 
