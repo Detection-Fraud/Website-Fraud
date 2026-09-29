@@ -32,9 +32,9 @@ export default async function RootLayout({
       className={`${geistSans.variable} font-sans h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <SessionProvider session={session}>
-          <QueryProvider>{children}</QueryProvider>
-        </SessionProvider>
+        <QueryProvider>
+          <SessionProvider session={session}>{children}</SessionProvider>
+        </QueryProvider>
       </body>
     </html>
   );
