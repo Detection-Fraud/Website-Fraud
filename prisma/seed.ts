@@ -277,6 +277,12 @@ async function main() {
   unitCounts.forEach((u) => console.log(`   → ${u.type}: ${u._count.id}`));
 
   if (uatAdmin) {
+    await prisma.picImportantInformationOrderState.upsert({
+      where: { id: "global" },
+      create: { id: "global", revision: 0 },
+      update: {},
+    });
+
     await prisma.user.create({
       data: {
         username: uatAdmin.username,
