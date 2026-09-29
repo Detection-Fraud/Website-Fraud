@@ -25,6 +25,10 @@ async function main() {
     database: actual.database,
     mirrorCount: Number(actual.mirrorCount),
   });
+  if (process.argv.includes("--target-only")) {
+    console.log(`UAT target verified: ${actual.database} @ ${actual.host}; mirror: ${actual.mirrorCount}`);
+    return;
+  }
 
   const [employeeCount, mappingCount, activeRun] = await Promise.all([
     prisma.employee.count(),
