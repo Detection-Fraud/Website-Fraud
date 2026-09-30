@@ -108,6 +108,13 @@ export default function BannersView() {
   const totalBanners = bannerPage?.total ?? 0;
   const activeCount = bannerPage?.activeCount ?? 0;
   const inactiveCount = totalBanners - activeCount;
+  const reorderError = reorderMutation.error as {
+    response?: { data?: { message?: unknown } };
+  } | null;
+  const reorderErrorMessage =
+    typeof reorderError?.response?.data?.message === "string"
+      ? reorderError.response.data.message
+      : "Urutan banner gagal diperbarui. Silakan coba lagi.";
 
   return (
     <div className="space-y-6 mb-12">
@@ -207,6 +214,11 @@ export default function BannersView() {
             onReorder={handleReorder}
             isUpdating={isMutating}
           />
+        )}
+        {reorderMutation.isError && (
+          <p role="alert" className="text-sm font-medium text-rose-700">
+            {reorderErrorMessage}
+          </p>
         )}
         {!isLoading && bannerPage && bannerPage.totalPages > 1 && (
           <PaginationFooter
