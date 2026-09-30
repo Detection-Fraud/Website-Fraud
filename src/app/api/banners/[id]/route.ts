@@ -28,11 +28,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const updateBannerSchema = z.object({
-  imageUrl: z.string().min(1).optional(),
-  bannerState: z.enum(["UNCHANGED", "REPLACED"]),
-  publicId: z.string().min(1).max(256).optional(),
-  descriptor: z.string().min(1).max(4096).optional(),
-  cleanupToken: z.string().min(1).max(4096).optional(),
   expectedUpdatedAt: z.string().datetime(),
   name: z.string().min(2).optional(),
   role: z.string().min(2).optional(),
@@ -41,7 +36,7 @@ const updateBannerSchema = z.object({
   isActive: z.boolean().optional(),
 });
 const updateReceiptSchema = z.object({
-  bannerState: z.enum(["UNCHANGED", "REPLACED"]),
+  bannerState: z.enum(["UNCHANGED", "REPLACED"]).default("UNCHANGED"),
   publicId: z.string().min(1).max(256).optional(),
   descriptor: z.string().min(1).max(4096).optional(),
   cleanupToken: z.string().min(1).max(4096).optional(),
@@ -181,11 +176,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     const {
       expectedUpdatedAt,
-      bannerState: _requestOnlyBannerState,
-      imageUrl: _clientImageUrl,
-      publicId: _ignoredPublicId,
-      descriptor: _ignoredDescriptor,
-      cleanupToken: _ignoredCleanupToken,
       ...fields
     } = parsed.data;
     const expectedVersion = parseBannerVersion(expectedUpdatedAt);

@@ -513,6 +513,26 @@ describe("LoginBanner upload lifecycle routes", () => {
     });
   });
 
+  it("updates active status without requiring an upload receipt state", async () => {
+    for (const isActive of [false, true]) {
+      const response = await PATCH(
+        adminRequest("http://localhost/api/banners", "PATCH", {
+          isActive,
+          expectedUpdatedAt: VERSION,
+        }),
+        { params: Promise.resolve({ id: BANNER_ID }) },
+      );
+
+      assert.equal(response.status, 200);
+    }
+
+    assert.deepEqual(
+      updateManyMock.mock.calls.map((call) => call.arguments[0].data),
+      [{ isActive: false }, { isActive: true }],
+    );
+    assert.equal(rollbackMock.mock.callCount(), 0);
+  });
+
   it("cleans replaced managed files after commit and preserves external or legacy media", async () => {
     const replaced = await PATCH(
       adminRequest("http://localhost/api/banners", "PATCH", {
