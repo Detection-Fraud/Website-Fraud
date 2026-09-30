@@ -188,9 +188,10 @@ function logoutResponseXml(
     issuer?: string;
     destination?: string;
     issueInstant?: string;
+    status?: string;
   } = {},
 ): string {
-  return `<p:LogoutResponse xmlns:p="${PROTOCOL}" xmlns:a="${ASSERTION}" ID="${xmlEscape(id)}" Version="2.0" IssueInstant="${options.issueInstant ?? new Date().toISOString()}" Destination="${options.destination ?? SLS}" InResponseTo="${xmlEscape(inResponseTo)}"><a:Issuer>${xmlEscape(options.issuer ?? ISSUER)}</a:Issuer><p:Status><p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></p:Status></p:LogoutResponse>`;
+  return `<p:LogoutResponse xmlns:p="${PROTOCOL}" xmlns:a="${ASSERTION}" ID="${xmlEscape(id)}" Version="2.0" IssueInstant="${options.issueInstant ?? new Date().toISOString()}" Destination="${options.destination ?? SLS}" InResponseTo="${xmlEscape(inResponseTo)}"><a:Issuer>${xmlEscape(options.issuer ?? ISSUER)}</a:Issuer><p:Status><p:StatusCode Value="${options.status ?? "urn:oasis:names:tc:SAML:2.0:status:Success"}"/></p:Status></p:LogoutResponse>`;
 }
 
 function signedRedirect(
@@ -688,6 +689,81 @@ describe("SLS Redirect and POST LogoutResponse callbacks", () => {
     assert.equal(
       (await GET(request)).headers.get("location")?.endsWith("logout=failed"),
       true,
+    );
+  });
+
+  it("preserves the fixed rejected-login status only for the cookie-bound rejected relay", async () => {
+    const rejectedRelay = `rejected.${"R".repeat(43)}`;
+    await seedCorrelation("_out-rejected-ok");
+    const request = getRequest(
+      signedRedirect(
+        logoutResponseXml("_response-rejected-ok", "_out-rejected-ok"),
+        "SAMLResponse",
+        rejectedRelay,
+      ),
+      requestCookies({ relay: rejectedRelay, context: contextToken() }),
+    );
+
+    const response = await GET(request);
+    assert.equal(response.status, 302);
+    assert.equal(
+      response.headers.get("location"),
+      `${ORIGIN}/login?error=SSOAccessRejected&logout=success`,
+    );
+    assert.match(responseCookies(response), /sso_logout_relay_state=/);
+    assert.match(responseCookies(response), /sso_logout_context=/);
+
+    await seedCorrelation("_out-rejected-failed");
+    const failedXml = logoutResponseXml(
+      "_response-rejected-failed",
+      "_out-rejected-failed",
+      { status: "urn:oasis:names:tc:SAML:2.0:status:Responder" },
+    );
+    const failed = await GET(
+      getRequest(
+        signedRedirect(failedXml, "SAMLResponse", rejectedRelay),
+        requestCookies({ relay: rejectedRelay, context: contextToken() }),
+      ),
+    );
+    assert.equal(
+      failed.headers.get("location"),
+      `${ORIGIN}/login?error=SSOAccessRejected&logout=failed`,
+    );
+
+    const mismatch = await GET(
+      getRequest(
+        signedRedirect(
+          logoutResponseXml("_response-rejected-mismatch", "_unknown-id"),
+          "SAMLResponse",
+          rejectedRelay,
+        ),
+        requestCookies({ relay: rejectedRelay, context: contextToken() }),
+      ),
+    );
+    assert.equal(
+      mismatch.headers.get("location"),
+      `${ORIGIN}/login?logout=failed`,
+    );
+
+    const relayMismatch = await GET(
+      getRequest(
+        signedRedirect(
+          logoutResponseXml("_response-rejected-relay-mismatch", "_out-rejected-ok"),
+          "SAMLResponse",
+          "attacker-relay",
+        ),
+        requestCookies({ relay: rejectedRelay, context: contextToken() }),
+      ),
+    );
+    assert.equal(
+      relayMismatch.headers.get("location"),
+      `${ORIGIN}/login?logout=failed`,
+    );
+
+    const replay = await GET(request);
+    assert.equal(
+      replay.headers.get("location"),
+      `${ORIGIN}/login?logout=failed`,
     );
   });
 

@@ -8,6 +8,7 @@ const SSO_RELAY_STATE_MAX_AGE_SECONDS = 5 * 60;
 
 export const SAML_LOGOUT_CONTEXT_COOKIE = "sso_logout_context";
 export const SAML_LOGOUT_RELAY_STATE_COOKIE = "sso_logout_relay_state";
+export const SAML_REJECTED_LOGOUT_RELAY_PREFIX = "rejected.";
 
 const SAML_LOGOUT_CONTEXT_MAX_AGE_SECONDS = 24 * 60 * 60;
 const SAML_LOGOUT_RELAY_STATE_MAX_AGE_SECONDS = 5 * 60;
@@ -27,6 +28,22 @@ export function relayStateMatches(
     received.length === stored.length &&
     crypto.timingSafeEqual(received, stored)
   );
+}
+
+export function getRawCookieValues(request: Request, name: string): string[] {
+  const header = request.headers.get("cookie");
+  if (!header) return [];
+
+  return header.split(/; */).flatMap((pair) => {
+    const separator = pair.indexOf("=");
+    if (separator < 0) return pair === name ? [""] : [];
+    if (pair.slice(0, separator) !== name) return [];
+    try {
+      return [decodeURIComponent(pair.slice(separator + 1))];
+    } catch {
+      return [""];
+    }
+  });
 }
 
 export function getRelayStateCookieOptions() {

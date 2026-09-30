@@ -21,6 +21,8 @@ import { CiCircleInfo, CiLock, CiLogin } from "react-icons/ci";
 import { FaRegUser } from "react-icons/fa";
 
 const SSO_ERROR_MESSAGES: Record<string, string> = {
+  SSOAccessRejected:
+    "Akses aplikasi ditolak. Silakan hubungi Administrator.",
   NotRegisteredPIC:
     "Akun Anda belum terdaftar sebagai PIC. Silakan hubungi Administrator.",
   SSOFailed: "Gagal memvalidasi SSO Bulog. Silakan coba lagi.",
@@ -52,6 +54,8 @@ export default function LoginForm({ mode }: { mode: LoginFormMode }) {
 
   const searchParams = useSearchParams();
   const ssoError = searchParams.get("error");
+  const rejectedSsoLogoutFailed =
+    ssoError === "SSOAccessRejected" && searchParams.get("logout") === "failed";
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -123,6 +127,11 @@ export default function LoginForm({ mode }: { mode: LoginFormMode }) {
             <p className="text-red-300 text-sm">
               {SSO_ERROR_MESSAGES[ssoError]}
             </p>
+            {rejectedSsoLogoutFailed && (
+              <p className="text-red-300 text-sm">
+                Sesi SSO tidak dapat diakhiri. Silakan keluar dari SSO Bulog, lalu coba lagi.
+              </p>
+            )}
           </div>
         )}
         {mode === "admin" && (

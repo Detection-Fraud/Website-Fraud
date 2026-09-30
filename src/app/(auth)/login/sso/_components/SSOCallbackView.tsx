@@ -1,12 +1,25 @@
 "use client";
 
 import { Spinner } from "@heroui/react";
-import { signIn } from "next-auth/react";
+import { api } from "@/lib/api";
+import { useMutation } from "@tanstack/react-query";
+import { signIn, signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 export default function SSOCallbackView() {
   const [error, setError] = useState<string | null>(null);
   const hasRun = useRef(false);
+  const rejectedLogoutMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<{ redirectUrl?: unknown }>(
+        "/auth/sso/logout/rejected/start",
+      );
+      if (typeof data?.redirectUrl !== "string" || !data.redirectUrl) {
+        throw new Error("Invalid rejected SSO logout response");
+      }
+      return data.redirectUrl;
+    },
+  });
 
   useEffect(() => {
     if (hasRun.current) return;
@@ -16,6 +29,8 @@ export default function SSOCallbackView() {
   }, []);
 
   async function handleSSOLogin() {
+    let bridgeTokenReceived = false;
+
     try {
       const res = await fetch("/api/auth/sso/token", {
         method: "POST",
@@ -27,60 +42,67 @@ export default function SSOCallbackView() {
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-
-        if (res.status === 401) {
-          const isReplay = body?.code === "TOKEN_REPLAYED";
-          if (isReplay) {
-            setError(
-              "Token SSO sudah digunakan. Silakan login ulang melalui halaman utama.",
-            );
-            redirectToLogin("TokenAlreadyUsed");
-          } else {
-            setError(
-              "Token SSO tidak valid atau sudah expired. Silakan login ulang.",
-            );
-            redirectToLogin("InvalidSSOToken");
-          }
-        } else {
-          setError("Terjadi kesalahan saat mengambil token SSO.");
-          redirectToLogin("SSOFailed");
-        }
+        setError(
+          "Token SSO tidak valid atau sudah expired. Silakan login ulang.",
+        );
+        redirectToLogin("InvalidSSOToken");
         return;
       }
 
       const { token } = await res.json();
 
-      if (!token) {
-        setError("Token SSO tidak ditemukan");
+      if (typeof token !== "string" || !token) {
+        setError("Token SSO tidak ditemukan.");
         redirectToLogin("InvalidSSOToken");
         return;
       }
+      bridgeTokenReceived = true;
 
       const result = await signIn("sso-login", {
         token,
         redirect: false,
       });
 
-      if (result?.error) {
-        setError(
-          "Akun anda belum terdaftar sebagai PIC. Silahkan hubungi Administrator",
-        );
-        redirectToLogin("NotRegisteredPIC");
+      if (!result || result.error) {
+        await rejectSSOAccess("Akses aplikasi ditolak. Mengakhiri sesi SSO...");
         return;
       }
 
       window.location.href = "/";
     } catch (err) {
       console.error("[SSO HANDLER] error: ", err);
-      setError("Terjadi kesalahan saat memproses login SSO.");
-      redirectToLogin("SSOFailed");
+      if (bridgeTokenReceived) {
+        await rejectSSOAccess("Terjadi kesalahan saat memproses login SSO.");
+      } else {
+        setError("Terjadi kesalahan saat memvalidasi kredensial SSO.");
+        redirectToLogin("SSOFailed");
+      }
     }
   }
 
-  function redirectToLogin(errorCode: string) {
+  async function rejectSSOAccess(message: string) {
+    setError(message);
+
+    try {
+      await signOut({ redirect: false });
+    } catch (err) {
+      console.error("[SSO HANDLER] local sign-out failed: ", err);
+    }
+
+    try {
+      const redirectUrl = await rejectedLogoutMutation.mutateAsync();
+      window.location.href = redirectUrl;
+    } catch (err) {
+      console.error("[SSO HANDLER] rejected SSO logout failed: ", err);
+      redirectToLogin("SSOAccessRejected", "failed");
+    }
+  }
+
+  function redirectToLogin(errorCode: string, logoutStatus?: "failed") {
     setTimeout(() => {
-      window.location.href = `/login?error=${errorCode}`;
+      const query = new URLSearchParams({ error: errorCode });
+      if (logoutStatus) query.set("logout", logoutStatus);
+      window.location.href = `/login?${query.toString()}`;
     }, 2000);
   }
 

@@ -4,6 +4,7 @@ import {
   createPublicKey,
   createSign,
   generateKeyPairSync,
+  randomUUID,
   sign as signBytes,
 } from "node:crypto";
 import { deflateRawSync } from "node:zlib";
@@ -14,6 +15,7 @@ import jwt from "jsonwebtoken";
 
 import {
   createLogoutContextToken,
+  claimRejectedLogoutContextToken,
   extractLogoutProfile,
   InvalidSamlLogoutResponsePostError,
   renewLogoutContextToken,
@@ -1180,7 +1182,7 @@ describe("SAML logout helpers", () => {
     }
   });
 
-  it("rejects POST root/namespace/cardinality/issuer/destination/time/status violations", async () => {
+  it("rejects POST root/namespace/cardinality/issuer/destination/time violations", async () => {
     setup();
     process.env.NEXT_PUBLIC_APP_URL = TEST_APP_ORIGIN;
     const { privateKey, publicKey } = generateKeyPairSync("rsa", {
@@ -1207,7 +1209,6 @@ describe("SAML logout helpers", () => {
       makeLogoutResponseXml({ issueInstant: "2026-02-31T12:00:00Z" }),
       makeLogoutResponseXml({ issueInstant: "2026-01-01T12:00:00+14:01" }),
       makeLogoutResponseXml({ duplicateIssuer: true }),
-      makeLogoutResponseXml().replace("status:Success", "status:Responder"),
     ];
 
     try {
@@ -1223,5 +1224,70 @@ describe("SAML logout helpers", () => {
     } finally {
       restore();
     }
+  });
+
+  it("verifies the Redirect query signature before accepting a non-success response status", async () => {
+    setup();
+    process.env.NEXT_PUBLIC_APP_URL = TEST_APP_ORIGIN;
+    const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: "pkcs8", format: "pem" },
+      publicKeyEncoding: { type: "spki", format: "pem" },
+    });
+    const validator = makeTestSaml(
+      makeSelfSignedCertificate(privateKey, publicKey),
+    );
+    const rawQuery = makeSignedRedirectQuery(
+      makeLogoutResponseXml().replace("status:Success", "status:Responder"),
+      privateKey,
+      "SAMLResponse",
+      "logout-relay-state",
+    );
+
+    try {
+      const message = await validateRedirectLogoutMessage(rawQuery, validator);
+      assert.equal(message.responseSuccess, false);
+      assert.equal(message.relayState, "logout-relay-state");
+
+      const tampered = rawQuery.replace(
+        /Signature=([^&])/,
+        (_whole, first: string) => `Signature=${first === "A" ? "B" : "A"}`,
+      );
+      await assert.rejects(validateRedirectLogoutMessage(tampered, validator));
+    } finally {
+      restore();
+    }
+  });
+
+  it("accepts a verified non-success LogoutResponse for correlated terminal failure handling", async () => {
+    setup();
+    process.env.NEXT_PUBLIC_APP_URL = TEST_APP_ORIGIN;
+    const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: "pkcs8", format: "pem" },
+      publicKeyEncoding: { type: "spki", format: "pem" },
+    });
+    const certificate = makeSelfSignedCertificate(privateKey, publicKey);
+    const validator = makeTestSaml(certificate);
+    const xml = makeLogoutResponseXml().replace("status:Success", "status:Responder");
+
+    try {
+      const signed = makeSignedPostXml(xml, privateKey, certificate);
+      const result = await validatePostLogoutResponse(
+        makePostRequest(Buffer.from(signed).toString("base64")),
+        validator,
+      );
+      assert.equal(result.responseSuccess, false);
+    } finally {
+      restore();
+    }
+  });
+
+  it("claims a rejected logout context once and expires the hashed replay entry", () => {
+    const now = Math.floor(Date.now() / 1000);
+    const contextToken = `single-use-context-${randomUUID()}`;
+    assert.equal(claimRejectedLogoutContextToken(contextToken, now + 2, now), "claimed");
+    assert.equal(claimRejectedLogoutContextToken(contextToken, now + 2, now), "replay");
+    assert.equal(claimRejectedLogoutContextToken(contextToken, now + 4, now + 2), "claimed");
   });
 });

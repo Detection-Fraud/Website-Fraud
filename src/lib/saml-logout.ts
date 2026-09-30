@@ -1,4 +1,5 @@
 import { createInflateRaw } from "node:zlib";
+import { createHash, randomUUID } from "node:crypto";
 import { SAML, ValidateInResponseTo, type Profile } from "@node-saml/node-saml";
 import { parseDomFromString } from "@node-saml/node-saml/lib/xml";
 import jwt from "jsonwebtoken";
@@ -9,6 +10,27 @@ export const SAML_PERSISTENT_NAME_ID_FORMAT =
   "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent";
 
 const SAML_LOGOUT_CONTEXT_MAX_AGE_SECONDS = 24 * 60 * 60;
+const REJECTED_LOGOUT_REPLAY_CAPACITY = 4096;
+
+const rejectedLogoutContextUses = new Map<string, number>();
+
+export function claimRejectedLogoutContextToken(
+  token: string,
+  expiresAt: number,
+  now = Math.floor(Date.now() / 1000),
+): "claimed" | "replay" | "full" {
+  for (const [hash, expiry] of rejectedLogoutContextUses) {
+    if (expiry <= now) rejectedLogoutContextUses.delete(hash);
+  }
+
+  const hash = createHash("sha256").update(token).digest("hex");
+  if (rejectedLogoutContextUses.has(hash)) return "replay";
+  if (rejectedLogoutContextUses.size >= REJECTED_LOGOUT_REPLAY_CAPACITY)
+    return "full";
+
+  rejectedLogoutContextUses.set(hash, expiresAt);
+  return "claimed";
+}
 
 export type SamlLogoutProfile = {
   issuer: string;
@@ -95,6 +117,7 @@ export function createLogoutContextToken(input: {
   return jwt.sign(
     {
       purpose: "saml-logout-context",
+      jti: randomUUID(),
       nip,
       issuer,
       nameID,
@@ -303,6 +326,7 @@ export type SamlLogoutMessage = {
   nameID?: string;
   nameIDFormat?: string;
   sessionIndex?: string;
+  responseSuccess?: boolean;
 };
 
 export type SamlLogoutValidator = Pick<
@@ -741,12 +765,11 @@ async function inspectLogoutXml(
     "StatusCode",
     SAML_PROTOCOL_NAMESPACE,
   );
+  const statusValue = statusCode.getAttribute("Value")?.trim();
   if (
-    statusCode.getAttribute("Value") !==
-    "urn:oasis:names:tc:SAML:2.0:status:Success"
-  ) {
+    !statusValue?.startsWith("urn:oasis:names:tc:SAML:2.0:status:")
+  )
     throw invalidSamlMessage();
-  }
 
   if (requireRootSignature) {
     const signatures = directChildren(
@@ -764,6 +787,8 @@ async function inspectLogoutXml(
     destination,
     issueInstant,
     issuer,
+    responseSuccess:
+      statusValue === "urn:oasis:names:tc:SAML:2.0:status:Success",
   };
 }
 
@@ -780,28 +805,52 @@ export async function validateRedirectLogoutMessage(
   const message = await inspectLogoutXml(xmlBytes, parsed.messageType);
 
   try {
-    const validated = await validator.validateRedirectAsync(
-      parsed.fields as Parameters<SAML["validateRedirectAsync"]>[0],
-      rawQuery.startsWith("?") ? rawQuery.slice(1) : rawQuery,
-    );
-    if (
-      !validated.loggedOut ||
-      (parsed.messageType === "SAMLRequest" && !validated.profile)
-    ) {
-      throw invalidSamlMessage();
-    }
+    const originalQuery = rawQuery.startsWith("?")
+      ? rawQuery.slice(1)
+      : rawQuery;
 
-    if (parsed.messageType === "SAMLRequest") {
-      const profile = validated.profile;
+    if (
+      parsed.messageType === "SAMLResponse" &&
+      message.responseSuccess === false
+    ) {
+      // Node-SAML's validateRedirectAsync rejects non-success status before it
+      // verifies the query signature. Our strict XML checks above establish
+      // issuer, destination, timestamp, status and response shape; use its
+      // own raw-query signature verifier for this signed failure response.
+      const redirectSignatureValidator = validator as unknown as {
+        hasValidSignatureForRedirect(
+          container: Record<string, string>,
+          originalQuery: string,
+        ): Promise<boolean | void>;
+      };
+      await redirectSignatureValidator.hasValidSignatureForRedirect(
+        parsed.fields,
+        originalQuery,
+      );
+    } else {
+      const validated = await validator.validateRedirectAsync(
+        parsed.fields as Parameters<SAML["validateRedirectAsync"]>[0],
+        originalQuery,
+      );
       if (
-        !profile ||
-        profile.ID !== message.id ||
-        profile.issuer !== message.issuer ||
-        profile.nameID !== message.nameID ||
-        profile.nameIDFormat !== message.nameIDFormat ||
-        (profile.sessionIndex ?? undefined) !== message.sessionIndex
+        !validated.loggedOut ||
+        (parsed.messageType === "SAMLRequest" && !validated.profile)
       ) {
         throw invalidSamlMessage();
+      }
+
+      if (parsed.messageType === "SAMLRequest") {
+        const profile = validated.profile;
+        if (
+          !profile ||
+          profile.ID !== message.id ||
+          profile.issuer !== message.issuer ||
+          profile.nameID !== message.nameID ||
+          profile.nameIDFormat !== message.nameIDFormat ||
+          (profile.sessionIndex ?? undefined) !== message.sessionIndex
+        ) {
+          throw invalidSamlMessage();
+        }
       }
     }
   } catch {

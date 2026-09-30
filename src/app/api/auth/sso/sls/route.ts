@@ -12,10 +12,12 @@ import {
 import {
   getSamlLogoutContextCookieOptions,
   getSamlLogoutRelayStateCookieOptions,
+  getRawCookieValues,
   getSsoBaseUrl,
   relayStateMatches,
   SAML_LOGOUT_CONTEXT_COOKIE,
   SAML_LOGOUT_RELAY_STATE_COOKIE,
+  SAML_REJECTED_LOGOUT_RELAY_PREFIX,
 } from "@/lib/saml-transport";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -44,11 +46,19 @@ function errorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status, headers: NO_STORE });
 }
 
-function terminal(_request: Request, success: boolean, method: "GET" | "POST") {
+function terminal(
+  _request: Request,
+  success: boolean,
+  method: "GET" | "POST",
+  correlatedRejectedFlow = false,
+) {
   let response: NextResponse;
   try {
+    const path = correlatedRejectedFlow
+      ? `/login?error=SSOAccessRejected&logout=${success ? "success" : "failed"}`
+      : `/login?logout=${success ? "success" : "failed"}`;
     response = NextResponse.redirect(
-      `${getSsoBaseUrl()}/login?logout=${success ? "success" : "failed"}`,
+      `${getSsoBaseUrl()}${path}`,
       method === "POST" ? 303 : 302,
     );
   } catch {
@@ -83,20 +93,17 @@ function isResponseAttempt(query: string): boolean {
   return query.split("&", 1)[0]?.startsWith("SAMLResponse=") ?? false;
 }
 
-function cookieValues(request: NextRequest, name: string): string[] {
-  const header = request.headers.get("cookie");
-  if (!header) return [];
-
-  return header.split(/; */).flatMap((pair) => {
-    const separator = pair.indexOf("=");
-    if (separator < 0) return pair === name ? [""] : [];
-    if (pair.slice(0, separator) !== name) return [];
-    try {
-      return [decodeURIComponent(pair.slice(separator + 1))];
-    } catch {
-      return [""];
-    }
-  });
+function isRejectedLogoutFlow(request: Request): boolean {
+  const relayCookies = getRawCookieValues(
+    request,
+    SAML_LOGOUT_RELAY_STATE_COOKIE,
+  );
+  return (
+    relayCookies.length === 1 &&
+    new RegExp(
+      `^${SAML_REJECTED_LOGOUT_RELAY_PREFIX}[A-Za-z0-9_-]{43}$`,
+    ).test(relayCookies[0])
+  );
 }
 
 function matchesProfile(
@@ -118,7 +125,7 @@ function relayMatches(
   message: SamlLogoutMessage,
 ): boolean {
   const received = message.relayState;
-  const stored = cookieValues(request, SAML_LOGOUT_RELAY_STATE_COOKIE);
+  const stored = getRawCookieValues(request, SAML_LOGOUT_RELAY_STATE_COOKIE);
   return (
     typeof received === "string" &&
     stored.length === 1 &&
@@ -152,7 +159,13 @@ async function finishResponse(
   } catch {
     return terminal(request, false, method);
   }
-  return terminal(request, consumed === message.inResponseTo, method);
+  const correlated = consumed === message.inResponseTo;
+  return terminal(
+    request,
+    correlated && message.responseSuccess !== false,
+    method,
+    correlated && isRejectedLogoutFlow(request),
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -197,7 +210,10 @@ export async function GET(request: NextRequest) {
     return errorResponse("Identitas SSO tidak valid", 403);
   }
 
-  const contextCookies = cookieValues(request, SAML_LOGOUT_CONTEXT_COOKIE);
+  const contextCookies = getRawCookieValues(
+    request,
+    SAML_LOGOUT_CONTEXT_COOKIE,
+  );
   if (contextCookies.length !== 1 || !contextCookies[0])
     return errorResponse("Konteks logout tidak valid", 403);
   let context;
