@@ -35,6 +35,10 @@ Do not commit property values or print them in deployment evidence.
    directory, keeping the KJB and KTR beside each other.
 2. Configure the application-side `PENTAHO_SYNC_JOB_LOCATION` to that fixed
    KJB location. The browser must never supply or override it.
+   For an isolated UAT server running `next start` against a private IPv4 HTTP
+   service, set `PENTAHO_ALLOW_HTTP_UAT=true` in the application environment.
+   Leave this flag unset for production rollout, which requires HTTPS and
+   service authentication.
 3. Keep the KJB child path relative:
    `${Internal.Entry.Current.Directory}/data_karyawan_budaya.ktr`.
 4. Apply `sql/grant-employee-mirror.sql` with an operator-supplied

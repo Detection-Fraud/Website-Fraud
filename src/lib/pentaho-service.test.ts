@@ -13,6 +13,7 @@ const envKeys = [
   "PENTAHO_SYNC_JOB_LOCATION",
   "PENTAHO_REQUEST_TIMEOUT_MS",
   "PENTAHO_SYNC_DEADLINE_MINUTES",
+  "PENTAHO_ALLOW_HTTP_UAT",
 ] as const;
 
 function configure() {
@@ -67,6 +68,7 @@ test("uses fixed endpoints and exact request shapes", async () => {
   });
   assert.deepEqual((calls[1] as { body: unknown }).body, { jobName: "job-1" });
   assert.equal((calls[0] as { config: { maxRedirects: number } }).config.maxRedirects, 0);
+  assert.equal((calls[0] as { config: { proxy: boolean } }).config.proxy, false);
 });
 
 test("validates configuration, timeout, and production HTTPS gate", () => {
@@ -81,6 +83,35 @@ test("validates configuration, timeout, and production HTTPS gate", () => {
   setNodeEnv("production");
   assert.throws(() => getPentahoServiceConfig(), PentahoServiceError);
   setNodeEnv(oldNodeEnv);
+});
+
+test("production permits HTTP only with an explicit UAT flag and private IPv4 target", () => {
+  configure();
+  const oldNodeEnv = process.env.NODE_ENV;
+  setNodeEnv("production");
+  process.env.PENTAHO_SERVICE_BASE_URL = "http://10.254.223.21:8080/pentaho-bulog-service/";
+
+  try {
+    assert.throws(() => getPentahoServiceConfig(), PentahoServiceError);
+    process.env.PENTAHO_ALLOW_HTTP_UAT = "TRUE";
+    assert.throws(() => getPentahoServiceConfig(), PentahoServiceError);
+    process.env.PENTAHO_ALLOW_HTTP_UAT = "true";
+    assert.equal(
+      getPentahoServiceConfig().baseUrl,
+      "http://10.254.223.21:8080/pentaho-bulog-service",
+    );
+
+    for (const host of ["8.8.8.8", "169.254.10.1", "pentaho-uat.test"]) {
+      process.env.PENTAHO_SERVICE_BASE_URL = `http://${host}:8080/pentaho-bulog-service/`;
+      assert.throws(() => getPentahoServiceConfig(), PentahoServiceError);
+    }
+
+    delete process.env.PENTAHO_ALLOW_HTTP_UAT;
+    process.env.PENTAHO_SERVICE_BASE_URL = "https://pentaho.example.test/";
+    assert.equal(getPentahoServiceConfig().baseUrl, "https://pentaho.example.test");
+  } finally {
+    setNodeEnv(oldNodeEnv);
+  }
 });
 
 test("maps terminal states and returns only scalar whitelisted metadata", async () => {

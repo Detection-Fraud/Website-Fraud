@@ -1,4 +1,5 @@
 import axios from "axios";
+import { isIP } from "node:net";
 import { z } from "zod";
 
 const EXECUTE_PATH = "carte/executeJob";
@@ -85,6 +86,13 @@ function boundedPositiveInteger(
   return parsed;
 }
 
+function isPrivateIpv4Host(hostname: string): boolean {
+  if (isIP(hostname) !== 4) return false;
+  const [first, second] = hostname.split(".").map(Number);
+  return first === 10 || (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168);
+}
+
 export function getPentahoServiceConfig(): PentahoServiceConfig {
   const rawBaseUrl = process.env.PENTAHO_SERVICE_BASE_URL?.trim();
   const jobLocation = process.env.PENTAHO_SYNC_JOB_LOCATION?.trim();
@@ -107,10 +115,14 @@ export function getPentahoServiceConfig(): PentahoServiceConfig {
     throw new PentahoServiceError("CONFIGURATION", "URL layanan Pentaho tidak diizinkan");
   }
 
-  if (process.env.NODE_ENV === "production" && baseUrl.protocol !== "https:") {
+  const allowUatHttp =
+    process.env.PENTAHO_ALLOW_HTTP_UAT === "true" &&
+    baseUrl.protocol === "http:" &&
+    isPrivateIpv4Host(baseUrl.hostname);
+  if (process.env.NODE_ENV === "production" && baseUrl.protocol !== "https:" && !allowUatHttp) {
     throw new PentahoServiceError(
       "CONFIGURATION",
-      "Produksi mewajibkan HTTPS untuk layanan Pentaho",
+      "Layanan Pentaho mewajibkan HTTPS kecuali HTTP UAT ke IP privat diizinkan",
     );
   }
 
@@ -257,6 +269,7 @@ async function post(path: string, body: Record<string, string>, operation: strin
     const response = await axios.post(endpoint(config, path), body, {
       timeout: config.requestTimeoutMs,
       maxRedirects: 0,
+      proxy: false,
       validateStatus: () => true,
       headers: { "Content-Type": "application/json" },
     });
