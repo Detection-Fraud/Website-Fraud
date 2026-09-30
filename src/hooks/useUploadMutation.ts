@@ -38,24 +38,21 @@ export type UploadCleanupCredential = Pick<
 > &
   UploadOptions;
 
+export type UploadFileArg = {
+  file: File;
+  options: UploadOptions;
+};
+
 export function useUploadMutation() {
   const uploadMutation = useMutation({
-    mutationFn: async ({
-      file,
-      options,
-    }: {
-      file: File;
-      options: UploadOptions;
-    }) => {
+    mutationFn: async ({ file, options }: UploadFileArg) => {
       const formData = new FormData();
 
       formData.append("file", file);
       formData.append("purpose", options.purpose);
       formData.append("mode", options.mode);
 
-      if (options.reportId) {
-        formData.append("reportId", options.reportId);
-      }
+      if (options.reportId) formData.append("reportId", options.reportId);
 
       const response = await api.post<UploadResponse>("/upload", formData, {
         headers: {
@@ -100,20 +97,10 @@ export function useUploadMutation() {
   };
 }
 
-const defaultUploadOptions: UploadOptions = {
-  purpose: "EVIDENCE",
-  mode: "CREATE",
-};
-
 export function useTemporaryUpload(
-  optionsOrActive?: UploadOptions | boolean,
-  isActiveProp = true,
+  options: UploadOptions,
+  isActive = true,
 ) {
-  const isOptions =
-    typeof optionsOrActive === "object" && optionsOrActive !== null;
-  const options = isOptions ? optionsOrActive : defaultUploadOptions;
-  const isActive = isOptions ? isActiveProp : (optionsOrActive ?? true);
-
   const {
     uploadFile,
     deleteUploadedFile,

@@ -3,7 +3,18 @@ import assert from "node:assert/strict";
 import { before, mock, test } from "node:test";
 
 const authMock = mock.fn(async () => ({
-  user: { id: "admin-1", role: "ADMIN" },
+  user: { id: "admin-1", role: "ADMIN", authProvider: "LOCAL" },
+}));
+const currentUserFindUniqueMock = mock.fn(async () => ({
+  id: "admin-1",
+  name: "Admin",
+  username: "admin",
+  role: "ADMIN",
+  authProvider: "LOCAL",
+  isActive: true,
+  unitId: null,
+  unit: null,
+  employee: null,
 }));
 const categoryFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
   async () => [],
@@ -47,6 +58,7 @@ mock.module("@/lib/prisma", {
   namedExports: {
     prisma: {
       programCategory: { findMany: categoryFindManyMock },
+      user: { findUnique: currentUserFindUniqueMock },
     },
   },
 });

@@ -10,27 +10,27 @@ class TestApiError extends Error {
   }
 }
 
-let currentUserId = "user-1";
-const requireAuthMock = mock.fn(async () => ({
-  user: { id: currentUserId, role: "ADMIN", authProvider: "LOCAL" },
-}));
-const mkdirMock = mock.fn(async () => undefined);
-const writeFileMock = mock.fn(async () => undefined);
-const unlinkMock = mock.fn<(filePath: string) => Promise<void>>(
-  async () => undefined,
-);
-const activityPhotoFindFirstMock = mock.fn<
-  () => Promise<{ id: number } | null>
->(async () => null);
-const programFindFirstMock = mock.fn<() => Promise<{ id: string } | null>>(
-  async () => null,
-);
-const categoryFindFirstMock = mock.fn<() => Promise<{ id: string } | null>>(
-  async () => null,
-);
-const bannerFindFirstMock = mock.fn<() => Promise<{ id: string } | null>>(
-  async () => null,
-);
+let currentUser = {
+  id: "11111111-1111-4111-8111-111111111111",
+  role: "ADMIN",
+  unitId: undefined as string | undefined,
+};
+const requireAuthMock = mock.fn(async () => ({ user: currentUser }));
+const fileHandle = {
+  writeFile: mock.fn(async () => undefined),
+  close: mock.fn(async () => undefined),
+};
+const openMock = mock.fn(async (path: string, flags: string) => {
+  void path;
+  void flags;
+  return fileHandle;
+});
+const writePathMock = mock.fn(async (key: string) => `/tmp/uploads/${key}`);
+const activityReportFindFirstMock = mock.fn(async () => null as {
+  id: string;
+  unitId: string;
+} | null);
+let mintedContext: unknown;
 
 const sharpMock = mock.fn(() => ({
   resize: () => ({
@@ -41,6 +41,42 @@ const sharpMock = mock.fn(() => ({
     }),
   }),
 }));
+
+const createServerOwnedUploadContextMock = mock.fn((input) => input);
+const mintUploadDescriptorMock = mock.fn((context) => {
+  mintedContext = context;
+  return {
+    descriptor: "descriptor-token",
+    publicId: context.publicId,
+    url: "/uploads/" + context.publicId,
+    iat: 1,
+    exp: 2,
+  };
+});
+const mintCleanupTokenMock = mock.fn(() => "cleanup-token");
+const verifyNewUploadMock = mock.fn((descriptor: string, cleanupToken: string, context: unknown) => {
+  if (
+    descriptor !== "descriptor-token" ||
+    cleanupToken !== "cleanup-token" ||
+    JSON.stringify(context) !== JSON.stringify(mintedContext)
+  ) {
+    throw new lifecycleErrorMock("INVALID_TOKEN");
+  }
+  return { __phase: "verified-new-upload", context };
+});
+const rollbackVerifiedNewUploadMock = mock.fn(async () => ({
+  kind: "deleted",
+  fileKey: "banners/programs/file.jpg",
+}));
+const validImage = Buffer.from(
+  "/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAABgj/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABykX//Z",
+  "base64",
+);
+const lifecycleErrorMock = class extends Error {
+  constructor(public code: string) {
+    super(code);
+  }
+};
 
 mock.module("@/lib/api/auth-guard", {
   namedExports: {
@@ -61,21 +97,37 @@ mock.module("@/lib/api/rate-limit", {
     rateLimitResponse: () => Response.json({}, { status: 429 }),
   },
 });
+mock.module("@/lib/api/upload-lifecycle", {
+  namedExports: {
+    createServerOwnedUploadContext: createServerOwnedUploadContextMock,
+    mintUploadDescriptor: mintUploadDescriptorMock,
+    mintCleanupToken: mintCleanupTokenMock,
+    verifyNewUpload: verifyNewUploadMock,
+    rollbackVerifiedNewUpload: rollbackVerifiedNewUploadMock,
+    UploadLifecycleError: lifecycleErrorMock,
+  },
+});
+mock.module("@/lib/api/upload-storage", {
+  namedExports: {
+    getUtcYearMonthPartition: (timestamp: Date) => ({
+      year: String(timestamp.getUTCFullYear()).padStart(4, "0"),
+      month: String(timestamp.getUTCMonth() + 1).padStart(2, "0"),
+    }),
+    prepareManagedUploadWritePath: writePathMock,
+  },
+});
 mock.module("@/lib/prisma", {
   namedExports: {
     prisma: {
-      activityPhoto: { findFirst: activityPhotoFindFirstMock },
-      programBudaya: { findFirst: programFindFirstMock },
-      programCategory: { findFirst: categoryFindFirstMock },
-      loginBanner: { findFirst: bannerFindFirstMock },
+      activityReport: { findFirst: activityReportFindFirstMock },
+      $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({}),
     },
   },
 });
-mock.module("fs/promises", {
+mock.module("node:fs/promises", {
   namedExports: {
-    mkdir: mkdirMock,
-    writeFile: writeFileMock,
-    unlink: unlinkMock,
+    open: openMock,
   },
 });
 mock.module("sharp", { defaultExport: sharpMock });
@@ -89,41 +141,46 @@ before(async () => {
 });
 
 beforeEach(() => {
-  currentUserId = "user-1";
+  mintedContext = undefined;
+  currentUser = {
+    id: "11111111-1111-4111-8111-111111111111",
+    role: "ADMIN",
+    unitId: undefined,
+  };
   requireAuthMock.mock.resetCalls();
-  mkdirMock.mock.resetCalls();
-  writeFileMock.mock.resetCalls();
-  unlinkMock.mock.resetCalls();
-  activityPhotoFindFirstMock.mock.resetCalls();
-  programFindFirstMock.mock.resetCalls();
-  categoryFindFirstMock.mock.resetCalls();
-  bannerFindFirstMock.mock.resetCalls();
+  openMock.mock.resetCalls();
+  fileHandle.writeFile.mock.resetCalls();
+  fileHandle.close.mock.resetCalls();
+  writePathMock.mock.resetCalls();
+  activityReportFindFirstMock.mock.resetCalls();
+  createServerOwnedUploadContextMock.mock.resetCalls();
+  mintUploadDescriptorMock.mock.resetCalls();
+  mintCleanupTokenMock.mock.resetCalls();
+  verifyNewUploadMock.mock.resetCalls();
+  rollbackVerifiedNewUploadMock.mock.resetCalls();
 });
 
-function uploadRequest() {
+function uploadRequest(
+  purpose?: string,
+  mode?: string,
+  reportId?: string,
+  unitId?: string,
+) {
   const formData = new FormData();
-  formData.set("purpose", "EVIDENCE");
-  formData.set("mode", "CREATE");
   formData.set(
     "file",
-    new File([new Uint8Array([0xff, 0xd8, 0xff])], "foto.jpg", {
+    new File([validImage], "foto.jpg", {
       type: "image/jpeg",
     }),
   );
+  if (purpose !== undefined) formData.set("purpose", purpose);
+  if (mode !== undefined) formData.set("mode", mode);
+  if (reportId !== undefined) formData.set("reportId", reportId);
+  if (unitId !== undefined) formData.set("unitId", unitId);
   return new Request("http://localhost/api/upload", {
     method: "POST",
     body: formData,
   });
-}
-
-async function uploadTemporaryFile() {
-  const response = await POST(uploadRequest());
-  assert.equal(response.status, 200);
-  return response.json() as Promise<{
-    publicId: string;
-    descriptor: string;
-    cleanupToken: string;
-  }>;
 }
 
 function deleteRequest(body: unknown) {
@@ -134,92 +191,180 @@ function deleteRequest(body: unknown) {
   });
 }
 
-function cleanupCredential(uploaded: {
-  publicId: string;
-  descriptor: string;
-  cleanupToken: string;
-}) {
+
+test("menolak upload tanpa purpose dan mode", async () => {
+  const response = await POST(uploadRequest());
+
+  assert.equal(response.status, 400);
+  assert.equal(openMock.mock.calls.length, 0);
+});
+
+test("menghasilkan structured key untuk program banner", async () => {
+  const response = await POST(
+    uploadRequest("PROGRAM_BANNER", "CREATE"),
+  );
+
+  assert.equal(response.status, 200);
+
+  const body = await response.json();
+
+  assert.match(
+    body.publicId,
+    /^banners\/programs\/[0-9a-f-]+\.jpg$/,
+  );
+  assert.equal(body.url, "/uploads/" + body.publicId);
+  assert.equal(body.descriptor, "descriptor-token");
+  assert.equal(body.cleanupToken, "cleanup-token");
+  assert.equal(openMock.mock.calls[0].arguments[1], "wx");
+  assert.equal(writePathMock.mock.calls[0].arguments[0], body.publicId);
+});
+
+test("menolak banner upload oleh PIC", async () => {
+  currentUser = {
+    id: "11111111-1111-4111-8111-111111111111",
+    role: "PIC",
+    unitId: "22222222-2222-4222-8222-222222222222",
+  };
+
+  const response = await POST(
+    uploadRequest("PROGRAM_BANNER", "CREATE"),
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(openMock.mock.calls.length, 0);
+});
+
+test("evidence ignores client unitId and uses unit from session", async () => {
+  currentUser = {
+    id: "11111111-1111-4111-8111-111111111111",
+    role: "PIC",
+    unitId: "22222222-2222-4222-8222-222222222222",
+  };
+
+  const response = await POST(
+    uploadRequest(
+      "EVIDENCE",
+      "CREATE",
+      undefined,
+      "99999999-9999-4999-8999-999999999999",
+    ),
+  );
+
+  assert.equal(response.status, 200);
+
+  const body = await response.json();
+
+  assert.match(
+    body.publicId,
+    /^reports\/22222222-2222-4222-8222-222222222222\/\d{4}\/\d{2}\/[0-9a-f-]+\.jpg$/,
+  );
+});
+
+test("evidence replacement memakai report terotorisasi", async () => {
+  currentUser = {
+    id: "11111111-1111-4111-8111-111111111111",
+    role: "PIC",
+    unitId: "22222222-2222-4222-8222-222222222222",
+  };
+
+  activityReportFindFirstMock.mock.mockImplementationOnce(async () => ({
+    id: "33333333-3333-4333-8333-333333333333",
+    unitId: "22222222-2222-4222-8222-222222222222",
+  }));
+
+  const response = await POST(
+    uploadRequest(
+      "EVIDENCE",
+      "REPLACEMENT",
+      "33333333-3333-4333-8333-333333333333",
+    ),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(activityReportFindFirstMock.mock.calls.length, 1);
+});
+
+test("non-PIC evidence replacement ditolak sebelum lookup report", async () => {
+  const response = await POST(
+    uploadRequest(
+      "EVIDENCE",
+      "REPLACEMENT",
+      "33333333-3333-4333-8333-333333333333",
+    ),
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(activityReportFindFirstMock.mock.callCount(), 0);
+  assert.equal(openMock.mock.callCount(), 0);
+});
+
+test("DELETE membutuhkan descriptor dan cleanup token", async () => {
+  const response = await DELETE(
+    deleteRequest({
+      publicId:
+        "banners/programs/44444444-4444-4444-8444-444444444444.jpg",
+      cleanupToken: "cleanup-token",
+      purpose: "PROGRAM_BANNER",
+      mode: "CREATE",
+    }),
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(rollbackVerifiedNewUploadMock.mock.calls.length, 0);
+});
+
+async function uploadBannerCredential() {
+  const response = await POST(uploadRequest("PROGRAM_BANNER", "CREATE"));
+  assert.equal(response.status, 200);
+  const body = await response.json();
   return {
-    publicId: uploaded.publicId,
-    descriptor: uploaded.descriptor,
-    cleanupToken: uploaded.cleanupToken,
-    purpose: "EVIDENCE",
+    publicId: body.publicId,
+    descriptor: body.descriptor,
+    cleanupToken: body.cleanupToken,
+    purpose: "PROGRAM_BANNER",
     mode: "CREATE",
   };
 }
 
-test("uploaded temporary file can be deleted with its cleanup credential", async () => {
-  const uploaded = await uploadTemporaryFile();
-
-  assert.match(uploaded.publicId, /^[0-9a-f-]+\.jpg$/);
-  assert.equal(typeof uploaded.cleanupToken, "string");
-  assert.ok(uploaded.cleanupToken.length > 0);
-  assert.ok(uploaded.descriptor.length > 0);
-
-  const deleteResponse = await DELETE(deleteRequest(cleanupCredential(uploaded)));
-  const deleted = (await deleteResponse.json()) as { deleted: boolean };
-
-  assert.equal(deleteResponse.status, 200);
-  assert.equal(deleted.deleted, true);
-  assert.equal(unlinkMock.mock.calls.length, 1);
-  assert.match(
-    String(unlinkMock.mock.calls[0].arguments[0]),
-    new RegExp(`${uploaded.publicId.replace(".", "\\.")}$`),
-  );
-});
-
-test("cleanup rejects path traversal and tampered credentials", async () => {
-  const uploaded = await uploadTemporaryFile();
-
-  const traversalResponse = await DELETE(
-    deleteRequest({
-      ...cleanupCredential(uploaded),
-      publicId: `../${uploaded.publicId}`,
-    }),
-  );
-  assert.equal(traversalResponse.status, 400);
-
-  const tamperedResponse = await DELETE(
-    deleteRequest({
-      ...cleanupCredential(uploaded),
-      cleanupToken: `${uploaded.cleanupToken}tampered`,
-    }),
-  );
-  assert.equal(tamperedResponse.status, 403);
-  assert.equal(unlinkMock.mock.calls.length, 0);
-});
-
-test("cleanup credential is bound to the authenticated uploader", async () => {
-  const uploaded = await uploadTemporaryFile();
-  currentUserId = "user-2";
-
-  const response = await DELETE(deleteRequest(cleanupCredential(uploaded)));
-
-  assert.equal(response.status, 403);
-  assert.equal(unlinkMock.mock.calls.length, 0);
-});
-
-test("cleanup rejects a descriptor with a changed purpose", async () => {
-  const uploaded = await uploadTemporaryFile();
-  const response = await DELETE(deleteRequest({
-    ...cleanupCredential(uploaded),
-    purpose: "PROGRAM_BANNER",
-  }));
-
-  assert.equal(response.status, 403);
-  assert.equal(unlinkMock.mock.calls.length, 0);
-});
-
-test("cleanup never removes an upload already referenced by persisted data", async () => {
-  const uploaded = await uploadTemporaryFile();
-  programFindFirstMock.mock.mockImplementationOnce(async () => ({
-    id: "program-1",
-  }));
-
-  const response = await DELETE(deleteRequest(cleanupCredential(uploaded)));
-  const body = (await response.json()) as { deleted: boolean };
+test("DELETE memverifikasi descriptor dan cleanup token", async () => {
+  const credential = await uploadBannerCredential();
+  verifyNewUploadMock.mock.resetCalls();
+  const response = await DELETE(deleteRequest(credential));
 
   assert.equal(response.status, 200);
-  assert.equal(body.deleted, false);
-  assert.equal(unlinkMock.mock.calls.length, 0);
+  assert.equal((await response.json()).deleted, true);
+  assert.equal(verifyNewUploadMock.mock.calls.length, 1);
+  assert.equal(rollbackVerifiedNewUploadMock.mock.calls.length, 1);
+});
+
+test("failed exclusive open does not roll back a key owned by another request", async () => {
+  openMock.mock.mockImplementationOnce(async () => {
+    throw Object.assign(new Error("exists"), { code: "EEXIST" });
+  });
+
+  const response = await POST(uploadRequest("PROGRAM_BANNER", "CREATE"));
+
+  assert.equal(response.status, 500);
+  assert.equal(rollbackVerifiedNewUploadMock.mock.callCount(), 0);
+});
+
+test("upload signing fails before preparing or writing a file", async () => {
+  mintUploadDescriptorMock.mock.mockImplementationOnce(() => {
+    throw new lifecycleErrorMock("UPLOAD_LIFECYCLE_UNAVAILABLE");
+  });
+  const response = await POST(uploadRequest("PROGRAM_BANNER", "CREATE"));
+  assert.equal(response.status, 400);
+  assert.equal(writePathMock.mock.callCount(), 0);
+  assert.equal(openMock.mock.callCount(), 0);
+});
+
+test("cleanup rejects tampered credentials before deleting", async () => {
+  const credential = await uploadBannerCredential();
+  const tampered = await DELETE(deleteRequest({ ...credential, cleanupToken: "wrong" }));
+  assert.equal(tampered.status, 403);
+  assert.equal(rollbackVerifiedNewUploadMock.mock.callCount(), 0);
+
+  const valid = await DELETE(deleteRequest(credential));
+  assert.equal(valid.status, 200);
+  assert.equal(rollbackVerifiedNewUploadMock.mock.callCount(), 1);
 });

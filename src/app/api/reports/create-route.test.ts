@@ -10,6 +10,7 @@ class TestApiError extends Error {
     super(message);
   }
 }
+class TestUploadLifecycleError extends Error {}
 
 const authMock = mock.fn(async () => ({
   user: {
@@ -47,15 +48,18 @@ const reportCreateMock = mock.fn(async () => {
   };
 });
 const queryRawMock = mock.fn(async () => undefined);
+const executeRawMock = mock.fn(async () => undefined);
 let transactionTail = Promise.resolve();
 const transactionMock = mock.fn(async (callback: (tx: unknown) => unknown) => {
   const run = transactionTail.then(() =>
     callback({
       $queryRaw: queryRawMock,
+      $executeRaw: executeRawMock,
       activityReport: {
         findFirst: reportFindFirstMock,
         create: reportCreateMock,
       },
+      programBudaya: { findUnique: programFindUniqueMock },
     }),
   );
   transactionTail = run.then(
@@ -64,6 +68,39 @@ const transactionMock = mock.fn(async (callback: (tx: unknown) => unknown) => {
   );
   return run;
 });
+let lifecycleTx: any;
+const withUploadLifecycleTransactionMock = mock.fn(
+  async (
+    _client: unknown,
+    _plan: unknown,
+    callback: (lifecycle: object) => unknown,
+  ) =>
+    transactionMock(async (tx) => {
+      lifecycleTx = tx;
+      return callback({});
+    }),
+);
+const createServerOwnedUploadContextMock = mock.fn((input: any) => input);
+const verifyNewUploadMock = mock.fn(
+  (_: string, __: string, context: any) => context,
+);
+const readVerifiedNewUploadMock = mock.fn((context: any) => ({
+  publicId: context.publicId,
+  url: `/uploads/${context.publicId}`,
+}));
+const rollbackVerifiedNewUploadMock = mock.fn(async () => ({
+  kind: "deleted",
+}));
+const getUploadLifecycleTransactionMock = mock.fn(() => lifecycleTx);
+const resolveUploadReferenceMock = mock.fn(async (url: string) => ({
+  kind: "local" as const,
+  storageKey: url.slice("/uploads/".length),
+  source: "report" as const,
+  filePath: "test",
+  exists: true as const,
+  isRegularFile: true as const,
+}));
+const findUploadReferencesMock = mock.fn(async () => []);
 const rateLimitMock = mock.fn(() => ({ success: true }));
 const rateLimitResponseMock = mock.fn();
 const errorResponseMock = mock.fn(
@@ -84,12 +121,6 @@ const successResponseMock = mock.fn((data: unknown, message: string) => ({
 const formatZodErrorMock = mock.fn(() => "payload tidak valid");
 const isProgramUploadOpenMock = mock.fn(() => true);
 const isActivityDateInsideProgramMock = mock.fn(() => true);
-const verifyLegacyReportPhotoMock = mock.fn(async () => true);
-
-mock.module("@/lib/api/legacy-upload-capability", {
-  namedExports: { verifyLegacyReportPhoto: verifyLegacyReportPhotoMock },
-});
-
 mock.module("@/auth", { namedExports: { auth: authMock } });
 mock.module("@/lib/api/auth-guard", {
   namedExports: {
@@ -113,6 +144,21 @@ mock.module("@/lib/api/rate-limit", {
 });
 mock.module("@/lib/api/unit-scope", {
   namedExports: { resolveScope: mock.fn() },
+});
+mock.module("@/lib/api/upload-lifecycle", {
+  namedExports: {
+    createServerOwnedUploadContext: createServerOwnedUploadContextMock,
+    verifyNewUpload: verifyNewUploadMock,
+    readVerifiedNewUpload: readVerifiedNewUploadMock,
+    rollbackVerifiedNewUpload: rollbackVerifiedNewUploadMock,
+    withUploadLifecycleTransaction: withUploadLifecycleTransactionMock,
+    getUploadLifecycleTransaction: getUploadLifecycleTransactionMock,
+    findUploadReferences: findUploadReferencesMock,
+    UploadLifecycleError: TestUploadLifecycleError,
+  },
+});
+mock.module("@/lib/api/upload-storage", {
+  namedExports: { resolveUploadReference: resolveUploadReferenceMock },
 });
 mock.module("@/lib/prisma", {
   namedExports: {
@@ -156,7 +202,16 @@ beforeEach(() => {
   reportFindFirstMock.mock.resetCalls();
   reportCreateMock.mock.resetCalls();
   queryRawMock.mock.resetCalls();
+  executeRawMock.mock.resetCalls();
   transactionMock.mock.resetCalls();
+  withUploadLifecycleTransactionMock.mock.resetCalls();
+  createServerOwnedUploadContextMock.mock.resetCalls();
+  verifyNewUploadMock.mock.resetCalls();
+  readVerifiedNewUploadMock.mock.resetCalls();
+  rollbackVerifiedNewUploadMock.mock.resetCalls();
+  getUploadLifecycleTransactionMock.mock.resetCalls();
+  resolveUploadReferenceMock.mock.resetCalls();
+  findUploadReferencesMock.mock.resetCalls();
   transactionTail = Promise.resolve();
   created = false;
   authMock.mock.mockImplementation(async () => ({
@@ -187,8 +242,6 @@ beforeEach(() => {
   );
   isProgramUploadOpenMock.mock.mockImplementation(() => true);
   isActivityDateInsideProgramMock.mock.mockImplementation(() => true);
-  verifyLegacyReportPhotoMock.mock.resetCalls();
-  verifyLegacyReportPhotoMock.mock.mockImplementation(async () => true);
 });
 
 function request(
@@ -207,10 +260,10 @@ function request(
       ...(lastSubmittedAt ? { lastSubmittedAt } : {}),
       uploadedPhotos: Array.from({ length: photos }, (_, index) => ({
         originalName: `foto-${index}.jpg`,
-        imageUrl: `/uploads/foto-${index}.jpg`,
-        publicId: `foto-${index}.jpg`,
-        descriptor: "signed-descriptor",
-        cleanupToken: "signed-cleanup",
+        imageUrl: `/uploads/tampered-${index}.jpg`,
+        publicId: `reports/unit-1/2026/06/11111111-1111-4111-8111-11111111111${index}.jpg`,
+        descriptor: `descriptor-${index}`,
+        cleanupToken: `cleanup-${index}`,
       })),
     }),
     headers: { "content-type": "application/json" },
@@ -249,10 +302,47 @@ test("menerima tepat satu atau dua foto, menolak nol atau tiga foto", async () =
   assert.equal((await POST(request(2))).status, 201);
 });
 
-test("menolak bukti foto yang tidak dimiliki PIC sebelum menulis laporan", async () => {
-  verifyLegacyReportPhotoMock.mock.mockImplementationOnce(async () => false);
+test("menolak bukti foto dengan capability invalid sebelum menulis laporan", async () => {
+  verifyNewUploadMock.mock.mockImplementationOnce(() => {
+    throw new TestUploadLifecycleError("invalid capability");
+  });
   assert.equal((await POST(request(1))).status, 400);
   assert.equal(reportCreateMock.mock.callCount(), 0);
+});
+
+test("logs exact file key when rollback of an owned upload fails", async () => {
+  rollbackVerifiedNewUploadMock.mock.mockImplementationOnce(async () => ({
+    kind: "failed",
+  }));
+  programFindUniqueMock.mock.mockImplementationOnce(async () => ({
+    isActive: false,
+    startDate: new Date("2026-01-01"),
+    endDate: new Date("2026-12-31"),
+    uploadDeadline: new Date("2026-12-31"),
+    category: {
+      targetUnit: "PARTISIPASI_PERSEN",
+      evidenceMode: "PHOTO_WITHOUT_AI",
+      scoreInputMode: "DIRECT_ADMIN",
+    },
+  }));
+  const captured: unknown[][] = [];
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => captured.push(args);
+  let response: Response;
+  try {
+    response = await POST(request(1));
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.equal(response!.status, 400);
+  assert.deepEqual(captured[0], [
+    "[POST /api/reports] upload cleanup failed",
+    {
+      phase: "rollback-new-upload",
+      fileKey: "reports/unit-1/2026/06/11111111-1111-4111-8111-111111111110.jpg",
+    },
+  ]);
 });
 
 test("mengesampingkan lastSubmittedAt dari request client dan memakai timestamp server", async () => {

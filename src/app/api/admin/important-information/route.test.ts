@@ -15,18 +15,47 @@ type ImportantInformationRecord = {
 };
 
 const authMock = mock.fn<
-  () => Promise<{ user: { id: string; role: string } } | null>
+  () => Promise<{
+    user: { id: string; role: string; authProvider: "LOCAL" };
+  } | null>
 >(async () => ({
-  user: { id: "admin-1", role: "ADMIN" },
+  user: { id: "admin-1", role: "ADMIN", authProvider: "LOCAL" },
 }));
 
-const storedImageMock = mock.fn(async (_file: File) => ({
+type AuthUserRow = {
+  id: string;
+  name: string;
+  username: string;
+  role: string;
+  authProvider: "LOCAL";
+  isActive: boolean;
+  unitId: string | null;
+  unit: null;
+  employee: null;
+};
+
+const authUsers: Record<string, AuthUserRow> = {
+  "admin-1": {
+    id: "admin-1", name: "Admin", username: "admin", role: "ADMIN",
+    authProvider: "LOCAL", isActive: true, unitId: null, unit: null, employee: null,
+  },
+  "pic-1": {
+    id: "pic-1", name: "PIC", username: "pic", role: "PIC",
+    authProvider: "LOCAL", isActive: true, unitId: "pic-unit", unit: null, employee: null,
+  },
+};
+
+const authUserFindUniqueMock = mock.fn(
+  async ({ where }: { where: { id: string } }) => authUsers[where.id] ?? null,
+);
+
+const storedImageMock = mock.fn(async () => ({
   imageUrl: "/uploads/important-information/test-uuid.png",
   width: 400,
   height: 200,
 }));
 
-const rollbackMock = mock.fn(async (_imageUrl: string) => {});
+const rollbackMock = mock.fn(async () => {});
 
 const items: ImportantInformationRecord[] = [];
 let orderState = { id: "global", revision: 0, updatedAt: new Date() };
@@ -98,6 +127,7 @@ mock.module("@generated/prisma", {
 mock.module("@/lib/prisma", {
   namedExports: {
     prisma: {
+      user: { findUnique: authUserFindUniqueMock },
       picImportantInformation: {
         findMany: mock.fn(async () => [...items]),
       },
@@ -140,7 +170,7 @@ before(async () => {
 
 beforeEach(() => {
   authMock.mock.mockImplementation(async () => ({
-    user: { id: "admin-1", role: "ADMIN" },
+    user: { id: "admin-1", role: "ADMIN", authProvider: "LOCAL" },
   }));
   items.length = 0;
   advisoryKeys.length = 0;
@@ -161,7 +191,7 @@ test("GET returns 401 for unauthenticated and 403 for non-admin", async () => {
   assert.equal(unauth.status, 401);
 
   authMock.mock.mockImplementationOnce(async () => ({
-    user: { id: "pic-1", role: "PIC" },
+    user: { id: "pic-1", role: "PIC", authProvider: "LOCAL" },
   }));
   const forbidden = await GET();
   assert.equal(forbidden.status, 403);

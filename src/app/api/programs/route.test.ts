@@ -41,7 +41,18 @@ const invalidCategory = {
 };
 
 const authMock = mock.fn(async () => ({
-  user: { id: "admin-1", role: "ADMIN" },
+  user: { id: "admin-1", role: "ADMIN", authProvider: "LOCAL" },
+}));
+const persistedAdminMock = mock.fn(async () => ({
+  id: "admin-1",
+  name: "Admin",
+  username: "admin",
+  role: "ADMIN",
+  authProvider: "LOCAL",
+  isActive: true,
+  unitId: null,
+  unit: null,
+  employee: null,
 }));
 const programFindManyMock = mock.fn<(...args: any[]) => Promise<any[]>>(
   async () => [],
@@ -94,6 +105,9 @@ const tx = {
     ),
   },
   programBudaya: {
+    findUnique: mock.fn(async ({ where }: { where: { id: string } }) =>
+      programs.find((program) => program.id === where.id) ?? null,
+    ),
     findFirst: mock.fn(
       async ({
         where,
@@ -137,7 +151,21 @@ const tx = {
         return { ...program, category: categoryFor(program.categoryId) };
       },
     ),
+    updateMany: mock.fn(async ({
+      where, data,
+    }: {
+      where: { id: string; updatedAt?: Date };
+      data: Partial<ProgramRecord>;
+    }) => {
+      const program = programs.find((item) => item.id === where.id);
+      if (!program || (where.updatedAt && program.updatedAt.getTime() !== where.updatedAt.getTime())) {
+        return { count: 0 };
+      }
+      Object.assign(program, data);
+      return { count: 1 };
+    }),
   },
+  activityReport: { count: activityCountMock },
   $queryRaw: mock.fn(async (query: { values: unknown[] }) => {
     advisoryKeys.push(String(query.values[0]));
     return [];
@@ -159,6 +187,22 @@ const transactionMock = mock.fn(
     }
   },
 );
+
+const lifecycleMock = mock.fn(
+  async (_client: unknown, plan: unknown, callback: (lifecycle: unknown) => Promise<unknown>) =>
+    transactionMock(() => callback({ plan })),
+);
+const findUploadReferencesMock = mock.fn(async () => [] as unknown[]);
+const captureProgramOwnerMock = mock.fn(async () => ({}));
+const captureOldCleanupMock = mock.fn(() => ({}));
+const cleanupOldUploadMock = mock.fn(async () => ({ kind: "deleted" }));
+const verifyNewUploadMock = mock.fn((descriptor: string, cleanupToken: string, context: any) => ({
+  publicId: context.publicId,
+  url: `/uploads/${context.publicId}`,
+  descriptor,
+  cleanupToken,
+}));
+const rollbackUploadMock = mock.fn(async () => ({ kind: "deleted" }));
 
 const programFindUniqueMock = mock.fn(
   async ({ where }: { where: { id: string } }) =>
@@ -184,6 +228,7 @@ mock.module("@generated/prisma", {
 mock.module("@/lib/prisma", {
   namedExports: {
     prisma: {
+      user: { findUnique: persistedAdminMock },
       programBudaya: {
         findMany: programFindManyMock,
         count: programCountMock,
@@ -196,16 +241,54 @@ mock.module("@/lib/prisma", {
   },
 });
 
+mock.module("@/lib/api/upload-lifecycle", {
+  namedExports: {
+    createServerOwnedUploadContext: (context: unknown) => context,
+    verifyNewUpload: verifyNewUploadMock,
+    readVerifiedNewUpload: (upload: any) => upload,
+    rollbackVerifiedNewUpload: rollbackUploadMock,
+    UploadLifecycleError: class UploadLifecycleError extends Error {},
+    withUploadLifecycleTransaction: lifecycleMock,
+    getUploadLifecycleTransaction: () => tx,
+    findUploadReferences: findUploadReferencesMock,
+    parseExpectedUpdatedAt: (value: string) => new Date(value),
+    matchesExpectedUpdatedAt: (value: string, actual: Date) =>
+      new Date(value).getTime() === actual.getTime(),
+    captureProgramBudayaOwner: captureProgramOwnerMock,
+    capturePersistedOldCleanup: captureOldCleanupMock,
+    cleanupPersistedOldUploadAfterCommit: cleanupOldUploadMock,
+  },
+});
+
+mock.module("@/lib/api/upload-storage", {
+  namedExports: {
+    resolveUploadReference: async (url: string) => ({
+      kind: "local", exists: true, isRegularFile: true,
+      storageKey: url.slice("/uploads/".length),
+    }),
+    classifyUploadReference: (value: string) =>
+      value.startsWith("/uploads/")
+        ? { kind: "local", storageKey: value.slice("/uploads/".length) }
+        : { kind: "external-http", url: value },
+    classifyManagedStorageKey: (key: string) =>
+      key.startsWith("banners/programs/") ? "banner-programs" : null,
+  },
+});
+
 let GET: (req: Request) => Promise<Response>;
 let POST: (req: Request) => Promise<Response>;
 let PUT: (
   req: Request,
   context: { params: Promise<{ id: string }> },
 ) => Promise<Response>;
+let PATCH: (
+  req: Request,
+  context: { params: Promise<{ id: string }> },
+) => Promise<Response>;
 
 before(async () => {
   ({ GET, POST } = await import("./route"));
-  ({ PUT } = await import("./[id]/route"));
+  ({ PUT, PATCH } = await import("./[id]/route"));
 });
 
 beforeEach(() => {
@@ -213,6 +296,7 @@ beforeEach(() => {
   advisoryKeys.splice(0);
   transactionTail = Promise.resolve();
   authMock.mock.resetCalls();
+  persistedAdminMock.mock.resetCalls();
   programFindManyMock.mock.resetCalls();
   programCountMock.mock.resetCalls();
   categoryCountMock.mock.resetCalls();
@@ -220,10 +304,19 @@ beforeEach(() => {
   programFindUniqueMock.mock.resetCalls();
   transactionMock.mock.resetCalls();
   tx.programCategory.findUnique.mock.resetCalls();
+  tx.programBudaya.findUnique.mock.resetCalls();
   tx.programBudaya.findFirst.mock.resetCalls();
   tx.programBudaya.create.mock.resetCalls();
   tx.programBudaya.update.mock.resetCalls();
+  tx.programBudaya.updateMany.mock.resetCalls();
   tx.$queryRaw.mock.resetCalls();
+  lifecycleMock.mock.resetCalls();
+  findUploadReferencesMock.mock.resetCalls();
+  captureProgramOwnerMock.mock.resetCalls();
+  captureOldCleanupMock.mock.resetCalls();
+  cleanupOldUploadMock.mock.resetCalls();
+  verifyNewUploadMock.mock.resetCalls();
+  rollbackUploadMock.mock.resetCalls();
 });
 
 function programPayload(overrides: Record<string, unknown> = {}) {
@@ -241,11 +334,19 @@ function programPayload(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function writeRequest(url: string, method: "POST" | "PUT", body: unknown) {
+function writeRequest(url: string, method: "POST" | "PUT" | "PATCH", body: unknown) {
+  const data = { ...(body as Record<string, unknown>) };
+  if (method === "POST") data.bannerState ??= "NONE";
+  if (method === "PUT") {
+    const id = new URL(url).pathname.split("/").pop();
+    const existing = programs.find((program) => program.id === id);
+    data.expectedUpdatedAt ??= existing?.updatedAt.toISOString();
+    data.bannerState ??= existing?.bannerUrl ? "UNCHANGED" : "NONE";
+  }
   return new NextRequest(url, {
     method,
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(data),
   });
 }
 
@@ -384,6 +485,76 @@ test("create accepts the approved Excel tuple and rejects an incomplete tuple", 
   assert.equal(programs.length, 1);
 });
 
+test("POST ignores a client banner URL without a replacement receipt", async () => {
+  const response = await POST(writeRequest(
+    "http://localhost/api/programs", "POST",
+    programPayload({ bannerUrl: "https://attacker.invalid/banner.jpg" }),
+  ));
+
+  assert.equal(response.status, 201);
+  assert.equal(programs[0].bannerUrl, null);
+  assert.equal(verifyNewUploadMock.mock.callCount(), 0);
+});
+
+test("POST persists only the canonical URL from a verified program-banner receipt", async () => {
+  const publicId = "banners/programs/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg";
+  const response = await POST(writeRequest(
+    "http://localhost/api/programs", "POST",
+    programPayload({
+      bannerState: "REPLACED",
+      bannerUrl: "https://attacker.invalid/banner.jpg",
+      bannerPublicId: publicId,
+      bannerDescriptor: "signed-descriptor",
+      bannerCleanupToken: "signed-cleanup-token",
+    }),
+  ));
+
+  assert.equal(response.status, 201);
+  assert.equal(programs[0].bannerUrl, `/uploads/${publicId}`);
+  assert.equal(verifyNewUploadMock.mock.callCount(), 1);
+  const uploadContext = verifyNewUploadMock.mock.calls[0].arguments[2] as {
+    userId: string;
+    purpose: string;
+    mode: string;
+  };
+  assert.equal(uploadContext.userId, "admin-1");
+  assert.equal(uploadContext.purpose, "PROGRAM_BANNER");
+  assert.equal(uploadContext.mode, "CREATE");
+});
+
+test("ProgramBudaya mutations take ProgramCategory lifecycle locks", async () => {
+  const created = await POST(writeRequest(
+    "http://localhost/api/programs", "POST", programPayload(),
+  ));
+  assert.equal(created.status, 201);
+  const createPlan = lifecycleMock.mock.calls[0].arguments[1] as {
+    entities: Array<{ model: string; id: string }>;
+  };
+  assert.ok(createPlan.entities.some((entity) =>
+    entity.model === "ProgramCategory" && entity.id === directCategory.id,
+  ));
+
+  const existing = existingProgram("program-a", "Program A");
+  existing.categoryId = directCategory.id;
+  programs.push(existing);
+  const updated = await PUT(
+    writeRequest("http://localhost/api/programs/program-a", "PUT", {
+      categoryId: excelCategory.id,
+    }),
+    { params: Promise.resolve({ id: "program-a" }) },
+  );
+  assert.equal(updated.status, 200);
+  const updatePlan = lifecycleMock.mock.calls[1].arguments[1] as {
+    entities: Array<{ model: string; id: string }>;
+  };
+  assert.ok(updatePlan.entities.some((entity) =>
+    entity.model === "ProgramCategory" && entity.id === directCategory.id,
+  ));
+  assert.ok(updatePlan.entities.some((entity) =>
+    entity.model === "ProgramCategory" && entity.id === excelCategory.id,
+  ));
+});
+
 test("POST covers inclusive TW boundaries and mismatch rejection", async () => {
   const cases: Array<{
     label: string;
@@ -512,7 +683,77 @@ test("PUT rejects an incomplete category capability tuple", async () => {
   );
 
   assert.equal(response.status, 422);
-  assert.equal(tx.programBudaya.update.mock.callCount(), 0);
+  assert.equal(tx.programBudaya.updateMany.mock.callCount(), 0);
+});
+
+test("PUT rejects a stale expectedUpdatedAt before mutation", async () => {
+  programs.push(existingProgram("program-a", "Program A"));
+  const response = await PUT(
+    writeRequest("http://localhost/api/programs/program-a", "PUT", {
+      name: "Stale update",
+      expectedUpdatedAt: "2025-01-01T00:00:00.000Z",
+    }),
+    { params: Promise.resolve({ id: "program-a" }) },
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal(programs[0].name, "Program A");
+});
+
+test("PUT stores a verified canonical replacement and schedules managed old-banner cleanup", async () => {
+  const oldKey = "banners/programs/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.jpg";
+  const newKey = "banners/programs/cccccccc-cccc-4ccc-8ccc-cccccccccccc.jpg";
+  const program = existingProgram("program-a", "Program A");
+  program.bannerUrl = `/uploads/${oldKey}`;
+  programs.push(program);
+
+  const response = await PUT(
+    writeRequest("http://localhost/api/programs/program-a", "PUT", {
+      bannerState: "REPLACED",
+      bannerUrl: "https://attacker.invalid/banner.jpg",
+      bannerPublicId: newKey,
+      bannerDescriptor: "signed-descriptor",
+      bannerCleanupToken: "signed-cleanup-token",
+    }),
+    { params: Promise.resolve({ id: "program-a" }) },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(programs[0].bannerUrl, `/uploads/${newKey}`);
+  assert.equal(captureProgramOwnerMock.mock.callCount(), 1);
+  assert.equal(cleanupOldUploadMock.mock.callCount(), 1);
+  const uploadContext = verifyNewUploadMock.mock.calls[0].arguments[2] as {
+    userId: string;
+    purpose: string;
+    mode: string;
+  };
+  assert.equal(uploadContext.userId, "admin-1");
+  assert.equal(uploadContext.purpose, "PROGRAM_BANNER");
+  assert.equal(uploadContext.mode, "REPLACEMENT");
+});
+
+test("PATCH requires a matching version and applies only the active flag", async () => {
+  programs.push(existingProgram("program-a", "Program A"));
+  const current = programs[0].updatedAt.toISOString();
+  const stale = await PATCH(
+    writeRequest("http://localhost/api/programs/program-a", "PATCH", {
+      isActive: false,
+      expectedUpdatedAt: "2025-01-01T00:00:00.000Z",
+    }),
+    { params: Promise.resolve({ id: "program-a" }) },
+  );
+  assert.equal(stale.status, 409);
+  assert.equal(programs[0].isActive, true);
+
+  const accepted = await PATCH(
+    writeRequest("http://localhost/api/programs/program-a", "PATCH", {
+      isActive: false,
+      expectedUpdatedAt: current,
+    }),
+    { params: Promise.resolve({ id: "program-a" }) },
+  );
+  assert.equal(accepted.status, 200);
+  assert.equal(programs[0].isActive, false);
 });
 
 test("PUT excludes its own id from the direct-program duplicate check", async () => {
@@ -601,7 +842,7 @@ test("PUT rejects an invalid merged period before conflict lookup and write", as
   assert.equal(body.message, "Validasi input gagal");
   assert.equal(activityCountMock.mock.callCount(), 0);
   assert.equal(transactionMock.mock.callCount(), 0);
-  assert.equal(tx.programBudaya.update.mock.callCount(), 0);
+  assert.equal(tx.programBudaya.updateMany.mock.callCount(), 0);
 });
 
 test("PUT rejects unrelated changes to an existing TW mismatch", async () => {
@@ -626,7 +867,7 @@ test("PUT rejects unrelated changes to an existing TW mismatch", async () => {
   assert.equal(body.message, "Validasi input gagal");
   assert.equal(activityCountMock.mock.callCount(), 0);
   assert.equal(transactionMock.mock.callCount(), 0);
-  assert.equal(tx.programBudaya.update.mock.callCount(), 0);
+  assert.equal(tx.programBudaya.updateMany.mock.callCount(), 0);
 });
 
 test("PUT rejects a TW change that makes the merged period invalid", async () => {
@@ -641,7 +882,7 @@ test("PUT rejects a TW change that makes the merged period invalid", async () =>
   assert.equal(response.status, 400);
   assert.equal(body.error, true);
   assert.equal(body.message, "Validasi input gagal");
-  assert.equal(tx.programBudaya.update.mock.callCount(), 0);
+  assert.equal(tx.programBudaya.updateMany.mock.callCount(), 0);
 });
 
 test("PUT accepts period correction and deadline outside the TW", async () => {
@@ -662,7 +903,7 @@ test("PUT accepts period correction and deadline outside the TW", async () => {
     { params: Promise.resolve({ id: "program-a" }) },
   );
   assert.equal(corrected.status, 200);
-  assert.equal(tx.programBudaya.update.mock.callCount(), 1);
+  assert.equal(tx.programBudaya.updateMany.mock.callCount(), 1);
 
   const valid = existingProgram("program-b", "Program B");
   Object.assign(valid, {
@@ -678,12 +919,12 @@ test("PUT accepts period correction and deadline outside the TW", async () => {
     { params: Promise.resolve({ id: "program-b" }) },
   );
   assert.equal(deadlineOutsideTw.status, 200);
-  assert.equal(tx.programBudaya.update.mock.callCount(), 2);
+  assert.equal(tx.programBudaya.updateMany.mock.callCount(), 2);
 });
 
 test("PUT rejects category change when program already has existing activity reports with 409", async () => {
   programs.push(existingProgram("program-a", "Program A"));
-  activityCountMock.mock.mockImplementation(async () => 3);
+  activityCountMock.mock.mockImplementationOnce(async () => 3);
 
   const response = await PUT(
     writeRequest("http://localhost/api/programs/program-a", "PUT", {
@@ -699,6 +940,6 @@ test("PUT rejects category change when program already has existing activity rep
     body.message,
     "Kategori program tidak dapat diubah karena sudah memiliki laporan kegiatan",
   );
-  assert.equal(transactionMock.mock.callCount(), 0);
-  assert.equal(tx.programBudaya.update.mock.callCount(), 0);
+  assert.equal(transactionMock.mock.callCount(), 1);
+  assert.equal(tx.programBudaya.updateMany.mock.callCount(), 0);
 });

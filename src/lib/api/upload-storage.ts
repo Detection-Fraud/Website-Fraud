@@ -1,4 +1,4 @@
-import { lstat, realpath, stat } from "node:fs/promises";
+import { lstat, mkdir, realpath, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 
 const UPLOADS_PREFIX = "/uploads/";
@@ -15,6 +15,11 @@ export type UploadStorageKeyKind =
   | "banner-categories"
   | "banner-login"
   | "important-information";
+
+export type ManagedUploadStorageKeyKind = Exclude<
+  UploadStorageKeyKind,
+  "legacy-flat"
+>;
 
 export type UploadReferenceClassification =
   | {
@@ -149,6 +154,32 @@ export function classifyStorageKey(
   return null;
 }
 
+export function classifyManagedStorageKey(
+  storageKey: string,
+): ManagedUploadStorageKeyKind | null {
+  const source = classifyStorageKey(storageKey);
+
+  if (!source || source === "legacy-flat") return null;
+
+  return source;
+}
+
+export type UtcUploadPartition = {
+  year: string;
+  month: string;
+};
+
+export function getUtcYearMonthPartition(timestamp: Date): UtcUploadPartition {
+  if (!(timestamp instanceof Date) || Number.isNaN(timestamp.getTime())) {
+    throw new TypeError("Invalid upload timestamp");
+  }
+
+  return {
+    year: String(timestamp.getUTCFullYear()).padStart(4, "0"),
+    month: String(timestamp.getUTCMonth() + 1).padStart(2, "0"),
+  };
+}
+
 export function classifyUploadReference(
   reference: string,
 ): UploadReferenceClassification {
@@ -229,6 +260,7 @@ async function resolveLocalStorageKey(
   storageKey: string,
   source: UploadStorageKeyKind,
   root: string,
+  rejectNonRegularFile = false,
 ): Promise<LocalUploadResolution> {
   const segments = splitStorageKey(storageKey);
   if (!segments) return { kind: "unsafe", reason: "Invalid storage key" };
@@ -273,7 +305,12 @@ async function resolveLocalStorageKey(
 
   try {
     const fileInfo = await stat(currentPath);
-    if (!fileInfo.isFile()) return missingResult(storageKey, source);
+    if (!fileInfo.isFile()) {
+      if (rejectNonRegularFile) {
+        throw new TypeError("Managed upload is not a regular file");
+      }
+      return missingResult(storageKey, source);
+    }
 
     return {
       kind: "local",
@@ -284,6 +321,7 @@ async function resolveLocalStorageKey(
       isRegularFile: true,
     };
   } catch (error) {
+    if (error instanceof TypeError) throw error;
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT" || code === "ENOTDIR") {
       return missingResult(storageKey, source);
@@ -295,6 +333,7 @@ async function resolveLocalStorageKey(
 async function resolveLocalReference(
   storageKey: string,
   source: UploadStorageKeyKind,
+  rejectNonRegularFile = false,
 ): Promise<LocalUploadResolution> {
   const root = await getCanonicalUploadRoot();
 
@@ -303,7 +342,12 @@ async function resolveLocalReference(
     return { kind: "error", reason: "upload-root" };
   }
 
-  return resolveLocalStorageKey(storageKey, source, root.root);
+  return resolveLocalStorageKey(
+    storageKey,
+    source,
+    root.root,
+    rejectNonRegularFile,
+  );
 }
 
 export async function resolveUploadReference(
@@ -332,4 +376,106 @@ export async function resolvePublicUploadPath(
   if (!source) return { kind: "unsafe", reason: "Invalid storage key" };
 
   return resolveLocalReference(storageKey, source);
+}
+
+/**
+ * Prepare a destination for a new structured managed upload. Existing files
+ * and descendant links are rejected; callers must still create the file with
+ * exclusive semantics (`flag: "wx"`).
+ */
+export async function prepareManagedUploadWritePath(
+  storageKey: string,
+): Promise<string> {
+  if (!classifyManagedStorageKey(storageKey)) {
+    throw new TypeError("Invalid managed storage key");
+  }
+
+  const configuredRoot = getConfiguredUploadDirectory();
+  await mkdir(configuredRoot, { recursive: true });
+  const canonicalRoot = await realpath(configuredRoot);
+  const rootInfo = await stat(canonicalRoot);
+  if (!rootInfo.isDirectory()) throw new TypeError("Invalid upload root");
+
+  const segments = splitStorageKey(storageKey);
+  if (!segments) throw new TypeError("Invalid managed storage key");
+
+  let currentPath = canonicalRoot;
+  for (const segment of segments.slice(0, -1)) {
+    const nextPath = path.join(currentPath, segment);
+    if (!isContained(canonicalRoot, nextPath)) {
+      throw new TypeError("Upload path escapes root");
+    }
+
+    try {
+      await mkdir(nextPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+
+    const entry = await lstat(nextPath);
+    if (entry.isSymbolicLink() || !entry.isDirectory()) {
+      throw new TypeError("Unsafe upload directory");
+    }
+    currentPath = await realpath(nextPath);
+    if (!isContained(canonicalRoot, currentPath)) {
+      throw new TypeError("Upload path escapes root");
+    }
+  }
+
+  const target = path.join(currentPath, segments.at(-1)!);
+  if (!isContained(canonicalRoot, target)) {
+    throw new TypeError("Upload path escapes root");
+  }
+
+  try {
+    await lstat(target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return target;
+    throw error;
+  }
+  throw new TypeError("Upload target already exists");
+}
+
+export type ManagedUploadDeletionResult =
+  | { kind: "deleted"; storageKey: string }
+  | { kind: "missing"; storageKey: string };
+
+/**
+ * Delete exactly one canonical managed file.
+ *
+ * Callers must provide the server-derived structured storage key, never a URL
+ * or filesystem path.  The resolver remains the only owner of containment,
+ * symlink, and regular-file checks.
+ */
+export async function deleteManagedUploadFile(
+  storageKey: string,
+): Promise<ManagedUploadDeletionResult> {
+  const source = classifyManagedStorageKey(storageKey);
+  if (!source) throw new TypeError("Invalid managed storage key");
+
+  const resolved = await resolveLocalReference(storageKey, source, true);
+
+  if (resolved.kind === "missing") {
+    return { kind: "missing", storageKey };
+  }
+
+  if (resolved.kind === "unsafe") {
+    throw new TypeError("Unsafe managed storage key");
+  }
+
+  if (resolved.kind === "error") {
+    throw new Error("Unable to resolve managed upload");
+  }
+
+  try {
+    await unlink(resolved.filePath);
+    return { kind: "deleted", storageKey };
+  } catch (error) {
+    if (error instanceof TypeError) throw error;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      return { kind: "missing", storageKey };
+    }
+    throw new Error("Unable to delete managed upload");
+  }
 }

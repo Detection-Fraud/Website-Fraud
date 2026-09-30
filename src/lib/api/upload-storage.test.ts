@@ -12,8 +12,12 @@ import path from "node:path";
 import { test } from "node:test";
 
 import {
+  classifyManagedStorageKey,
   classifyStorageKey,
   classifyUploadReference,
+  deleteManagedUploadFile,
+  getUtcYearMonthPartition,
+  prepareManagedUploadWritePath,
   resolvePublicUploadPath,
   resolveUploadReference,
   storageKeyToPublicUrl,
@@ -73,6 +77,35 @@ test("Important Information path resolves", async () => {
     const result = assertLocal(await resolveUploadReference(`/uploads/${key}`));
 
     assert.equal(result.source, "important-information");
+  });
+});
+
+test("write target is contained, structured, and exclusive", async () => {
+  await withUploadRoot(async (root) => {
+    const key = `reports/${REPORT_UNIT_ID}/2026/09/${REPORT_FILE}`;
+    const target = await prepareManagedUploadWritePath(key);
+    assert.equal(target, path.join(root, ...key.split("/")));
+    await writeFile(target, "first", { flag: "wx" });
+    await assert.rejects(prepareManagedUploadWritePath(key), /already exists/);
+    await assert.rejects(
+      prepareManagedUploadWritePath("legacy-flat.jpg"),
+      /Invalid managed storage key/,
+    );
+  });
+});
+
+test("write target rejects a descendant symlink escape", async () => {
+  await withUploadRoot(async (root) => {
+    const outside = await mkdtemp(path.join(tmpdir(), "upload-storage-outside-"));
+    try {
+      await symlink(outside, path.join(root, "reports"), "junction");
+      await assert.rejects(
+        prepareManagedUploadWritePath(`reports/${REPORT_UNIT_ID}/2026/09/${REPORT_FILE}`),
+        /Unsafe upload directory/,
+      );
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 });
 
@@ -199,6 +232,59 @@ test("unknown namespace and malformed structured keys are rejected", async () =>
   }
 });
 
+test("managed storage classifier excludes legacy-flat keys", () => {
+  assert.equal(
+    classifyManagedStorageKey(
+      `reports/${REPORT_UNIT_ID}/2026/09/${REPORT_FILE}`,
+    ),
+    "report",
+  );
+
+  assert.equal(
+    classifyManagedStorageKey(`banners/programs/${REPORT_FILE}`),
+    "banner-programs",
+  );
+
+  assert.equal(classifyManagedStorageKey("historical-banner-final.jpg"), null);
+
+  assert.equal(
+    classifyManagedStorageKey(
+      `reports/${REPORT_UNIT_ID}/2026/9/${REPORT_FILE}`,
+    ),
+    null,
+  );
+});
+
+test("UTC upload partition uses zero-padded UTC year and month", () => {
+  assert.deepEqual(
+    getUtcYearMonthPartition(new Date("0001-01-01T00:00:00.000Z")),
+    {
+      year: "0001",
+      month: "01",
+    },
+  );
+
+  assert.deepEqual(
+    getUtcYearMonthPartition(new Date("2026-12-31T23:59:59.999Z")),
+    {
+      year: "2026",
+      month: "12",
+    },
+  );
+
+  assert.deepEqual(
+    getUtcYearMonthPartition(new Date("2027-01-01T00:00:00.000Z")),
+    {
+      year: "2027",
+      month: "01",
+    },
+  );
+});
+
+test("UTC upload partition rejects invalid timestamps", () => {
+  assert.throws(() => getUtcYearMonthPartition(new Date("invalid")), TypeError);
+});
+
 test("directory target is not resolved as a regular file", async () => {
   await withUploadRoot(async (root) => {
     await mkdir(
@@ -237,6 +323,60 @@ test("storageKeyToPublicUrl creates only canonical upload URLs", () => {
   assert.equal(storageKeyToPublicUrl(key), `/uploads/${key}`);
   assert.throws(() => storageKeyToPublicUrl("../secret.jpg"));
   assert.throws(() => storageKeyToPublicUrl("unknown/secret.jpg"));
+});
+
+test("exact managed deletion removes only the requested regular file", async () => {
+  await withUploadRoot(async (root) => {
+    const key = `banners/programs/${REPORT_FILE}`;
+    const filePath = await writeFixture(root, key);
+    const sibling = await writeFixture(root, `banners/programs/${REPORT_UNIT_ID}.jpg`);
+
+    assert.deepEqual(await deleteManagedUploadFile(key), {
+      kind: "deleted",
+      storageKey: key,
+    });
+    await assert.rejects(() => readFile(filePath));
+    assert.equal(await readFile(sibling, "utf8"), "fixture");
+    assert.deepEqual(await deleteManagedUploadFile(key), {
+      kind: "missing",
+      storageKey: key,
+    });
+  });
+});
+
+test("exact managed deletion rejects legacy, unsafe, and directory targets", async () => {
+  await withUploadRoot(async (root) => {
+    await assert.rejects(() => deleteManagedUploadFile("historical-banner-final.jpg"));
+    await assert.rejects(() => deleteManagedUploadFile("../secret.jpg"));
+
+    const key = "important-information/00000000-0000-4000-8000-000000000098.jpg";
+    await mkdir(path.join(root, ...key.split("/")), { recursive: true });
+    await assert.rejects(() => deleteManagedUploadFile(key));
+  });
+});
+
+test("exact managed deletion rejects a descendant symlink escape", async (t) => {
+  await withUploadRoot(async (root) => {
+    const outsideFile = path.join(root, "outside-delete-secret.jpg");
+    const key = "important-information/00000000-0000-4000-8000-000000000099.jpg";
+    const linkPath = path.join(root, ...key.split("/"));
+    await writeFile(outsideFile, "outside-sentinel");
+    await mkdir(path.dirname(linkPath), { recursive: true });
+
+    try {
+      await symlink(outsideFile, linkPath, "file");
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "EPERM" || code === "EACCES" || code === "ENOSYS") {
+        t.skip(`file symlink unavailable: ${code}`);
+        return;
+      }
+      throw error;
+    }
+
+    await assert.rejects(() => deleteManagedUploadFile(key));
+    assert.equal(await readFile(outsideFile, "utf8"), "outside-sentinel");
+  });
 });
 
 async function createDirectoryJunction(

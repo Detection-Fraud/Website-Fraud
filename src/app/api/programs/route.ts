@@ -14,6 +14,24 @@ import { createProgramSchema } from "@/schemas/program.schema";
 import { Prisma } from "@generated/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  createServerOwnedUploadContext,
+  findUploadReferences,
+  getUploadLifecycleTransaction,
+  readVerifiedNewUpload,
+  rollbackVerifiedNewUpload,
+  UploadLifecycleError,
+  verifyNewUpload,
+  withUploadLifecycleTransaction,
+} from "@/lib/api/upload-lifecycle";
+import { resolveUploadReference } from "@/lib/api/upload-storage";
+
+const createProgramRequestSchema = z.intersection(createProgramSchema, z.object({
+  bannerState: z.enum(["NONE", "REPLACED"]),
+  bannerPublicId: z.string().optional(),
+  bannerDescriptor: z.string().optional(),
+  bannerCleanupToken: z.string().optional(),
+}));
 
 const programQuerySchema = z.object({
   search: z.string().optional().default(""),
@@ -131,9 +149,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const verifiedUploads: ReturnType<typeof verifyNewUpload>[] = [];
   try {
-    await requireAdmin();
-    const parsedData = createProgramSchema.safeParse(await req.json());
+    const session = await requireAdmin();
+    const parsedData = createProgramRequestSchema.safeParse(await req.json());
 
     if (!parsedData.success) {
       return NextResponse.json(
@@ -155,14 +174,61 @@ export async function POST(req: Request) {
       uploadDeadline,
       categoryId,
       description,
-      bannerUrl,
+      bannerState,
+      bannerPublicId,
+      bannerDescriptor,
+      bannerCleanupToken,
     } = parsedData.data;
+
+    let bannerUrl: string | null = null;
+    let verifiedUpload: ReturnType<typeof verifyNewUpload> | undefined;
+    if (bannerState === "REPLACED") {
+      if (!bannerPublicId || !bannerDescriptor || !bannerCleanupToken) {
+        throw new ApiError("Bukti upload banner tidak lengkap", 400);
+      }
+      verifiedUpload = verifyNewUpload(
+        bannerDescriptor,
+        bannerCleanupToken,
+        createServerOwnedUploadContext({
+          userId: session.user.id,
+          purpose: "PROGRAM_BANNER",
+          mode: "CREATE",
+          publicId: bannerPublicId,
+        }),
+      );
+      verifiedUploads.push(verifiedUpload);
+      bannerUrl = readVerifiedNewUpload(verifiedUpload).url;
+    } else if (bannerPublicId || bannerDescriptor || bannerCleanupToken) {
+      throw new ApiError("Bukti upload banner tidak sesuai", 400);
+    }
 
     let targetFrequency = frequency;
 
-    // UPDATED: Transaksi interaktif atomik untuk validasi kapabilitas & duplicate check (Blocker 1)
-    const program = await prisma.$transaction(
-      async (tx) => {
+    const program = await withUploadLifecycleTransaction(
+      prisma,
+      {
+        entities: categoryId
+          ? [{ model: "ProgramCategory", id: categoryId }]
+          : [],
+        fileKeys: verifiedUpload
+          ? [readVerifiedNewUpload(verifiedUpload).publicId]
+          : [],
+      },
+      async (lifecycle) => {
+        const tx = getUploadLifecycleTransaction(lifecycle);
+        if (verifiedUpload) {
+          const upload = readVerifiedNewUpload(verifiedUpload);
+          const resolved = await resolveUploadReference(upload.url);
+          if (
+            resolved.kind !== "local" || !resolved.exists ||
+            !resolved.isRegularFile || resolved.storageKey !== upload.publicId
+          ) {
+            throw new ApiError("File banner tidak tersedia atau tidak valid", 400);
+          }
+          if ((await findUploadReferences(lifecycle, upload.publicId)).length > 0) {
+            throw new ApiError("File banner sudah digunakan", 409);
+          }
+        }
         if (categoryId) {
           const category = await tx.programCategory.findUnique({
             where: { id: categoryId },
@@ -224,7 +290,6 @@ export async function POST(req: Request) {
           include: { category: true },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
 
     return NextResponse.json(
@@ -234,6 +299,15 @@ export async function POST(req: Request) {
       },
     );
   } catch (error) {
+    await Promise.allSettled(
+      verifiedUploads.map((upload) => rollbackVerifiedNewUpload(prisma, upload)),
+    );
+    if (error instanceof UploadLifecycleError) {
+      return NextResponse.json(
+        errorResponse("Upload banner tidak valid atau tidak dapat diproses", 400),
+        { status: 400 },
+      );
+    }
     return handleApiError(error, "POST /api/programs");
   }
 }

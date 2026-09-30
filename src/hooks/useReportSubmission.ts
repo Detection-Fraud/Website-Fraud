@@ -73,25 +73,21 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void, e
 
       const cleanupCredentials: UploadCleanupCredential[] = [];
       const uploadedPhotos: NonNullable<ReportFormData["uploadedPhotos"]> = [];
+      const uploadOptions = {
+        purpose: "EVIDENCE" as const,
+        mode: reportId ? ("REPLACEMENT" as const) : ("CREATE" as const),
+        ...(reportId ? { reportId } : {}),
+      };
 
       try {
         for (const img of imageStore.images) {
-          const uploaded = await uploadFile({
-            file: img.file,
-            options: {
-              purpose: "EVIDENCE",
-              mode: reportId ? "REPLACEMENT" : "CREATE",
-              ...(reportId ? { reportId } : {}),
-            },
-          });
+          const uploaded = await uploadFile({ file: img.file, options: uploadOptions });
 
           cleanupCredentials.push({
             publicId: uploaded.publicId,
             descriptor: uploaded.descriptor,
             cleanupToken: uploaded.cleanupToken,
-            purpose: "EVIDENCE",
-            mode: reportId ? "REPLACEMENT" : "CREATE",
-            ...(reportId ? { reportId } : {}),
+            ...uploadOptions,
           });
 
           uploadedPhotos.push({

@@ -6,6 +6,7 @@ import {
   getExactPicUnitId,
   picCollageExportQuerySchema,
 } from "@/lib/api/collage";
+import { resolveUploadReference } from "@/lib/api/upload-storage";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
 import { Prisma } from "@generated/prisma";
@@ -16,8 +17,6 @@ import PDFDocument from "pdfkit";
 
 export const runtime = "nodejs";
 
-const UPLOAD_DIR =
-  process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
 const LOGO_PATH = path.join(
   process.cwd(),
   "public",
@@ -37,20 +36,11 @@ interface ExportPhoto {
   };
 }
 
-function localPhotoPath(imageUrl: string) {
-  if (!imageUrl.startsWith("/uploads/")) return null;
-  const root = path.resolve(UPLOAD_DIR);
-  const target = path.resolve(root, imageUrl.slice("/uploads/".length));
-  const relative = path.relative(root, target);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) return null;
-  return target;
-}
-
 async function readPhoto(imageUrl: string) {
-  const filePath = localPhotoPath(imageUrl);
-  if (!filePath) return null;
   try {
-    return await readFile(filePath);
+    const resolved = await resolveUploadReference(imageUrl);
+    if (resolved.kind !== "local" || !resolved.exists || !resolved.isRegularFile) return null;
+    return await readFile(resolved.filePath);
   } catch {
     return null;
   }

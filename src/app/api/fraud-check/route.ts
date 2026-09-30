@@ -1,13 +1,12 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { resolveScope } from "@/lib/api/unit-scope";
+import { resolveUploadReference } from "@/lib/api/upload-storage";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
-import path from "path";
 import { pathToFileURL } from "url";
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 export async function POST(request: Request) {
   const rl = checkRateLimit(request, { keyPrefix: "fraud-check", max: 5 });
   if (!rl.success) return rateLimitResponse(rl.resetAt);
@@ -41,36 +40,33 @@ export async function POST(request: Request) {
 
     const urlMapping: Record<string, string> = {};
 
-    const referencesJson = references.map((item) => {
-      let fileUrl = item.imageUrl;
-
-      // Jika URL relatif (seperti /uploads/filename.jpg), ubah jadi file:/// local path!
-      // Python akan baca langsung dari disk → tidak perlu HTTP download, anti-gagal
-      if (!fileUrl.startsWith("http")) {
-        try {
-          const filename = fileUrl.replace(/^\/uploads\//, "");
-
-          // Gunakan UPLOAD_DIR env var agar bisa baca dari folder symlink/junction
-          // maupun dari folder langsung (production vs local)
-          const uploadBase =
-            process.env.UPLOAD_DIR ||
-            path.join(process.cwd(), "public", "uploads");
-
-          const localPath = path.join(uploadBase, filename);
-          fileUrl = pathToFileURL(localPath).href;
-        } catch (e) {
-          fileUrl = `${BASE_URL}${fileUrl}`; // fallback ke HTTP
-        }
-      }
-
-      // Simpan mapping agar saat Python mengembalikan file:/// bisa dikembalikan ke /uploads/
-      urlMapping[fileUrl] = item.imageUrl;
-
-      return {
-        nama_asli: item.originalName,
-        url: fileUrl,
-      };
-    });
+    const referencesJson = (
+      await Promise.all(
+        references.map(async (item) => {
+          try {
+            const resolved = await resolveUploadReference(item.imageUrl);
+            if (
+              resolved.kind === "local" &&
+              resolved.exists &&
+              resolved.isRegularFile
+            ) {
+              const fileUrl = pathToFileURL(resolved.filePath).href;
+              urlMapping[fileUrl] = item.imageUrl;
+              return { nama_asli: item.originalName, url: fileUrl };
+            }
+            if (resolved.kind === "external-http") {
+              urlMapping[resolved.url] = item.imageUrl;
+              return { nama_asli: item.originalName, url: resolved.url };
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter(
+      (item): item is { nama_asli: string; url: string } => item !== null,
+    );
 
     const pythonFormData = new FormData();
 
