@@ -707,14 +707,13 @@ export function encodeUploadAdvisoryKey(
   const digest = createHash("sha256")
     .update(`fraud-app/upload-lock/v1\n${namespace}\n${value}`)
     .digest();
-  const unsigned =
-    (BigInt(digest.readUInt32BE(0)) << BigInt(32)) |
+  // PostgreSQL advisory locks take a signed bigint. Keep the hash in its
+  // positive 63-bit range so the raw-query parameter cannot overflow.
+  const key =
+    (BigInt(digest.readUInt32BE(0) & 0x7fffffff) << BigInt(32)) |
     BigInt(digest.readUInt32BE(4));
-  const signed = unsigned >= BigInt("9223372036854775808")
-    ? unsigned - BigInt("18446744073709551616")
-    : unsigned;
 
-  return signed === BigInt(0) ? BigInt(1) : signed;
+  return key === BigInt(0) ? BigInt(1) : key;
 }
 
 export async function acquireUploadLifecycleLocks(

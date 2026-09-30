@@ -102,6 +102,16 @@ test("advisory encoder is deterministic and namespace-separated", () => {
   );
 });
 
+test("advisory keys always fit a positive PostgreSQL bigint", () => {
+  const max = BigInt("9223372036854775807");
+  for (const namespace of ["entity", "file"] as const) {
+    for (let index = 0; index < 1000; index += 1) {
+      const key = encodeUploadAdvisoryKey(namespace, `lock-key-${index}`);
+      assert.ok(key > BigInt(0) && key <= max);
+    }
+  }
+});
+
 test("locks use one supplied transaction in entity-then-file order", async () => {
   const database = tx();
   const lifecycle = await acquireUploadLifecycleLocks(asTransaction(database), {
