@@ -49,7 +49,7 @@ export default function AnalyticTableRanking({
               <Card.Description className="text-xs font-light">
                 {activeTab === "unit"
                   ? "Diurutkan berdasarkan tingkat persetujuan tertinggi"
-                  : "Diurutkan berdasarkan jumlah laporan disetujui terbanyak"}
+                  : "Capaian tertinggi; jika seri, yang lebih dulu mencapai jumlah disetujui (target untuk ≥100%)."}
               </Card.Description>
             </div>
 

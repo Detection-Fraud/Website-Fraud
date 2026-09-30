@@ -25,6 +25,7 @@ interface RankingSortItem {
   submitted: number;
   reachedTarget: boolean;
   targetCompletionAt: Date | null;
+  currentApprovalAt: Date | null;
 }
 
 export function getTargetCompletionAt(
@@ -52,8 +53,17 @@ export function sortRankingCC<T extends RankingSortItem>(items: T[]) {
       const bTime = b.targetCompletionAt?.getTime() ?? Infinity;
 
       if (aTime !== bTime) return aTime - bTime;
-    } else if (a.approvalRate !== b.approvalRate) {
-      return b.approvalRate - a.approvalRate;
+    } else {
+      if (a.approvalRate !== b.approvalRate) {
+        return b.approvalRate - a.approvalRate;
+      }
+
+      if (a.approved !== b.approved) return b.approved - a.approved;
+
+      const aTime = a.currentApprovalAt?.getTime() ?? Infinity;
+      const bTime = b.currentApprovalAt?.getTime() ?? Infinity;
+
+      if (aTime !== bTime) return aTime - bTime;
     }
 
     return (
@@ -228,6 +238,7 @@ export async function getRankingCC(params: RankingCCParams) {
           approvalTimes,
           effectiveTarget,
         ),
+        currentApprovalAt: getTargetCompletionAt(approvalTimes, approved),
       };
     }),
   );

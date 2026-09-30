@@ -81,6 +81,7 @@ function rankingItem(
     submitted: number;
     reachedTarget: boolean;
     targetCompletionAt: Date | null;
+    currentApprovalAt: Date | null;
     lastSubmittedAt: Date;
   }> = {},
 ) {
@@ -91,6 +92,7 @@ function rankingItem(
     submitted: values.submitted ?? 1,
     reachedTarget: values.reachedTarget ?? false,
     targetCompletionAt: values.targetCompletionAt ?? null,
+    currentApprovalAt: values.currentApprovalAt ?? null,
     lastSubmittedAt: values.lastSubmittedAt ?? time("00:00:00"),
   };
 }
@@ -210,17 +212,84 @@ test("not-reached CCs compare approvalRate before approval time", () => {
   const sorted = sortRankingCC([
     rankingItem("cc-80", {
       approvalRate: 80,
-      targetCompletionAt: time("10:00:00"),
+      currentApprovalAt: time("09:00:00"),
     }),
     rankingItem("cc-90", {
       approvalRate: 90,
-      targetCompletionAt: time("12:00:00"),
+      currentApprovalAt: time("12:00:00"),
     }),
   ]);
 
   assert.deepEqual(
     sorted.map((item) => item.userId),
     ["cc-90", "cc-80"],
+  );
+});
+
+test("equal 1/24 CCs rank by earliest first approval independent of input order", () => {
+  const items = [
+    rankingItem("cc-later", {
+      approvalRate: 4.2,
+      approved: 1,
+      submitted: 2,
+      currentApprovalAt: time("11:00:00"),
+    }),
+    rankingItem("cc-earlier", {
+      approvalRate: 4.2,
+      approved: 1,
+      submitted: 1,
+      currentApprovalAt: time("09:00:00"),
+    }),
+  ];
+
+  assert.deepEqual(
+    sortRankingCC(items).map((item) => item.userId),
+    ["cc-earlier", "cc-later"],
+  );
+  assert.deepEqual(
+    sortRankingCC(items.reverse()).map((item) => item.userId),
+    ["cc-earlier", "cc-later"],
+  );
+});
+
+test("equal 3/24 CCs use the third approval time, then submitted count", () => {
+  const sorted = sortRankingCC([
+    rankingItem("cc-submitted-fallback", {
+      approvalRate: 12.5,
+      approved: 3,
+      submitted: 5,
+      currentApprovalAt: time("10:00:00"),
+    }),
+    rankingItem("cc-later", {
+      approvalRate: 12.5,
+      approved: 3,
+      submitted: 9,
+      currentApprovalAt: time("12:00:00"),
+    }),
+    rankingItem("cc-earlier", {
+      approvalRate: 12.5,
+      approved: 3,
+      submitted: 1,
+      currentApprovalAt: time("10:00:00"),
+    }),
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.userId),
+    ["cc-submitted-fallback", "cc-earlier", "cc-later"],
+  );
+});
+
+test("zero-approved ties fall back to submitted count and then userId", () => {
+  const sorted = sortRankingCC([
+    rankingItem("cc-z", { submitted: 4 }),
+    rankingItem("cc-b", { submitted: 2 }),
+    rankingItem("cc-a", { submitted: 2 }),
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.userId),
+    ["cc-z", "cc-a", "cc-b"],
   );
 });
 
@@ -308,6 +377,57 @@ test("Nth approval controls integration ranking, not first or later approval", a
   assert.deepEqual(
     result.rankingCC.map((item) => item.userId),
     ["cc-target", "cc-rival"],
+  );
+});
+
+test("unreached CCs use the approval time for their current approved count", async () => {
+  fixture.submitCounts = [
+    { createdById: "cc-later", _count: { id: 3 } },
+    { createdById: "cc-earlier", _count: { id: 3 } },
+  ];
+  fixture.approvedCounts = [
+    { createdById: "cc-later", _count: { id: 2 } },
+    { createdById: "cc-earlier", _count: { id: 2 } },
+  ];
+  fixture.approvedReports = [
+    {
+      createdById: "cc-later",
+      updatedAt: time("18:00:00"),
+      logs: [{ createdAt: time("12:00:00") }],
+    },
+    {
+      createdById: "cc-later",
+      updatedAt: time("18:00:00"),
+      logs: [{ createdAt: time("10:00:00") }],
+    },
+    {
+      createdById: "cc-earlier",
+      updatedAt: time("18:00:00"),
+      logs: [{ createdAt: time("11:00:00") }],
+    },
+    {
+      createdById: "cc-earlier",
+      updatedAt: time("18:00:00"),
+      logs: [{ createdAt: time("09:00:00") }],
+    },
+  ];
+  fixture.users = fixture.submitCounts.map(({ createdById }) => ({
+    id: createdById,
+    name: createdById,
+    unit: { name: createdById, type: "DIVISI" },
+  }));
+
+  const result = await getRankingCC({
+    whereClause: {},
+    year: 2026,
+    programTarget: 24,
+    page: 1,
+    limit: 10,
+  });
+
+  assert.deepEqual(
+    result.rankingCC.map((item) => item.userId),
+    ["cc-earlier", "cc-later"],
   );
 });
 
