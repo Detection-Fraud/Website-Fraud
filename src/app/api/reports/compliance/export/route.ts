@@ -323,15 +323,15 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
     monthlyData.map((d) => [`${d.unitId}:${d.programId}:${d.bulan}`, d.jumlah]),
   );
 
-  let kanwilNo = 0;
+  let unitKerjaNo = 0;
 
   for (const group of unitGroups) {
-    kanwilNo++;
+    const rootNo = group.root ? ++unitKerjaNo : null;
     const unitsInGroup = [group.root, ...group.children];
 
     for (const unit of unitsInGroup) {
       if (!unit) continue;
-      const isKanwil = unit.type === "KANTOR_WILAYAH";
+      const isRootUnit = group.root?.id === unit.id;
 
       const twNumber: number | null =
         { "TW I": 1, "TW II": 2, "TW III": 3, "TW IV": 4 }[sheetName] ?? null;
@@ -394,7 +394,7 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
       programComplianceList.forEach((pc, idx) => {
         const rowData: (string | number)[] = [];
 
-        rowData.push(idx === 0 && isKanwil ? kanwilNo : "");
+        rowData.push(idx === 0 && isRootUnit && rootNo !== null ? rootNo : "");
         rowData.push(idx === 0 ? unit.name : "");
         rowData.push(pc.name);
         rowData.push(pc.target);

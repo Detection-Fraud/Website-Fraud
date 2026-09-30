@@ -24,6 +24,13 @@ const activeUnits = [
     parentId: "kanwil-2",
   },
   {
+    id: "cabang-orphan",
+    name: "Cabang Orphan",
+    type: "KANTOR_CABANG",
+    wilayah: "Wilayah Orphan",
+    parentId: "missing-kanwil",
+  },
+  {
     id: "divisi-missing",
     name: "Divisi Missing",
     type: "DIVISI",
@@ -47,6 +54,7 @@ const activeUnits = [
 ];
 
 const codeRows = [
+  { id: "cabang-orphan", kodeDolog: "01", kodeSubdolog: "01", kodeOrg: "S01" },
   { id: "cabang-2", kodeDolog: "02", kodeSubdolog: "02", kodeOrg: "S02" },
   { id: "kanwil-10", kodeDolog: "10", kodeSubdolog: "00", kodeOrg: "W10" },
   { id: "divisi-1", kodeDolog: "00", kodeSubdolog: "00", kodeOrg: "E01000" },
@@ -73,6 +81,19 @@ const categoryFindManyMock = mock.fn(async () => [
     ],
   },
   {
+    id: "category-1b",
+    name: "Program TW I 2",
+    programs: [
+      {
+        id: "program-tw-1b",
+        tw: 1,
+        frequency: 2,
+        startDate: new Date("2026-01-15T12:00:00.000Z"),
+        endDate: new Date("2026-03-15T12:00:00.000Z"),
+      },
+    ],
+  },
+  {
     id: "category-3",
     name: "Program TW III",
     programs: [
@@ -89,6 +110,8 @@ const categoryFindManyMock = mock.fn(async () => [
 const queryRawMock = mock.fn(async () => [
   { unitId: "kanwil-2", programId: "program-tw-1", bulan: 1, jumlah: 1 },
   { unitId: "kanwil-10", programId: "program-tw-1", bulan: 1, jumlah: 3 },
+  { unitId: "kanwil-2", programId: "program-tw-1b", bulan: 1, jumlah: 1 },
+  { unitId: "kanwil-10", programId: "program-tw-1b", bulan: 1, jumlah: 3 },
 ]);
 
 mock.module("@/lib/api/auth-guard", {
@@ -156,11 +179,19 @@ test("exports deterministically ordered units with 100% target on each sheet", a
     workbook.getWorksheet("TW I")!.getColumn(2).values.slice(3),
     [
       "Kanwil 2",
+      "",
       "Cabang 1",
+      "",
       "Cabang 2",
+      "",
       "Kanwil 10",
+      "",
+      "Cabang Orphan",
+      "",
       "Divisi Missing",
+      "",
       "Divisi 1",
+      "",
     ],
   );
 
@@ -168,11 +199,21 @@ test("exports deterministically ordered units with 100% target on each sheet", a
   assert.equal(tw1.getCell("J3").value, 0.5);
   assert.equal(tw1.getCell("K3").value, 1);
   assert.equal(tw1.getCell("L3").value, 0.5);
-  assert.equal(tw1.getCell("J6").value, 1.5);
-  assert.equal(tw1.getCell("K6").value, 1);
-  assert.equal(tw1.getCell("L6").value, 1.5);
+  assert.equal(tw1.getCell("J9").value, 1.5);
+  assert.equal(tw1.getCell("K9").value, 1);
+  assert.equal(tw1.getCell("L9").value, 1.5);
 
   for (const sheet of workbook.worksheets) {
+    const expectedUnitNumbers =
+      sheet.name === "TW I" || sheet.name === "SEMESTER I"
+        ? [1, "", "", "", "", "", 2, "", "", "", 3, "", 4, ""]
+        : [1, "", "", 2, "", 3, 4];
+    assert.deepEqual(
+      sheet.getColumn(1).values.slice(3),
+      expectedUnitNumbers,
+      `${sheet.name} unit numbering`,
+    );
+
     const headerValues = sheet.getRow(1).values as unknown[];
     const averageColumn = headerValues.indexOf("% RATA-RATA");
     const targetColumn = headerValues.indexOf("TARGET KINERJA");
