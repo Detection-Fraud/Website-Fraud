@@ -55,6 +55,7 @@ const firstUnitId = "11111111-1111-4111-8111-111111111111";
 const correctionUnitId = "33333333-3333-4333-8333-333333333333";
 const unchangedUnitId = "44444444-4444-4444-8444-444444444444";
 const zeroUnitId = "55555555-5555-4555-8555-555555555555";
+const bulogUnitId = "66666666-6666-4666-8666-666666666666";
 const updatedAt = new Date("2026-09-02T00:00:00.000Z");
 
 const workbookCodeBySourceCode: Record<string, string> = {
@@ -79,8 +80,11 @@ function row(unitCode: string, participantCount: number | null, overrides: Recor
   return { unitCode: workbookCode(unitCode), unitName: "Workbook label", parentUnitName: "Workbook parent", headcount: 9999, participantCount, percentage: 99.99, ...overrides };
 }
 
-async function workbookBuffer(rows: ReturnType<typeof row>[]) {
-  const workbook = generateParticipationWorkbook({ summary: rows, kanwil: [], kancab: [], divisi: [] });
+async function workbookBuffer(
+  rows: ReturnType<typeof row>[],
+  divisi: ReturnType<typeof row>[] = [],
+) {
+  const workbook = generateParticipationWorkbook({ summary: rows, kanwil: [], kancab: [], divisi });
   return Buffer.from(new Uint8Array(await serializeParticipationWorkbook(workbook)));
 }
 
@@ -129,6 +133,123 @@ describe("Task 09D participation workbook service", () => {
       parsed.sheets.summary.map((item) => item.unitCode),
       ["WILAYAH:09:00", "WILAYAH:10:00"],
     );
+  });
+
+  it("excludes canonical DIVISI:E00 from template rows and headcounts by identity", async () => {
+    const templateUnits = [
+      ...units(),
+      { id: bulogUnitId, kodeOrg: "E00", kodeDolog: "00", kodeSubdolog: "00", name: "Renamed executive", type: "DIVISI" as const, parent: null },
+      { id: "name-only-bulog", kodeOrg: "U-BULOG", kodeDolog: "00", kodeSubdolog: "00", name: "PERUM BULOG", type: "DIVISI" as const, parent: null },
+    ];
+    unitFindManyMock.mock.mockImplementationOnce(async () => templateUnits);
+
+    const workbook = await loadParticipationWorkbook(
+      await buildParticipationTemplate({ categoryId, tw: 1, year: 2026 }),
+    );
+    const parsed = parseParticipationWorkbook(workbook);
+
+    assert.equal(parsed.sheets.summary.some((item) => item.unitCode === "DIVISI:E00"), false);
+    assert.equal(parsed.sheets.divisi.some((item) => item.unitCode === "DIVISI:E00"), false);
+    assert.equal(parsed.sheets.summary.some((item) => item.unitCode === "DIVISI:U-BULOG"), true);
+    assert.equal(parsed.sheets.divisi.some((item) => item.unitCode === "DIVISI:U-BULOG"), true);
+    assert.deepEqual(
+      Array.from({ length: parsed.sheets.summary.length }, (_, index) =>
+        workbook.getWorksheet("Summary")!.getCell(index + 2, 1).value,
+      ),
+      Array.from({ length: parsed.sheets.summary.length }, (_, index) => index + 1),
+    );
+    assert.deepEqual(
+      Array.from({ length: parsed.sheets.divisi.length }, (_, index) =>
+        workbook.getWorksheet("Divisi")!.getCell(index + 2, 1).value,
+      ),
+      Array.from({ length: parsed.sheets.divisi.length }, (_, index) => index + 1),
+    );
+    assert.equal(
+      employeeGroupByMock.mock.calls[0]?.arguments[0].where.unitId.in.includes(bulogUnitId),
+      false,
+    );
+  });
+
+  it("previews canonical and unique legacy E00 rows as the explicit excluded-unit error", async () => {
+    for (const sourceCode of ["DIVISI:E00", "E00"]) {
+      unitFindManyMock.mock.mockImplementationOnce(async () => [
+        ...units(),
+        { id: bulogUnitId, kodeOrg: "E00", kodeDolog: "00", kodeSubdolog: "00", name: "Renamed executive", type: "DIVISI" as const, parent: null },
+      ]);
+
+      const result = await previewParticipationWorkbook({
+        buffer: await workbookBuffer([row(sourceCode, sourceCode === "E00" ? null : 1)]),
+        categoryId,
+        tw: 1,
+        year: 2026,
+      });
+
+      assert.equal(result.rows.length, 1);
+      assert.equal(result.rows[0]?.status, "ERROR");
+      assert.equal(result.rows[0]?.unitCode, "DIVISI:E00");
+      assert.equal(result.rows[0]?.errorMsg, "PERUM BULOG tidak termasuk cakupan partisipasi");
+      assert.equal(employeeGroupByMock.mock.calls.at(-1)?.arguments[0].where.unitId.in.includes(bulogUnitId), false);
+    }
+  });
+
+  it("reports one explicit E00 error before reconciling conflicting cross-sheet rows", async () => {
+    unitFindManyMock.mock.mockImplementationOnce(async () => [
+      ...units(),
+      { id: bulogUnitId, kodeOrg: "E00", kodeDolog: "00", kodeSubdolog: "00", name: "PERUM BULOG", type: "DIVISI" as const, parent: null },
+    ]);
+
+    const result = await previewParticipationWorkbook({
+      buffer: await workbookBuffer([row("DIVISI:E00", 1)], [row("DIVISI:E00", 2)]),
+      categoryId,
+      tw: 1,
+      year: 2026,
+    });
+
+    assert.equal(result.rows.length, 1);
+    assert.equal(result.stats.error, 1);
+    assert.equal(result.rows[0]?.unitCode, "DIVISI:E00");
+    assert.equal(result.rows[0]?.errorMsg, "PERUM BULOG tidak termasuk cakupan partisipasi");
+  });
+
+  it("keeps same-sheet duplicate-code rejection ahead of excluded-unit preview", async () => {
+    const beforeUnitRead = unitFindManyMock.mock.callCount();
+
+    await assert.rejects(
+      previewParticipationWorkbook({
+        buffer: await workbookBuffer([row("DIVISI:E00", 1), row("DIVISI:E00", 2)]),
+        categoryId,
+        tw: 1,
+        year: 2026,
+      }),
+      (error: { status?: number; message?: string }) =>
+        error.status === 400 && /duplikat dalam sheet Summary/i.test(error.message ?? ""),
+    );
+    assert.equal(unitFindManyMock.mock.callCount(), beforeUnitRead);
+  });
+
+  it("rejects a manually supplied E00 row before commit mutations", async () => {
+    unitFindManyMock.mock.mockImplementationOnce(async () => [
+      ...units(),
+      { id: bulogUnitId, kodeOrg: "E00", kodeDolog: "00", kodeSubdolog: "00", name: "PERUM BULOG", type: "DIVISI" as const, parent: null },
+    ]);
+
+    await assert.rejects(
+      commitParticipationWorkbook({
+        buffer: await workbookBuffer([row("DIVISI:E00", 1)]),
+        categoryId,
+        tw: 1,
+        year: 2026,
+        actorId: "admin-1",
+        actorName: "Admin Test",
+        corrections: [],
+      }),
+      (error: { status?: number; message?: string }) =>
+        error.status === 400 && error.message?.includes("PERUM BULOG tidak termasuk cakupan partisipasi"),
+    );
+
+    assert.equal(transactionMock.mock.callCount(), 0);
+    assert.equal(createSnapshotsMock.mock.callCount(), 0);
+    assert.equal(correctSnapshotsMock.mock.callCount(), 0);
   });
 
   it("continues to accept a legacy kodeOrg when it identifies one Unit", async () => {
@@ -372,6 +493,20 @@ describe("Task 09D participation workbook service", () => {
     participationFindManyMock.mock.mockImplementationOnce(async () => [{ unitId: correctionUnitId, headcount: 10, participantCount: 4, percentage: new Prisma.Decimal("40.00"), provenance: "EMPLOYEE_SNAPSHOT", employeeSyncRunId: "sync-correction", headcountCapturedAt: new Date("2026-09-01T00:00:00.000Z"), unitNameSnapshot: "Historical Name", parentUnitNameSnapshot: "Historical Parent", categoryNameSnapshot: "Historical Category", unit: { kodeOrg: "U-CORRECTION", kodeDolog: "01", kodeSubdolog: "01", type: "KANTOR_CABANG" } }]);
     const parsed = parseParticipationWorkbook(await loadParticipationWorkbook(await buildParticipationExport({ categoryId, tw: 1, year: 2026 })));
     assert.equal(parsed.sheets.summary[0]?.unitName, "Historical Name"); assert.equal(parsed.sheets.summary[0]?.headcount, 10); assert.equal(parsed.sheets.summary[0]?.participantCount, 4); assert.equal(parsed.sheets.summary[0]?.percentage, 40);
+    participationFindManyMock.mock.mockImplementationOnce(async () => [
+      { unitId: "historical-bulog", headcount: null, participantCount: null, percentage: null, provenance: "LEGACY", employeeSyncRunId: null, headcountCapturedAt: null, unitNameSnapshot: null, parentUnitNameSnapshot: null, categoryNameSnapshot: null, unit: { kodeOrg: "E00", kodeDolog: "00", kodeSubdolog: "00", type: "DIVISI" } },
+      { unitId: correctionUnitId, headcount: 10, participantCount: 4, percentage: new Prisma.Decimal("40.00"), provenance: "EMPLOYEE_SNAPSHOT", employeeSyncRunId: "sync-correction", headcountCapturedAt: new Date("2026-09-01T00:00:00.000Z"), unitNameSnapshot: "Historical Name", parentUnitNameSnapshot: "Historical Parent", categoryNameSnapshot: "Historical Category", unit: { kodeOrg: "U-CORRECTION", kodeDolog: "01", kodeSubdolog: "01", type: "KANTOR_CABANG" } },
+    ]);
+    const exportWithHistoricalBulog = parseParticipationWorkbook(
+      await loadParticipationWorkbook(
+        await buildParticipationExport({ categoryId, tw: 1, year: 2026 }),
+      ),
+    );
+    assert.deepEqual(
+      exportWithHistoricalBulog.sheets.summary.map((item) => item.unitCode),
+      ["WILAYAH:01:01"],
+    );
+    assert.equal(exportWithHistoricalBulog.sheets.divisi.length, 0);
     participationFindManyMock.mock.mockImplementationOnce(async () => [{ unitId: correctionUnitId, headcount: 10, participantCount: 4, percentage: new Prisma.Decimal("40.00"), provenance: "EMPLOYEE_SNAPSHOT", employeeSyncRunId: null, headcountCapturedAt: new Date("2026-09-01T00:00:00.000Z"), unitNameSnapshot: "Historical Name", parentUnitNameSnapshot: null, categoryNameSnapshot: "Historical Category", unit: { kodeOrg: "U-CORRECTION", kodeDolog: "01", kodeSubdolog: "01", type: "KANTOR_CABANG" } }]);
     await assert.rejects(buildParticipationExport({ categoryId, tw: 1, year: 2026 }), (error: { status?: number }) => error.status === 409);
   });

@@ -39,6 +39,25 @@ type UnitRecord = {
   parent: { name: string } | null;
 };
 
+const EXCLUDED_PARTICIPATION_UNIT_CODE = "divisi:e00";
+const EXCLUDED_PARTICIPATION_UNIT_MESSAGE =
+  "PERUM BULOG tidak termasuk cakupan partisipasi";
+
+function isExcludedParticipationUnit(unit: UnitRecord): boolean {
+  return (
+    getUnitCodeCanonicalKey(getCanonicalUnitCode(unit)) ===
+    EXCLUDED_PARTICIPATION_UNIT_CODE
+  );
+}
+
+function isExcludedParticipationWorkbookRow(
+  unitCode: string,
+  unitsByCode: ReadonlyMap<string, UnitRecord>,
+): boolean {
+  const unit = unitsByCode.get(getUnitCodeCanonicalKey(unitCode));
+  return unit !== undefined && isExcludedParticipationUnit(unit);
+}
+
 function indexUnitsByCanonicalCode(
   units: readonly UnitRecord[],
 ): Map<string, UnitRecord> {
@@ -426,7 +445,9 @@ export async function buildParticipationTemplate(input: {
 }): Promise<ArrayBuffer> {
   await requireExcelImportCategory(input.categoryId);
 
-  const units = await getUnits();
+  const units = (await getUnits()).filter(
+    (unit) => !isExcludedParticipationUnit(unit),
+  );
   const headcounts = await getCurrentHeadcounts(units.map((unit) => unit.id));
   const rows = buildWorkbookRows(units, headcounts);
   const unitsByCode = indexUnitsByCanonicalCode(units);
@@ -508,6 +529,10 @@ export async function buildParticipationExport(input: {
   for (const row of rows) {
     const canonicalUnitCode = getCanonicalUnitCode(row.unit);
     const canonicalUnitCodeKey = getUnitCodeCanonicalKey(canonicalUnitCode);
+
+    if (canonicalUnitCodeKey === EXCLUDED_PARTICIPATION_UNIT_CODE) {
+      continue;
+    }
 
     if (canonicalCodes.has(canonicalUnitCodeKey)) {
       throw new ApiError(
@@ -761,7 +786,12 @@ export async function previewParticipationWorkbook(input: {
   const parsed = await parseWorkbook(input.buffer);
   const units = await getUnits();
   const unitByCode = indexUnitsByCanonicalCode(units);
-  const headcounts = await getCurrentHeadcounts(units.map((unit) => unit.id));
+  const eligibleUnits = units.filter(
+    (unit) => !isExcludedParticipationUnit(unit),
+  );
+  const headcounts = await getCurrentHeadcounts(
+    eligibleUnits.map((unit) => unit.id),
+  );
 
   const existingRows = await prisma.participationData.findMany({
     where: {
@@ -789,7 +819,40 @@ export async function previewParticipationWorkbook(input: {
     existingRows.map((row) => [row.unitId, row as ExistingParticipation]),
   );
 
-  const reconciledRows = reconcileWorkbookRows(parsed);
+  const excludedRows = new Map<
+    string,
+    { unit: UnitRecord; item: FlattenedWorkbookRow }
+  >();
+  for (const item of flattenRows(parsed)) {
+    const unit = unitByCode.get(getUnitCodeCanonicalKey(item.row.unitCode));
+
+    if (unit && isExcludedParticipationUnit(unit)) {
+      const canonicalCode = getCanonicalUnitCode(unit);
+      const canonicalKey = getUnitCodeCanonicalKey(canonicalCode);
+      if (!excludedRows.has(canonicalKey)) {
+        excludedRows.set(canonicalKey, { unit, item });
+      }
+    }
+  }
+
+  const eligibleParsed = {
+    ...parsed,
+    sheets: {
+      summary: parsed.sheets.summary.filter(
+        (row) => !isExcludedParticipationWorkbookRow(row.unitCode, unitByCode),
+      ),
+      kanwil: parsed.sheets.kanwil.filter(
+        (row) => !isExcludedParticipationWorkbookRow(row.unitCode, unitByCode),
+      ),
+      kancab: parsed.sheets.kancab.filter(
+        (row) => !isExcludedParticipationWorkbookRow(row.unitCode, unitByCode),
+      ),
+      divisi: parsed.sheets.divisi.filter(
+        (row) => !isExcludedParticipationWorkbookRow(row.unitCode, unitByCode),
+      ),
+    },
+  };
+  const reconciledRows = reconcileWorkbookRows(eligibleParsed);
 
   const rows = reconciledRows.map((item, index) => {
     const unit = unitByCode.get(getUnitCodeCanonicalKey(item.unitCode));
@@ -805,6 +868,31 @@ export async function previewParticipationWorkbook(input: {
       unit ? existingByUnitId.get(unit.id) : undefined,
       unit ? headcounts.get(unit.id) : undefined,
     );
+  });
+
+  for (const { unit, item } of excludedRows.values()) {
+    rows.push({
+      id: rows.length,
+      sheetKey: item.sheetKey,
+      rowNumber: item.rowNumber,
+      unitCode: getCanonicalUnitCode(unit),
+      unitId: null,
+      unitName: unit.name,
+      participantCount: item.row.participantCount,
+      headcount: null,
+      percentage: null,
+      existingParticipantCount: null,
+      existingPercentage: null,
+      expectedUpdatedAt: null,
+      warning: null,
+      status: "ERROR",
+      errorMsg: EXCLUDED_PARTICIPATION_UNIT_MESSAGE,
+    });
+  }
+
+  rows.sort((a, b) => a.unitCode.localeCompare(b.unitCode));
+  rows.forEach((row, index) => {
+    row.id = index;
   });
 
   return {
