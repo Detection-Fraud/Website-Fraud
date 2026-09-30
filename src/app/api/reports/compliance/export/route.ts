@@ -1,6 +1,10 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { MONTHS_NAMES_ID } from "@/lib/api/constants";
 import { resolveScope, type ActiveUnit } from "@/lib/api/unit-scope";
+import {
+  groupComplianceUnits,
+  type ComplianceExportUnitGroup,
+} from "@/lib/compliance-export-order";
 import { prisma } from "@/lib/prisma";
 import { programYearBounds } from "@/lib/program-period";
 import { errorResponse } from "@/lib/response";
@@ -42,6 +46,22 @@ export async function GET(req: Request) {
       divisiId,
       unitTypeFilter,
     });
+
+    const unitCodes = await prisma.unit.findMany({
+      where: { id: { in: activeUnits.map(({ id }) => id) } },
+      select: { id: true, kodeDolog: true, kodeSubdolog: true, kodeOrg: true },
+    });
+    const unitCodesById = new Map(unitCodes.map((unit) => [unit.id, unit]));
+    const exportUnits = activeUnits.map((unit) => {
+      const codes = unitCodesById.get(unit.id);
+      return {
+        ...unit,
+        kodeDolog: codes?.kodeDolog ?? "",
+        kodeSubdolog: codes?.kodeSubdolog ?? "",
+        kodeOrg: codes?.kodeOrg ?? "",
+      };
+    });
+    const unitGroups = groupComplianceUnits(exportUnits);
 
     // 1. Ambil kategori beserta program dalam bound tahun yang dipilih (termasuk program nonaktif untuk histori)
     const categories = await prisma.programCategory.findMany({
@@ -108,7 +128,7 @@ export async function GET(req: Request) {
       buildSheet(workbook, {
         sheetName: period.name,
         months,
-        activeUnits,
+        unitGroups,
         categories: periodCategories,
         monthlyData,
       });
@@ -240,13 +260,13 @@ interface CategoryWithTwPrograms {
 interface BuildSheetParams {
   sheetName: string;
   months: readonly number[];
-  activeUnits: ActiveUnit[];
+  unitGroups: ComplianceExportUnitGroup[];
   categories: CategoryWithTwPrograms[];
   monthlyData: MonthlySubmission[];
 }
 
 function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
-  const { sheetName, months, activeUnits, categories, monthlyData } = params;
+  const { sheetName, months, unitGroups, categories, monthlyData } = params;
 
   const ws = workbook.addWorksheet(sheetName);
   const monthCount = months.length;
@@ -255,7 +275,7 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
 
   const headerRow1 = [
     "NO",
-    "KANWIL",
+    "UNIT KERJA",
     "PROGRAM BUDAYA",
     isTW ? "TARGET/ TRIWULAN" : "TARGET/ SEMESTER",
   ];
@@ -298,8 +318,6 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
   ws.mergeCells(1, afterMonthsCol + 3, 2, afterMonthsCol + 3);
   ws.mergeCells(1, afterMonthsCol + 4, 2, afterMonthsCol + 4);
 
-  const groupedUnits = groupUnitsHierarchically(activeUnits);
-
   // O(1) Map lookup untuk sel data Excel (menggantikan .find() berulang ribuan kali)
   const submissionMap = new Map(
     monthlyData.map((d) => [`${d.unitId}:${d.programId}:${d.bulan}`, d.jumlah]),
@@ -307,9 +325,9 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
 
   let kanwilNo = 0;
 
-  for (const group of groupedUnits) {
+  for (const group of unitGroups) {
     kanwilNo++;
-    const unitsInGroup = [group.kanwil, ...group.kancabs].filter(Boolean);
+    const unitsInGroup = [group.root, ...group.children];
 
     for (const unit of unitsInGroup) {
       if (!unit) continue;
@@ -370,7 +388,7 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
             programComplianceList.length
           : 0;
 
-      const targetKinerja = 0.9;
+      const targetKinerja = 1;
       const pctCapaian = targetKinerja > 0 ? avgPct / targetKinerja : 0;
 
       programComplianceList.forEach((pc, idx) => {
@@ -418,43 +436,4 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
   pctCols.forEach((colIdx) => {
     ws.getColumn(colIdx).numFmt = "0.00%";
   });
-}
-
-// ── Helper: groupUnitsHierarchically ──
-
-interface UnitGroup {
-  kanwil: ActiveUnit | null;
-  kancabs: ActiveUnit[];
-}
-
-function groupUnitsHierarchically(units: ActiveUnit[]): UnitGroup[] {
-  const kanwils = units.filter((u) => u.type === "KANTOR_WILAYAH");
-  const kancabs = units.filter((u) => u.type === "KANTOR_CABANG");
-  const divisis = units.filter((u) => u.type === "DIVISI");
-
-  const groups: UnitGroup[] = [];
-
-  for (const kanwil of kanwils) {
-    groups.push({
-      kanwil,
-      kancabs: kancabs.filter((k) => k.parentId === kanwil.id),
-    });
-  }
-
-  const orphanKancabs = kancabs.filter(
-    (k) => !kanwils.some((kw) => kw.id === k.parentId),
-  );
-
-  if (orphanKancabs.length > 0) {
-    groups.push({
-      kanwil: null,
-      kancabs: orphanKancabs,
-    });
-  }
-
-  for (const divisi of divisis) {
-    groups.push({ kanwil: divisi, kancabs: [] });
-  }
-
-  return groups;
 }
