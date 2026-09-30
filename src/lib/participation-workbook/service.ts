@@ -39,14 +39,16 @@ type UnitRecord = {
   parent: { name: string } | null;
 };
 
-const EXCLUDED_PARTICIPATION_UNIT_CODE = "divisi:e00";
+const EXCLUDED_PARTICIPATION_UNIT_CODE_KEYS = new Set([
+  "divisi:e00",
+  "divisi:e00000",
+]);
 const EXCLUDED_PARTICIPATION_UNIT_MESSAGE =
   "PERUM BULOG tidak termasuk cakupan partisipasi";
 
 function isExcludedParticipationUnit(unit: UnitRecord): boolean {
-  return (
-    getUnitCodeCanonicalKey(getCanonicalUnitCode(unit)) ===
-    EXCLUDED_PARTICIPATION_UNIT_CODE
+  return EXCLUDED_PARTICIPATION_UNIT_CODE_KEYS.has(
+    getUnitCodeCanonicalKey(getCanonicalUnitCode(unit)),
   );
 }
 
@@ -530,7 +532,7 @@ export async function buildParticipationExport(input: {
     const canonicalUnitCode = getCanonicalUnitCode(row.unit);
     const canonicalUnitCodeKey = getUnitCodeCanonicalKey(canonicalUnitCode);
 
-    if (canonicalUnitCodeKey === EXCLUDED_PARTICIPATION_UNIT_CODE) {
+    if (EXCLUDED_PARTICIPATION_UNIT_CODE_KEYS.has(canonicalUnitCodeKey)) {
       continue;
     }
 
