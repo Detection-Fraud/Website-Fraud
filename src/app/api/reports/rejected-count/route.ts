@@ -14,6 +14,7 @@ export async function GET() {
     const count = await prisma.activityReport.count({
       where: {
         unitId: session.user.unitId,
+        createdById: session.user.id,
         status: "REJECTED",
       },
     });

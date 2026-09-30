@@ -17,7 +17,7 @@ export default function EditDetectionView() {
   const { programs, isLoading: loadingPrograms } = useProgramList({
     purpose: "EVIDENCE",
   });
-  const { report, loading: isLoadingReport } = useReportDetail(id);
+  const { report, loading: isLoadingReport, user } = useReportDetail(id);
 
   useEffect(() => {
     return () => resetStore();
@@ -27,6 +27,29 @@ export default function EditDetectionView() {
     return (
       <div className="flex justify-center items-center h-64 w-full">
         <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  const canEditReport =
+    report?.status === "REJECTED" &&
+    !!user?.id &&
+    !!user.unitId &&
+    user.unitId === report.unit?.id &&
+    report.createdBy?.id === user.id;
+
+  if (!canEditReport) {
+    return (
+      <div className="w-full space-y-4 px-4 py-8 text-center">
+        <h1 className="text-xl font-semibold text-slate-900">
+          Laporan tidak dapat diedit
+        </h1>
+        <p className="text-sm text-slate-600">
+          Hanya PIC pembuat laporan REJECTED yang dapat mengunggah ulang foto.
+        </p>
+        <Link href={`/pic/submit/${id}`} className="font-semibold">
+          Kembali ke Detail
+        </Link>
       </div>
     );
   }

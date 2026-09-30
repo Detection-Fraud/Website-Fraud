@@ -21,6 +21,7 @@ interface CardApprovalProps {
   onOpenModal?: () => void;
   onOpenLogs?: () => void;
   onOpenScore?: (id: string, trigger: HTMLButtonElement) => void;
+  onOpenImagePreview?: (report: ActivityReportItem, initialIndex?: number) => void;
 }
 
 export default function CardApproval({
@@ -29,6 +30,7 @@ export default function CardApproval({
   onOpenModal,
   onOpenLogs,
   onOpenScore,
+  onOpenImagePreview,
 }: CardApprovalProps) {
   const {
     id,
@@ -130,7 +132,11 @@ export default function CardApproval({
         <Card.Header className="p-0">
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative w-full aspect-4/3 overflow-hidden bg-slate-100">
-              <CardCaraousel photos={photos} activityName={activityName} />
+              <CardCaraousel
+                photos={photos}
+                activityName={activityName}
+                onPhotoClick={(idx) => onOpenImagePreview?.(report, idx)}
+              />
 
               <div className="absolute top-3.5 right-3.5 z-10">
                 <Chip

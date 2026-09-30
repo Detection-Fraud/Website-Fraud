@@ -171,7 +171,7 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
     assert.deepEqual(callArgs.where, { id: "report-1" });
   });
 
-  it("PIC with creator ID and valid unit scope receives 200 and safe DTO", async () => {
+  it("same-unit PIC can read another PIC's report and safe DTO", async () => {
     authMock.mock.mockImplementation(async () => ({
       user: {
         id: "pic-1",
@@ -180,7 +180,10 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
         unitType: "KANTOR_CABANG",
       },
     }));
-    findFirstMock.mock.mockImplementation(async () => safeReportFixture);
+    findFirstMock.mock.mockImplementation(async () => ({
+      ...safeReportFixture,
+      createdBy: { id: "pic-other", name: "PIC Other" },
+    }));
 
     const response = await GET(createRequest("report-1"), {
       params: Promise.resolve({ id: "report-1" }),
@@ -192,14 +195,16 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
     assert.equal(body.data.id, "report-1");
     assertNoForbiddenKeys(body.data);
 
-    // Verify PIC query includes ownership and unit scope directly in where clause
+    // Access is scoped to the unit; the report creator remains visible in the safe DTO.
     assert.equal(findFirstMock.mock.callCount(), 1);
     const callArgs = findFirstMock.mock.calls[0].arguments[0] as unknown as {
       where: Record<string, unknown>;
     };
     assert.equal(callArgs.where.id, "report-1");
     assert.equal(callArgs.where.unitId, "unit-cabang-1");
-    assert.equal(callArgs.where.createdById, "pic-1");
+    assert.equal("createdById" in callArgs.where, false);
+    assert.equal(body.data.createdBy.id, "pic-other");
+    assertNoForbiddenKeys(body.data);
   });
 
   it("Kanwil PIC can read a direct-child Kancab report from another PIC", async () => {
@@ -302,9 +307,13 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
     assert.equal(response.status, 404);
     assert.equal(body.error, true);
     assert.equal(body.message, "Laporan tidak ditemukan");
+    assert.deepEqual(
+      findFirstMock.mock.calls[0].arguments[0].where,
+      { id: "__no_report_access__" },
+    );
   });
 
-  it("PIC query returning null (wrong owner or outside unit scope) returns 404 without leaking data", async () => {
+  it("PIC outside the report unit receives 404 without leaking data", async () => {
     authMock.mock.mockImplementation(async () => ({
       user: {
         id: "other-pic",
@@ -313,7 +322,7 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
         unitType: "KANTOR_CABANG",
       },
     }));
-    // Database returns null because where clause does not match
+    // The unit-scoped query returns null because this PIC is outside the report unit.
     findFirstMock.mock.mockImplementation(async () => null);
 
     const response = await GET(createRequest("report-1"), {
@@ -324,6 +333,11 @@ describe("GET /api/reports/[id] - Privacy and Access Regression Tests", () => {
     assert.equal(response.status, 404);
     assert.equal(body.error, true);
     assert.equal(body.data, null);
+    const query = findFirstMock.mock.calls[0].arguments[0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    assert.equal(query.where.unitId, "unit-cabang-2");
+    assert.equal("createdById" in query.where, false);
   });
 
   it("VIEWER with matching unit scope receives 200 and safe DTO without createdById restriction", async () => {

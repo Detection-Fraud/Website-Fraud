@@ -23,6 +23,7 @@ import { BsCheck2Circle, BsXCircle } from "react-icons/bs";
 import { CiSaveDown1 } from "react-icons/ci";
 import { FiAlertTriangle, FiFileText, FiImage } from "react-icons/fi";
 import CardApproval from "./CardApproval";
+import ModalImagePreview from "./ModalImagePreview";
 import ModalLogs from "./ModalLogs";
 import ModalNotes from "./ModalNotes";
 import PaginationFooter from "../../../../../components/ui/PaginationFooter";
@@ -82,6 +83,23 @@ export default function ApprovalView() {
   const [scoreReportId, setScoreReportId] = useState<string | null>(null);
   const [scoreReportName, setScoreReportName] = useState<string | undefined>();
   const scoreReturnFocusRef = useRef<HTMLButtonElement | null>(null);
+
+  const [previewReport, setPreviewReport] =
+    useState<ActivityReportItem | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number>(0);
+
+  const handleOpenImagePreview = (
+    report: ActivityReportItem,
+    initialIndex = 0,
+  ) => {
+    setPreviewReport(report);
+    setPreviewIndex(initialIndex);
+  };
+
+  const handleCloseImagePreview = () => {
+    setPreviewReport(null);
+    setPreviewIndex(0);
+  };
 
   const selectedScope: UnitTypeFilter = scopeFilter;
 
@@ -389,6 +407,7 @@ export default function ApprovalView() {
               }}
               onOpenModal={() => handleOpenRejectModal(report)}
               onOpenLogs={() => handleOpenLogsModal(report)}
+              onOpenImagePreview={handleOpenImagePreview}
             />
           ))
         ) : (
@@ -430,6 +449,13 @@ export default function ApprovalView() {
         reportId={scoreReportId}
         reportName={scoreReportName}
         onClose={closeScoreModal}
+      />
+
+      <ModalImagePreview
+        isOpen={Boolean(previewReport)}
+        report={previewReport}
+        initialIndex={previewIndex}
+        onClose={handleCloseImagePreview}
       />
 
       <PaginationFooter

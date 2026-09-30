@@ -88,12 +88,7 @@ export async function GET(
             : { id, unitId: user.unitId };
 
     const report = await prisma.activityReport.findFirst({
-      where: {
-        ...scopeWhere,
-        ...(user.role === "PIC" && user.unitType !== "KANTOR_WILAYAH" && {
-          createdById: user.id,
-        }),
-      },
+      where: scopeWhere,
       select: reportDetailSelect,
     });
 

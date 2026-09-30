@@ -257,7 +257,7 @@ export default function BerandaPicView() {
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">
-                        Kepatuhan Pada TW Ini
+                        Kontribusi Anda terhadap target unit (TW ini)
                       </h2>
                       <FiTarget className={colorTheme.icon} />
                     </div>

@@ -3,9 +3,27 @@ import { before, beforeEach, mock, test } from "node:test";
 import { NextRequest } from "next/server";
 
 const authMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
+
+class TestApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
+async function requirePicMock() {
+  const session = await authMock();
+  if (!session?.user?.id) throw new TestApiError("Unauthorized", 401);
+  if (session.user.role !== "PIC") {
+    throw new TestApiError("Hanya PIC yang dapat mengakses fitur ini", 403);
+  }
+  return session;
+}
+
 const programWheres: Record<string, unknown>[] = [];
 const groupByWheres: Record<string, unknown>[] = [];
 let includeTogaRecords = false;
+let currentDashboardPicId = "pic-1";
+let multiPicScenario = false;
 const programFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
   async (args: { where: Record<string, unknown>; select: Record<string, unknown> }) => {
     programWheres.push(args.where);
@@ -44,7 +62,7 @@ const programFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
 );
 const programFindFirstMock = mock.fn<(...args: any[]) => Promise<any>>(async () => null);
 const activityFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () =>
+  async (args: { where: { createdById: string } }) =>
     includeTogaRecords
       ? [
           {
@@ -55,21 +73,68 @@ const activityFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
             program: { name: "TOGA" },
           },
         ]
-      : [],
+      : [
+          {
+            id: `recent-${args.where.createdById}`,
+            status: "PENDING",
+            tanggalKegiatan: new Date("2026-02-01"),
+            createdAt: new Date("2026-02-02"),
+            program: { name: "Kegiatan" },
+          },
+        ],
 );
 const groupByMock = mock.fn<(...args: any[]) => Promise<any>>(
   async (args: { where: Record<string, unknown> }) => {
     groupByWheres.push(args.where);
-    return groupByWheres.length % 2 === 1
-      ? [{ status: "APPROVED", _count: { id: 2 } }]
-      : [{ createdById: "pic-1", _count: { id: 2 } }];
+    if (typeof args.where.createdById === "string") {
+      if (!multiPicScenario) {
+        return [{ status: "APPROVED", _count: { id: 2 } }];
+      }
+      const reportsByPic = {
+        "pic-1": [
+          { status: "APPROVED", _count: { id: 1 } },
+          { status: "PENDING", _count: { id: 1 } },
+        ],
+        "pic-2": [
+          { status: "APPROVED", _count: { id: 2 } },
+          { status: "REJECTED", _count: { id: 1 } },
+        ],
+      };
+      return reportsByPic[currentDashboardPicId as keyof typeof reportsByPic];
+    }
+    if (!multiPicScenario) {
+      return [{ createdById: "pic-1", _count: { id: 2 } }];
+    }
+    return [
+      { createdById: "pic-2", _count: { id: 2 } },
+      { createdById: "pic-1", _count: { id: 1 } },
+    ];
   },
 );
 const userFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async () => [{ id: "pic-1", name: "PIC Satu", unit: { name: "Unit Satu" } }],
+  async () => [
+    { id: "pic-1", name: "PIC Satu", unit: { name: "Unit Satu" } },
+    { id: "pic-2", name: "PIC Dua", unit: { name: "Unit Satu" } },
+  ],
 );
 
-mock.module("@/auth", { namedExports: { auth: authMock } });
+mock.module("@/lib/api/auth-guard", {
+  namedExports: {
+    requirePic: requirePicMock,
+    handleApiError: (error: unknown) => {
+      const status = error instanceof TestApiError ? error.status : 500;
+      return Response.json(
+        {
+          status,
+          error: true,
+          message: error instanceof Error ? error.message : "Internal error",
+          data: null,
+        },
+        { status },
+      );
+    },
+  },
+});
 mock.module("@/lib/prisma", {
   namedExports: {
     prisma: {
@@ -94,6 +159,8 @@ beforeEach(() => {
   programWheres.length = 0;
   groupByWheres.length = 0;
   includeTogaRecords = false;
+  currentDashboardPicId = "pic-1";
+  multiPicScenario = false;
   authMock.mock.resetCalls();
   programFindManyMock.mock.resetCalls();
   programFindFirstMock.mock.resetCalls();
@@ -159,6 +226,58 @@ test("menambah record TOGA tidak mengubah hasil activity", async () => {
     afterBody.data?.periodPrograms,
     beforeBody.data?.periodPrograms,
   );
+});
+
+test("dua PIC satu unit mendapat statistik dan aktivitas pribadi serta peringkat per pembuat", async () => {
+  multiPicScenario = true;
+  currentDashboardPicId = "pic-1";
+  authMock.mock.mockImplementationOnce(async () => ({
+    user: { id: "pic-1", role: "PIC", unitId: "unit-1" },
+  }));
+  const firstResponse = await GET(request());
+  const firstBody = await body(firstResponse);
+
+  currentDashboardPicId = "pic-2";
+  authMock.mock.mockImplementationOnce(async () => ({
+    user: { id: "pic-2", role: "PIC", unitId: "unit-1" },
+  }));
+  const secondResponse = await GET(request());
+  const secondBody = await body(secondResponse);
+
+  assert.equal(firstResponse.status, 200);
+  assert.deepEqual(firstBody.data?.stats, {
+    target: 1,
+    approved: 1,
+    pending: 1,
+    rejected: 0,
+    compliance: 100,
+  });
+  assert.equal((firstBody.data?.recentActivities as Array<{ id: string }>)[0].id, "recent-pic-1");
+  assert.deepEqual(firstBody.data?.rank, { position: 2, total: 2 });
+
+  assert.equal(secondResponse.status, 200);
+  assert.deepEqual(secondBody.data?.stats, {
+    target: 1,
+    approved: 2,
+    pending: 0,
+    rejected: 1,
+    compliance: 120,
+  });
+  assert.equal((secondBody.data?.recentActivities as Array<{ id: string }>)[0].id, "recent-pic-2");
+  assert.deepEqual(secondBody.data?.rank, { position: 1, total: 2 });
+  assert.deepEqual(
+    (secondBody.data?.leaderboard as Array<{ id: string }>).map(({ id }) => id),
+    ["pic-2", "pic-1"],
+  );
+
+  assert.deepEqual(groupByWheres[0].createdById, "pic-1");
+  assert.deepEqual(groupByWheres[2].createdById, "pic-2");
+  assert.deepEqual(groupByWheres[1].createdBy, { role: "PIC" });
+  assert.deepEqual(groupByWheres[3].createdBy, { role: "PIC" });
+  assert.deepEqual(groupByWheres[1].createdById, { not: null });
+  assert.deepEqual(groupByWheres[3].createdById, { not: null });
+  assert.equal(activityFindManyMock.mock.calls[0].arguments[0].where.createdById, "pic-1");
+  assert.equal(activityFindManyMock.mock.calls[1].arguments[0].where.createdById, "pic-2");
 });
 
 for (const role of ["ADMIN", "VIEWER"] as const) {

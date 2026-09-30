@@ -21,7 +21,11 @@ export default function DetailView({ id }: { id: string }) {
   const { report, loading, user } = useReportDetail(id);
 
   const canResubmit =
-    !!user?.unitId && !!report?.unit?.id && user.unitId === report.unit.id;
+    report?.status === "REJECTED" &&
+    !!user?.id &&
+    !!user.unitId &&
+    user.unitId === report.unit?.id &&
+    report.createdBy?.id === user.id;
 
   const textRole = report?.unit
     ? `${report.unit.type === "DIVISI" ? "Divisi" : report.unit.type === "KANTOR_CABANG" ? "Kantor Cabang" : "Kantor Wilayah"} : ${report.unit.name}`
