@@ -212,6 +212,17 @@ function signedRedirect(
   return `${signedFields}&Signature=${encodeURIComponent(signer.sign(idpKeys.privateKey, "base64"))}`;
 }
 
+function unsignedRedirect(
+  xml: string,
+  field: "SAMLRequest" | "SAMLResponse" = "SAMLResponse",
+  relay: string | null = RELAY,
+): string {
+  const message = encodeURIComponent(
+    deflateRawSync(Buffer.from(xml)).toString("base64"),
+  );
+  return `${field}=${message}${relay === null ? "" : `&RelayState=${encodeURIComponent(relay)}`}`;
+}
+
 function signedRootXml(xml: string): string {
   const signature = new SignedXml({
     privateKey: idpKeys.privateKey,
@@ -692,6 +703,41 @@ describe("SLS Redirect and POST LogoutResponse callbacks", () => {
     );
   });
 
+  it("accepts only a correlated unsigned GET response as success", async () => {
+    await seedCorrelation("_out-unsigned-ok");
+    const query = unsignedRedirect(
+      logoutResponseXml("_response-unsigned-ok", "_out-unsigned-ok"),
+    );
+    const request = getRequest(
+      query,
+      requestCookies({ relay: RELAY, context: contextToken() }),
+    );
+    const response = await GET(request);
+    assert.equal(response.headers.get("location"), `${ORIGIN}/login?logout=success`);
+    assert.match(responseCookies(response), /sso_logout_relay_state=/);
+    assert.match(responseCookies(response), /sso_logout_context=/);
+    assert.equal(signOutMock.mock.callCount(), 0);
+    assert.equal(await actualNodeSaml.cacheProvider.getAsync("_out-unsigned-ok"), null);
+    assert.equal((await GET(request)).headers.get("location"), `${ORIGIN}/login?logout=failed`);
+
+    await seedCorrelation("_out-unsigned-mismatch");
+    const mismatch = await GET(getRequest(
+      unsignedRedirect(logoutResponseXml("_response-unsigned-mismatch", "_out-unsigned-mismatch"), "SAMLResponse", "wrong-relay"),
+      requestCookies({ relay: RELAY }),
+    ));
+    assert.equal(mismatch.headers.get("location"), `${ORIGIN}/login?logout=failed`);
+    assert.notEqual(await actualNodeSaml.cacheProvider.getAsync("_out-unsigned-mismatch"), null);
+
+    await seedCorrelation("_out-unsigned-failure");
+    const failure = await GET(getRequest(
+      unsignedRedirect(logoutResponseXml("_response-unsigned-failure", "_out-unsigned-failure", {
+        status: "urn:oasis:names:tc:SAML:2.0:status:Responder",
+      })),
+      requestCookies({ relay: RELAY }),
+    ));
+    assert.equal(failure.headers.get("location"), `${ORIGIN}/login?logout=failed`);
+  });
+
   it("preserves the fixed rejected-login status only for the cookie-bound rejected relay", async () => {
     const rejectedRelay = `rejected.${"R".repeat(43)}`;
     await seedCorrelation("_out-rejected-ok");
@@ -728,6 +774,20 @@ describe("SLS Redirect and POST LogoutResponse callbacks", () => {
     assert.equal(
       failed.headers.get("location"),
       `${ORIGIN}/login?error=SSOAccessRejected&logout=failed`,
+    );
+
+    await seedCorrelation("_out-rejected-unsigned");
+    const unsigned = await GET(getRequest(
+      unsignedRedirect(
+        logoutResponseXml("_response-rejected-unsigned", "_out-rejected-unsigned"),
+        "SAMLResponse",
+        rejectedRelay,
+      ),
+      requestCookies({ relay: rejectedRelay }),
+    ));
+    assert.equal(
+      unsigned.headers.get("location"),
+      `${ORIGIN}/login?error=SSOAccessRejected&logout=success`,
     );
 
     const mismatch = await GET(

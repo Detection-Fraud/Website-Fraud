@@ -55,9 +55,12 @@ SAML_IDP_LEGACY_CERT=<temporary legacy IdP signing certificate during rollover>
 ```
 
 During the BULOG test IdP key rollover, configure both explicitly trusted
-signing certificates. Signature verification remains mandatory; remove
-`SAML_IDP_LEGACY_CERT` after the IdP removes the legacy key from its signing
-metadata.
+signing certificates. Signatures remain mandatory for inbound LogoutRequest,
+POST LogoutResponse, and any signed Redirect LogoutResponse. The test IdP's
+unsigned Redirect LogoutResponse is accepted only when its RelayState and
+InResponseTo match a live SP-initiated logout; this reports operational success
+without cryptographic proof of IdP origin. Remove `SAML_IDP_LEGACY_CERT` after
+the IdP removes the legacy key from its signing metadata.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

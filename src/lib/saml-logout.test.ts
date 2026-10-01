@@ -219,6 +219,15 @@ function makeSignedRedirectQuery(
   return parts.join("&");
 }
 
+function makeUnsignedRedirectQuery(
+  xml: string,
+  messageType: "SAMLRequest" | "SAMLResponse" = "SAMLResponse",
+  relayState?: string,
+): string {
+  const compressed = deflateRawSync(Buffer.from(xml, "utf8")).toString("base64");
+  return `${messageType}=${encodeURIComponent(compressed)}${relayState === undefined ? "" : `&RelayState=${encodeURIComponent(relayState)}`}`;
+}
+
 function makeSignedPostXml(
   xml: string,
   privateKey: string,
@@ -681,6 +690,38 @@ describe("SAML logout helpers", () => {
       assert.equal(message.id, "_response-001");
       assert.equal(message.inResponseTo, "_outbound-001");
       assert.equal(message.relayState, "logout-relay-state");
+    } finally {
+      restore();
+    }
+  });
+
+  it("accepts unsigned Redirect LogoutResponse semantics while rejecting unsigned requests and partial signatures", async () => {
+    setup();
+    process.env.NEXT_PUBLIC_APP_URL = TEST_APP_ORIGIN;
+    try {
+      const unsigned = makeUnsignedRedirectQuery(
+        makeLogoutResponseXml(),
+        "SAMLResponse",
+        "logout-relay-state",
+      );
+      const message = await validateRedirectLogoutMessage(unsigned);
+      assert.equal(message.messageType, "SAMLResponse");
+      assert.equal(message.inResponseTo, "_outbound-001");
+      assert.equal(message.responseSuccess, true);
+      assert.equal(message.relayState, "logout-relay-state");
+
+      await assert.rejects(validateRedirectLogoutMessage(
+        makeUnsignedRedirectQuery(makeLogoutRequestXml(), "SAMLRequest"),
+      ));
+      await assert.rejects(validateRedirectLogoutMessage(
+        `${unsigned}&SigAlg=${encodeURIComponent(RSA_SHA256_URI)}`,
+      ));
+      await assert.rejects(validateRedirectLogoutMessage(
+        `${unsigned}&Signature=AAAA`,
+      ));
+      await assert.rejects(validateRedirectLogoutMessage(
+        makeUnsignedRedirectQuery(makeLogoutResponseXml({ issuer: "https://other-idp.test" })),
+      ));
     } finally {
       restore();
     }

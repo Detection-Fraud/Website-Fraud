@@ -448,14 +448,18 @@ function parseRedirectQuery(rawQuery: string): ParsedRedirect {
     : hasResponse
       ? "SAMLResponse"
       : null;
+  const hasSigAlg = Object.hasOwn(fields, "SigAlg");
+  const hasSignature = Object.hasOwn(fields, "Signature");
 
   if (
     !messageType ||
     (hasRequest && hasResponse) ||
     !fields[messageType] ||
-    !fields.SigAlg ||
-    !fields.Signature ||
-    fields.SigAlg !== RSA_SHA256_REDIRECT_ALGORITHM
+    hasSigAlg !== hasSignature ||
+    (messageType === "SAMLRequest" && !hasSignature) ||
+    (hasSignature &&
+      (!fields.Signature ||
+        fields.SigAlg !== RSA_SHA256_REDIRECT_ALGORITHM))
   ) {
     throw invalidSamlMessage();
   }
@@ -463,8 +467,7 @@ function parseRedirectQuery(rawQuery: string): ParsedRedirect {
   const expectedOrder = [
     messageType,
     ...(Object.hasOwn(fields, "RelayState") ? ["RelayState"] : []),
-    "SigAlg",
-    "Signature",
+    ...(hasSignature ? ["SigAlg", "Signature"] : []),
   ];
   const actualOrder = query
     .split("&")
@@ -501,7 +504,7 @@ function parseRedirectQuery(rawQuery: string): ParsedRedirect {
   }
 
   decodeCanonicalBase64(fields[messageType], LOGOUT_XML_MAX_BYTES);
-  decodeCanonicalBase64(fields.Signature, 1024);
+  if (hasSignature) decodeCanonicalBase64(fields.Signature, 1024);
 
   return {
     messageType,
@@ -803,6 +806,16 @@ export async function validateRedirectLogoutMessage(
   );
   const xmlBytes = await inflateRedirectXmlBounded(messageBytes);
   const message = await inspectLogoutXml(xmlBytes, parsed.messageType);
+  const result = {
+    ...message,
+    ...(parsed.relayState !== undefined
+      ? { relayState: parsed.relayState }
+      : {}),
+  };
+
+  // Only LogoutResponse may reach this branch without a Redirect signature.
+  // The SLS route still requires a matching RelayState and live InResponseTo.
+  if (!parsed.fields.Signature) return result;
 
   try {
     const originalQuery = rawQuery.startsWith("?")
@@ -857,12 +870,7 @@ export async function validateRedirectLogoutMessage(
     throw invalidSamlMessage();
   }
 
-  return {
-    ...message,
-    ...(parsed.relayState !== undefined
-      ? { relayState: parsed.relayState }
-      : {}),
-  };
+  return result;
 }
 
 async function readBoundedRequestBody(request: Request): Promise<Buffer> {

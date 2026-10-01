@@ -54,8 +54,8 @@ export default function LoginForm({ mode }: { mode: LoginFormMode }) {
 
   const searchParams = useSearchParams();
   const ssoError = searchParams.get("error");
-  const rejectedSsoLogoutFailed =
-    ssoError === "SSOAccessRejected" && searchParams.get("logout") === "failed";
+  const logoutFailed = searchParams.get("logout") === "failed";
+  const ssoErrorMessage = ssoError ? SSO_ERROR_MESSAGES[ssoError] : null;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -121,17 +121,19 @@ export default function LoginForm({ mode }: { mode: LoginFormMode }) {
       </Card.Header>
 
       <Card.Content>
-        {ssoError && SSO_ERROR_MESSAGES[ssoError] && (
+        {(ssoErrorMessage || logoutFailed) && (
           <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-5">
             <CiCircleInfo className="text-red-400 text-lg mt-0.5 shrink-0" />
-            <p className="text-red-300 text-sm">
-              {SSO_ERROR_MESSAGES[ssoError]}
-            </p>
-            {rejectedSsoLogoutFailed && (
-              <p className="text-red-300 text-sm">
-                Sesi SSO tidak dapat diakhiri. Silakan keluar dari SSO Bulog, lalu coba lagi.
-              </p>
-            )}
+            <div className="space-y-1">
+              {ssoErrorMessage && (
+                <p className="text-red-300 text-sm">{ssoErrorMessage}</p>
+              )}
+              {logoutFailed && (
+                <p className="text-red-300 text-sm">
+                  Sesi SSO tidak dapat diakhiri. Silakan keluar dari SSO Bulog, lalu coba lagi.
+                </p>
+              )}
+            </div>
           </div>
         )}
         {mode === "admin" && (
