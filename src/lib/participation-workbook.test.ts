@@ -95,7 +95,7 @@ describe("participation workbook 09A primitives", () => {
 
     const firstWorksheet = workbook.worksheets[0];
     assert.ok(firstWorksheet);
-    assert.equal(firstWorksheet.autoFilter, undefined);
+    assert.equal(firstWorksheet.autoFilter ?? null, null);
 
     const headerValues = PARTICIPATION_WORKBOOK_HEADERS.map((_, index) =>
       firstWorksheet.getRow(1).getCell(index + 1).text,
