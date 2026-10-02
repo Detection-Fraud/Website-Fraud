@@ -30,6 +30,34 @@ set `SSO_ALLOW_UNTRUSTED_INGRESS=true`. In that mode only, SSO initiation falls
 back to the existing forwarded-address rate-limit identity. Keep the flag unset
 for public environments.
 
+## Fraud check production boundaries
+
+`POST /api/fraud-check` allows five attempts per authenticated user per minute.
+Before authentication, a coarse limit allows 600 requests per trusted ingress
+identity per minute. Configure the same `TRUSTED_INGRESS_IDENTITY_HEADER` used
+by SSO; without it, requests share a single fallback ingress bucket.
+
+The route reads at most 5MB before parsing multipart data and accepts at most
+two non-empty image files of 2MB each. Include
+`deploy/nginx/fraud-check-body-limit.conf` in the existing proxy location or
+server block to reject larger requests at Nginx as well. Keep direct access to
+Next.js and the Python API restricted to the trusted server network.
+
+Python requires a non-blank `API_KEY_RAHASIA`, matching Next.js's
+`PYTHON_API_KEY`. Its 600/minute service flood cap is separate from the user
+quota. The existing single heavy-analysis slot still returns 429 with
+`Retry-After` while busy; the browser already displays the busy message.
+
+Capacity must be measured on the target server. A local Windows/Python 3.11
+synthetic benchmark (one 640x480 image, 500 references, bounded execution)
+took 111.6 seconds for one measured batch; this is not a production benchmark.
+From the Python repository, run:
+
+```bash
+python -m pip install -r backend_bulog/api_utama/requirements-test.txt
+python backend_bulog/api_utama/benchmark_baseline.py --one-large-only --large-references 500 --large-iterations 1 --execution-mode bounded --output /tmp/fraud-capacity.json
+```
+
 ## SAML service provider metadata
 
 `NEXT_PUBLIC_APP_URL` is the application origin used to form the service

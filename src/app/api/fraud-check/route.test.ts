@@ -15,20 +15,30 @@ const resolveUploadReferenceMock = mock.fn(async (reference: string): Promise<Up
 });
 const resolveScopeMock = mock.fn(async () => ({ whereClause: {} }));
 const fetchMock = mock.fn<typeof fetch>();
+const checkRateLimitMock = mock.fn((_request: Request, _options: { keyPrefix?: string; clientIdentity?: string; max?: number }) => {
+  void _request;
+  void _options;
+  return { success: true, resetAt: Date.now() + 60_000 };
+});
+class ApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
 
 mock.module("@/lib/api/auth-guard", {
   namedExports: {
+    ApiError,
     requireAuth: requireAuthMock,
     handleApiError: (error: unknown) =>
       Response.json(
         { error: true, message: error instanceof Error ? error.message : "internal" },
-        { status: 500 },
+        { status: error instanceof ApiError ? error.status : 500 },
       ),
   },
 });
 mock.module("@/lib/api/rate-limit", {
   namedExports: {
-    checkRateLimit: () => ({ success: true, resetAt: Date.now() + 60_000 }),
+    checkRateLimit: checkRateLimitMock,
+    getTrustedClientIdentity: () => "same-ingress",
     rateLimitResponse: () => Response.json({}, { status: 429 }),
   },
 });
@@ -54,10 +64,50 @@ before(async () => {
 });
 
 beforeEach(() => {
+  requireAuthMock.mock.mockImplementation(async () => ({ user: { id: "user-1", role: "PIC", authProvider: "LOCAL" } }));
+  checkRateLimitMock.mock.resetCalls();
+  checkRateLimitMock.mock.mockImplementation(() => ({ success: true, resetAt: Date.now() + 60_000 }));
   fetchMock.mock.resetCalls();
   findManyMock.mock.resetCalls();
   resolveScopeMock.mock.resetCalls();
   resolveUploadReferenceMock.mock.resetCalls();
+});
+
+test("uses separate authenticated user quotas for users sharing an ingress", async () => {
+  const counts = new Map<string, number>();
+  checkRateLimitMock.mock.mockImplementation((_request, options) => {
+    const key = `${options.keyPrefix}:${options.clientIdentity}`;
+    const count = (counts.get(key) ?? 0) + 1;
+    counts.set(key, count);
+    return { success: count <= (options.max ?? 0), resetAt: Date.now() + 60_000 };
+  });
+  fetchMock.mock.mockImplementation(async () => Response.json({ detail_gambar: [] }));
+  for (let i = 0; i < 5; i++) assert.equal((await POST(request())).status, 200);
+  assert.equal((await POST(request())).status, 429);
+  requireAuthMock.mock.mockImplementation(async () => ({ user: { id: "user-2", role: "PIC", authProvider: "LOCAL" } }));
+  assert.equal((await POST(request())).status, 200);
+  assert.equal(fetchMock.mock.calls.length, 6);
+});
+
+test("rejects invalid file counts and oversized files before DB access or Python", async () => {
+  for (const [count, size, status] of [[3, 1, 400], [1, 2 * 1024 * 1024 + 1, 413]]) {
+    const form = new FormData();
+    for (let i = 0; i < count; i++) form.append("foto_baru", new File([new Uint8Array(size)], `photo${i}.jpg`, { type: "image/jpeg" }));
+    assert.equal((await POST(new Request("http://localhost/api/fraud-check", { method: "POST", body: form }))).status, status);
+  }
+  assert.equal(findManyMock.mock.calls.length, 0);
+  assert.equal(fetchMock.mock.calls.length, 0);
+});
+
+test("bounds a streamed multipart body even without Content-Length", async () => {
+  const oversized = new Request("http://localhost/api/fraud-check", {
+    method: "POST", headers: { "Content-Type": "multipart/form-data; boundary=test" },
+    body: new Uint8Array(5 * 1024 * 1024 + 1),
+  });
+  assert.equal(oversized.headers.get("content-length"), null);
+  assert.equal((await POST(oversized)).status, 413);
+  assert.equal(findManyMock.mock.calls.length, 0);
+  assert.equal(fetchMock.mock.calls.length, 0);
 });
 
 function request() {

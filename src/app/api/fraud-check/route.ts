@@ -1,5 +1,5 @@
-import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
-import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { ApiError, handleApiError, requireAuth } from "@/lib/api/auth-guard";
+import { checkRateLimit, getTrustedClientIdentity, rateLimitResponse } from "@/lib/api/rate-limit";
 import { resolveScope } from "@/lib/api/unit-scope";
 import { resolveUploadReference } from "@/lib/api/upload-storage";
 import { prisma } from "@/lib/prisma";
@@ -7,21 +7,73 @@ import { errorResponse, successResponse } from "@/lib/response";
 import { NextResponse } from "next/server";
 import { pathToFileURL } from "url";
 
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
+
+async function readBoundedFormData(request: Request): Promise<FormData> {
+  if (!request.body) throw new ApiError("Foto baru wajib diisi", 400);
+  const reader = request.body.getReader();
+  const chunks: Buffer[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_REQUEST_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new ApiError("Ukuran permintaan maksimal 5MB", 413);
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  try {
+    return await new Response(Buffer.concat(chunks), {
+      headers: { "Content-Type": request.headers.get("content-type") ?? "" },
+    }).formData();
+  } catch {
+    throw new ApiError("Format upload tidak valid", 400);
+  }
+}
+
 export async function POST(request: Request) {
-  const rl = checkRateLimit(request, { keyPrefix: "fraud-check", max: 5 });
+  // Coarse ingress protection; the user's quota is checked after authentication.
+  const rl = checkRateLimit(request, {
+    keyPrefix: "fraud-check-ingress",
+    clientIdentity: getTrustedClientIdentity(request) ?? "unknown-ingress",
+    max: 600,
+  });
   if (!rl.success) return rateLimitResponse(rl.resetAt);
 
   try {
     const session = await requireAuth();
     const user = session.user;
+    const userLimit = checkRateLimit(request, {
+      keyPrefix: "fraud-check-user",
+      clientIdentity: user.id,
+      max: 5,
+    });
+    if (!userLimit.success) return rateLimitResponse(userLimit.resetAt);
 
-    const formData = await request.formData();
+    const formData = await readBoundedFormData(request);
     const fotoBaruFiles = formData.getAll("foto_baru");
 
     if (!fotoBaruFiles || fotoBaruFiles.length === 0) {
       return NextResponse.json(errorResponse("Foto baru wajib diisi", 400), {
         status: 400,
       });
+    }
+
+    if (fotoBaruFiles.length > 2 || !fotoBaruFiles.every((file): file is File => file instanceof File)) {
+      throw new ApiError("Maksimal 2 file gambar per pemeriksaan", 400);
+    }
+    if (fotoBaruFiles.some((file) => file.size > MAX_IMAGE_BYTES)) {
+      throw new ApiError("Ukuran setiap gambar maksimal 2MB", 413);
+    }
+    if (fotoBaruFiles.some((file) => file.size === 0 || !file.type.startsWith("image/"))) {
+      throw new ApiError("File gambar tidak valid", 400);
     }
 
     const { whereClause: reportWhereClause } = await resolveScope(user, {});
