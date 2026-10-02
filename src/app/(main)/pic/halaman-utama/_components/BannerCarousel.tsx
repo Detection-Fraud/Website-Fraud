@@ -77,6 +77,7 @@ export default function BannerCarousel({ programs }: BannerCarouselProps) {
         {programs.map((prog, idx) => {
           const cat = prog.category;
           const fallbackColor = cat?.color ?? "#0f172a";
+          const bannerUrl = prog.bannerUrl ?? cat?.bannerUrl;
 
           return (
             <div
@@ -85,10 +86,10 @@ export default function BannerCarousel({ programs }: BannerCarouselProps) {
               onClick={() => handleOpenDetail(prog)}
             >
               <div className="absolute inset-0 w-full h-full">
-                {cat?.bannerUrl || prog.bannerUrl ? (
+                {bannerUrl ? (
                   <img
-                    src={cat?.bannerUrl || prog.bannerUrl || undefined}
-                    alt={cat?.name ?? prog.name}
+                    src={bannerUrl}
+                    alt={prog.name}
                     className="w-full h-full object-cover object-center z-0 block"
                   />
                 ) : (

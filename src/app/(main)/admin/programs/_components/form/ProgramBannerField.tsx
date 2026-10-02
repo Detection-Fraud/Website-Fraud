@@ -72,7 +72,7 @@ export default function ProgramBannerField({
                 ? "Menghapus file sementara..."
                 : "Klik atau seret poster ke sini"
           }
-          maxSizeMb={3}
+          maxSizeMb={2}
           onFileSelected={(files) => handleBannerUpload(files[0])}
           variant="compact"
         />
