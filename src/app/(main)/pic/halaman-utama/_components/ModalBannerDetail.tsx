@@ -110,7 +110,9 @@ export default function ModalBannerDetail({
                 </div>
                 <div className="flex items-center gap-1.5 font-medium">
                   <FiTarget className="w-4 h-4 text-slate-400" />
-                  <span>Target: {program.frequency}x Kegiatan</span>
+                  <span>
+                    Target: {program.frequency}x {cat?.targetUnit === "PARTISIPASI_PERSEN" ? "Partisipasi" : "Kegiatan"}
+                  </span>
                 </div>
               </div>
 

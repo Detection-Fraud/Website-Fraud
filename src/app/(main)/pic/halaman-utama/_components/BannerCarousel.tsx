@@ -119,7 +119,7 @@ export default function BannerCarousel({ programs }: BannerCarouselProps) {
                     </Chip.Label>
                   </Chip>
                   <span className="text-white/80 text-xs font-medium tracking-wide">
-                    Target: {prog.frequency}x Kegiatan
+                    Target: {prog.frequency}x {cat?.targetUnit === "PARTISIPASI_PERSEN" ? "Partisipasi" : "Kegiatan"}
                   </span>
                   <span className="ml-auto text-white/90 text-xs font-semibold flex items-center gap-1 opacity-0 group-hover/slide:opacity-100 transition-opacity bg-black/40 px-2.5 py-1 rounded-full backdrop-blur-md">
                     <FiInfo className="w-3.5 h-3.5" /> Detail

@@ -8,6 +8,17 @@ import {
 import { successResponse } from "@/lib/response";
 import { NextRequest, NextResponse } from "next/server";
 
+const bannerCategoryFilter = {
+  OR: [
+    { targetUnit: "KEGIATAN" as const },
+    {
+      targetUnit: "PARTISIPASI_PERSEN" as const,
+      evidenceMode: "PHOTO_WITHOUT_AI" as const,
+      scoreInputMode: "DIRECT_ADMIN" as const,
+    },
+  ],
+};
+
 export async function GET(request: NextRequest) {
   try {
     const { user } = await requirePic();
@@ -21,7 +32,7 @@ export async function GET(request: NextRequest) {
           tw: { not: null },
           startDate: { lte: today },
           uploadDeadline: { gte: today },
-          category: { targetUnit: "KEGIATAN" },
+          category: bannerCategoryFilter,
         },
         select: {
           isActive: true,
@@ -54,7 +65,7 @@ export async function GET(request: NextRequest) {
             where: {
               tw: { not: null },
               uploadDeadline: { lt: today },
-              category: { targetUnit: "KEGIATAN" },
+              category: bannerCategoryFilter,
             },
             orderBy: [{ startDate: "desc" }, { updatedAt: "desc" }],
             select: {
@@ -110,7 +121,7 @@ export async function GET(request: NextRequest) {
       where: {
         tw: selectedPeriod.tw,
         startDate: programYearBounds(selectedPeriod.year),
-        category: { targetUnit: "KEGIATAN" },
+        category: bannerCategoryFilter,
       },
       select: {
         id: true,
@@ -136,8 +147,11 @@ export async function GET(request: NextRequest) {
     });
 
     const periodPrograms = allPeriodPrograms.filter((p) => p.isActive);
-    const programIds = allPeriodPrograms.map((program) => program.id);
-    const target = allPeriodPrograms.reduce(
+    const activityPrograms = allPeriodPrograms.filter(
+      (program) => program.category?.targetUnit === "KEGIATAN",
+    );
+    const programIds = activityPrograms.map((program) => program.id);
+    const target = activityPrograms.reduce(
       (sum, program) => sum + program.frequency,
       0,
     );

@@ -24,9 +24,42 @@ const groupByWheres: Record<string, unknown>[] = [];
 let includeTogaRecords = false;
 let currentDashboardPicId = "pic-1";
 let multiPicScenario = false;
+let includeParticipationPrograms = false;
 const programFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
   async (args: { where: Record<string, unknown>; select: Record<string, unknown> }) => {
     programWheres.push(args.where);
+    const directAdmin = {
+      id: "direct-admin-program",
+      name: "Foto tanpa AI",
+      description: null,
+      bannerUrl: "/direct-admin.jpg",
+      frequency: 1,
+      startDate: new Date("2026-01-01"),
+      endDate: new Date("2026-03-31"),
+      uploadDeadline: new Date("2099-03-31"),
+      isActive: true,
+      tw: 1,
+      category: {
+        id: "direct-admin-category",
+        name: "Partisipasi",
+        color: null,
+        bannerUrl: null,
+        targetUnit: "PARTISIPASI_PERSEN",
+        evidenceMode: "PHOTO_WITHOUT_AI",
+        scoreInputMode: "DIRECT_ADMIN",
+      },
+    };
+    const categoryFilter = args.where.category as {
+      targetUnit?: string;
+      OR?: Array<Record<string, string>>;
+    };
+    const directAdminIncluded =
+      categoryFilter.OR?.some(
+        (filter) =>
+          filter.targetUnit === "PARTISIPASI_PERSEN" &&
+          filter.evidenceMode === "PHOTO_WITHOUT_AI" &&
+          filter.scoreInputMode === "DIRECT_ADMIN",
+      ) ?? false;
     if (!("id" in args.select)) {
       return [
         {
@@ -36,6 +69,7 @@ const programFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
           endDate: new Date("2026-03-31"),
           uploadDeadline: new Date("2099-03-31"),
         },
+        ...(includeParticipationPrograms && directAdminIncluded ? [directAdmin] : []),
       ];
     }
     return [
@@ -57,6 +91,7 @@ const programFindManyMock = mock.fn<(...args: any[]) => Promise<any>>(
           targetUnit: "KEGIATAN",
         },
       },
+      ...(includeParticipationPrograms && directAdminIncluded ? [directAdmin] : []),
     ];
   },
 );
@@ -161,12 +196,43 @@ beforeEach(() => {
   includeTogaRecords = false;
   currentDashboardPicId = "pic-1";
   multiPicScenario = false;
+  includeParticipationPrograms = false;
   authMock.mock.resetCalls();
   programFindManyMock.mock.resetCalls();
   programFindFirstMock.mock.resetCalls();
   activityFindManyMock.mock.resetCalls();
   groupByMock.mock.resetCalls();
   userFindManyMock.mock.resetCalls();
+});
+
+test("banner menyertakan partisipasi dengan evidence saja tanpa mengubah statistik kegiatan", async () => {
+  includeParticipationPrograms = true;
+  authMock.mock.mockImplementationOnce(async () => ({
+    user: { id: "pic-1", role: "PIC", unitId: "unit-1" },
+  }));
+  const response = await GET(request());
+  const result = await body(response);
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    (result.data?.periodPrograms as Array<{ id: string }>).map(({ id }) => id),
+    ["kegiatan-program", "direct-admin-program"],
+  );
+  assert.deepEqual(result.data?.stats, {
+    target: 1,
+    approved: 2,
+    pending: 0,
+    rejected: 0,
+    compliance: 120,
+  });
+  assert.deepEqual(groupByWheres[0].programId, { in: ["kegiatan-program"] });
+  assert.deepEqual(groupByWheres[1].programId, { in: ["kegiatan-program"] });
+  for (const where of programWheres) {
+    const category = where.category as { OR: Array<{ evidenceMode?: string }> };
+    assert.equal(
+      category.OR.some((filter) => filter.evidenceMode === "NONE"),
+      false,
+    );
+  }
 });
 function request() {
   return new NextRequest("http://localhost/api/pic/dashboard?year=2026&tw=1");
@@ -179,7 +245,7 @@ async function body(response: Response) {
   }>;
 }
 
-test("dashboard hanya memilih KEGIATAN, mempertahankan multiple report, cap 120%, dan merahasiakan score", async () => {
+test("dashboard menghitung KEGIATAN saja, mempertahankan multiple report, cap 120%, dan merahasiakan score", async () => {
   authMock.mock.mockImplementationOnce(async () => ({
     user: { id: "pic-1", role: "PIC", unitId: "unit-1" },
   }));
@@ -195,8 +261,18 @@ test("dashboard hanya memilih KEGIATAN, mempertahankan multiple report, cap 120%
   });
   assert.deepEqual(result.data?.rank, { position: 1, total: 1 });
   assert.equal(programWheres.length, 2);
-  assert.deepEqual(programWheres[0].category, { targetUnit: "KEGIATAN" });
-  assert.deepEqual(programWheres[1].category, { targetUnit: "KEGIATAN" });
+  const bannerCategoryFilter = {
+    OR: [
+      { targetUnit: "KEGIATAN" },
+      {
+        targetUnit: "PARTISIPASI_PERSEN",
+        evidenceMode: "PHOTO_WITHOUT_AI",
+        scoreInputMode: "DIRECT_ADMIN",
+      },
+    ],
+  };
+  assert.deepEqual(programWheres[0].category, bannerCategoryFilter);
+  assert.deepEqual(programWheres[1].category, bannerCategoryFilter);
   assert.deepEqual(groupByWheres[0].programId, { in: ["kegiatan-program"] });
   assert.deepEqual(groupByWheres[1].programId, { in: ["kegiatan-program"] });
   for (const key of [
