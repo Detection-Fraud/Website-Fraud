@@ -27,6 +27,7 @@ function employee(overrides: Record<string, unknown> = {}) {
     nip: "12345",
     name: "Eligible",
     jenjang: "5",
+    jenjangLabel: "5. Jenjang IV",
     kodeStatpeg: "01",
     statKepeg: "02",
     unitId: "unit-1",
@@ -541,6 +542,10 @@ it("excludes linked LOCAL/debug Users while retaining SSO-linked and unlinked Em
   assert.deepEqual(
     result.employees.map((item) => item.id),
     ["employee-unlinked", "employee-sso"],
+  );
+  assert.deepEqual(
+    result.employees.map((item) => item.jenjangLabel),
+    ["5. Jenjang IV", "5. Jenjang IV"],
   );
 });
 

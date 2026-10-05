@@ -26,6 +26,7 @@ export interface EmployeeAccount {
   nip: string;
   name: string;
   jenjang: string;
+  jenjangLabel?: string | null;
   kodeStatpeg: string;
   statKepeg: string;
   unitId: string | null;

@@ -162,8 +162,10 @@ export default function EmployeeDetailPanel({
           </div>
 
           <p className="mt-2 text-xs tabular-nums text-slate-500">
-            Jenjang {employee.jenjang}; eligibility mengikuti status HR dan
-            source.
+            {employee.jenjangLabel?.replace(/^\d+\.\s*/, "").trim() ||
+              ({ "5": "Jenjang IV", "6": "Jenjang V" }[employee.jenjang] ??
+                `Kode jenjang ${employee.jenjang}`)}; eligibility mengikuti status
+            HR dan source.
           </p>
         </div>
       </DetailSection>
