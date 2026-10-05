@@ -81,7 +81,7 @@ export default function PicView() {
         {/* Full-bleed Background Illustration */}
         <div className="absolute inset-0 pointer-events-none">
           <Image
-            src="/images/pic-banner-image.png"
+            src="/assets/images/pic-banner-image.png"
             alt="Shield of Integrity Infographic"
             fill
             className="object-contain object-right"
