@@ -99,7 +99,7 @@ export default function LoginForm({ mode }: { mode: LoginFormMode }) {
             <div className="flex justify-center items-center bg-white/10 p-3 rounded-2xl border border-white/5">
               <Image
                 // Pastikan pakai logo yang tulisannya putih kalau ada (logo-bulog-white.png)
-                src="/assets/images/logo-bulog-white.png"
+                src="/assets/images/dice-logo-putih.png"
                 width={100}
                 height={100}
                 className="object-contain"

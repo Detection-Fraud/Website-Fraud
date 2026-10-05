@@ -1,8 +1,12 @@
 "use client";
 
 import { useBanners } from "@/hooks/useBanners";
-import Image from "next/image";
-import { BsEye, BsFileCheck, BsShield, BsUpcScan } from "react-icons/bs";
+import {
+  BsFileCheck,
+  BsLock,
+  BsShield,
+  BsUpcScan,
+} from "react-icons/bs";
 import LoginCarousel from "./LoginCarousel";
 import LoginForm from "./LoginForm";
 
@@ -38,7 +42,7 @@ export default function LoginView({ mode }: { mode: LoginViewMode }) {
         <BsUpcScan className="w-32 h-32 text-white" />
       </div>
       <div className="absolute top-1/3 right-10 opacity-5 pointer-events-none">
-        <BsEye className="w-20 h-20 text-white" />
+        <BsLock className="w-20 h-20 text-white" />
       </div>
       <div className="absolute bottom-1/3 left-10 opacity-5 pointer-events-none">
         <BsFileCheck className="w-28 h-28 text-white" />
@@ -55,9 +59,9 @@ export default function LoginView({ mode }: { mode: LoginViewMode }) {
 
         <div className="flex flex-col gap-8">
           {/* Branding Header */}
+          {/*
           {banners.length > 0 && (
             <div className="flex flex-col gap-4">
-              {/* Logo + Nama */}
               <div className="flex items-center gap-3">
                 <div className="bg-white/10 p-2.5 rounded-2xl border border-white/15 backdrop-blur-sm shrink-0">
                   <Image
@@ -76,7 +80,6 @@ export default function LoginView({ mode }: { mode: LoginViewMode }) {
                 </div>
               </div>
 
-              {/* Tagline */}
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
                   Digital Culture &
@@ -90,11 +93,9 @@ export default function LoginView({ mode }: { mode: LoginViewMode }) {
                 </p>
               </div>
             </div>
-          )}
-
+          )} */}
           {/* Login Form Card */}
           <LoginForm mode={mode} />
-
           {/* Mobile-only mini carousel */}
           {banners.length > 0 && (
             <div className="block lg:hidden">
