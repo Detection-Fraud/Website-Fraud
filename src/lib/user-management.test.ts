@@ -26,7 +26,7 @@ function employee(overrides: Record<string, unknown> = {}) {
     id: "employee-1",
     nip: "12345",
     name: "Eligible",
-    jenjang: "4",
+    jenjang: "5",
     kodeStatpeg: "01",
     statKepeg: "02",
     unitId: "unit-1",
@@ -227,7 +227,7 @@ describe("user management service", () => {
       ["user-1"],
     );
     assert.deepEqual(receivedArgs.where.employee.is, {
-      jenjang: { in: ["4", "5"] },
+      jenjang: { in: ["5", "6"] },
       kodeStatpeg: "01",
       statKepeg: "02",
       isPresentInSource: true,

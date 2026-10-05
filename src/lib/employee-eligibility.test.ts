@@ -10,7 +10,7 @@ function employee(
   overrides: Partial<EmployeeEligibilityInput> = {},
 ): EmployeeEligibilityInput {
   return {
-    jenjang: "4",
+    jenjang: "5",
     kodeStatpeg: "01",
     statKepeg: "02",
     isPresentInSource: true,
@@ -29,9 +29,10 @@ describe("employee eligibility", () => {
     );
   });
 
-  it("accepts only present employees at jenjang 4 or 5 with active HR status", () => {
-    assert.equal(isPicEligible(employee({ jenjang: "4" })), true);
+  it("accepts only present employees at Jenjang IV or V (codes 5 and 6) with active HR status", () => {
+    assert.equal(isPicEligible(employee({ jenjang: "4" })), false);
     assert.equal(isPicEligible(employee({ jenjang: "5" })), true);
+    assert.equal(isPicEligible(employee({ jenjang: "6" })), true);
     assert.equal(isPicEligible(employee({ jenjang: "3" })), false);
     assert.equal(isPicEligible(employee({ isPresentInSource: false })), false);
     assert.equal(isPicEligible(employee({ kodeStatpeg: "02" })), false);

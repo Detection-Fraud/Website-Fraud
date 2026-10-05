@@ -141,7 +141,7 @@ describe("current API authorization", () => {
       authProvider: "SSO",
       unitId: "unit-1",
       employee: {
-        jenjang: "4",
+        jenjang: "5",
         kodeStatpeg: "01",
         statKepeg: "02",
         isPresentInSource: false,
@@ -159,7 +159,7 @@ describe("current API authorization", () => {
       authProvider: "SSO",
       unitId: "unit-1",
       employee: {
-        jenjang: "4",
+        jenjang: "5",
         kodeStatpeg: "01",
         statKepeg: "02",
         isPresentInSource: true,

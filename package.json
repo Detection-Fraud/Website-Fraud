@@ -9,6 +9,7 @@
     "lint": "eslint",
     "prisma:seed": "tsx prisma/seed.ts",
     "backfill:employee-links": "tsx scripts/backfill-employee-links.ts",
+    "import:pic": "tsx scripts/import-pic-users.ts",
     "reset:dev-dummy-data": "tsx scripts/reset-dev-dummy-data.ts",
     "reconcile:pentaho-units": "tsx scripts/reconcile-pentaho-units.ts",
     "test:reconcile:pentaho-units": "tsx --test scripts/reconcile-pentaho-units.test.ts"

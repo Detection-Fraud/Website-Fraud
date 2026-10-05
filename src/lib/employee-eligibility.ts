@@ -5,6 +5,8 @@ export type EmployeeEligibilityInput = {
   isPresentInSource: boolean;
 };
 
+export const PIC_ELIGIBLE_JENJANG_CODES = ["5", "6"] as const;
+
 export function isEmploymentActive(
   employee: EmployeeEligibilityInput,
 ): boolean {
@@ -13,7 +15,7 @@ export function isEmploymentActive(
 
 export function isPicEligible(employee: EmployeeEligibilityInput): boolean {
   return (
-    (employee.jenjang === "4" || employee.jenjang === "5") &&
+    PIC_ELIGIBLE_JENJANG_CODES.some((code) => code === employee.jenjang) &&
     isEmploymentActive(employee) &&
     employee.isPresentInSource
   );

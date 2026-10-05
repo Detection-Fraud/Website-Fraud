@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from "@generated/prisma/client";
 import { ApiError } from "@/lib/api/auth-guard";
-import { isEmploymentActive, isPicEligible } from "@/lib/employee-eligibility";
+import { isEmploymentActive, isPicEligible, PIC_ELIGIBLE_JENJANG_CODES } from "@/lib/employee-eligibility";
 import { prisma } from "@/lib/prisma";
 import type { EmployeeAdminActionInput } from "@/schemas/user.schema";
 
@@ -105,7 +105,11 @@ function boundedPage(
   );
 }
 
-function requireEmployeeAssignment(employee: EmployeeResult, unitId: string) {
+type PicAssignmentEmployee = Pick<EmployeeResult,
+  "id" | "nip" | "name" | "unitId" | "jenjang" | "kodeStatpeg" | "statKepeg" | "isPresentInSource"
+>;
+
+function requireEmployeeAssignment(employee: PicAssignmentEmployee, unitId: string) {
   if (!employee.unitId || employee.unitId !== unitId) {
     throw new UserManagementError(
       "Employee saat ini berada di unit berbeda",
@@ -119,6 +123,27 @@ function requireEmployeeAssignment(employee: EmployeeResult, unitId: string) {
       422,
     );
   }
+}
+
+export async function createPicUser(
+  tx: Prisma.TransactionClient,
+  employee: PicAssignmentEmployee,
+  unitId: string,
+) {
+  requireEmployeeAssignment(employee, unitId);
+  return tx.user.create({
+    data: {
+      username: employee.nip,
+      samlNameId: employee.nip,
+      name: employee.name,
+      authProvider: "SSO",
+      role: "PIC",
+      isActive: true,
+      unit: { connect: { id: unitId } },
+      employee: { connect: { id: employee.id } },
+    },
+    select: userSelect,
+  });
 }
 
 async function resolveEmployee(
@@ -430,7 +455,7 @@ export async function searchActivePics(
       },
       employee: {
         is: {
-          jenjang: { in: ["4", "5"] },
+          jenjang: { in: [...PIC_ELIGIBLE_JENJANG_CODES] },
           kodeStatpeg: "01",
           statKepeg: "02",
           isPresentInSource: true,
@@ -629,23 +654,7 @@ export async function assignPic(
               },
               select: userSelect,
             })
-          : await tx.user.create({
-              data: {
-                username: employee.nip,
-                samlNameId: employee.nip,
-                name: employee.name,
-                authProvider: "SSO" as const,
-                role: "PIC",
-                isActive: true,
-                unit: {
-                  connect: { id: unitId },
-                },
-                employee: {
-                  connect: { id: employee.id },
-                },
-              },
-              select: userSelect,
-            });
+          : await createPicUser(tx, employee, unitId);
       } else {
         user = await tx.user.update({
           where: { id: user.id },

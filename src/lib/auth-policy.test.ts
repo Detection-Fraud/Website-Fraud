@@ -20,7 +20,7 @@ function employee(
   overrides: Partial<AuthPolicyEmployee> = {},
 ): AuthPolicyEmployee {
   return {
-    jenjang: "4",
+    jenjang: "5",
     kodeStatpeg: "01",
     statKepeg: "02",
     isPresentInSource: true,
@@ -82,6 +82,15 @@ describe("canonical auth policy", () => {
     assert.deepEqual(
       evaluateAuthPolicy({
         provider: "SSO",
+        user: user({ role: "PIC", unitId: "unit-1" }),
+        employee: employee({ jenjang: "6" }),
+      }),
+      { allowed: true },
+    );
+
+    assert.deepEqual(
+      evaluateAuthPolicy({
+        provider: "SSO",
         user: user({ role: "PIC", unitId: "unit-2" }),
         employee: employee(),
       }),
@@ -103,7 +112,7 @@ describe("canonical auth policy", () => {
       evaluateAuthPolicy({
         provider: "SSO",
         user: user({ role: "PIC", unitId: "unit-1" }),
-        employee: employee({ jenjang: "3" }),
+        employee: employee({ jenjang: "4" }),
       }),
       { allowed: false, reason: "pic_ineligible" },
     );

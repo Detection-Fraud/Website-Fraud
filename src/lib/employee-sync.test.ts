@@ -266,8 +266,8 @@ function completeEmployee(overrides: Record<string, unknown> = {}) {
     nip: "123",
     name: "Employee One",
     jobTitle: "Staff",
-    jenjang: "4",
-    jenjangLabel: "4. Jenjang III",
+    jenjang: "5",
+    jenjangLabel: "5. Jenjang IV",
     kodeStatpeg: "01",
     statKepeg: "02",
     sourceKodeDolog: "01",
@@ -305,8 +305,8 @@ function employeeState(overrides: Partial<TestEmployee> = {}): TestEmployee {
     nip: "123",
     name: "Legacy Employee",
     jobTitle: "Legacy Job",
-    jenjang: "4",
-    jenjangLabel: "4. Jenjang III",
+    jenjang: "5",
+    jenjangLabel: "5. Jenjang IV",
     kodeStatpeg: "01",
     statKepeg: "02",
     sourceKodeDolog: "01",
@@ -590,7 +590,7 @@ describe("atomic Employee snapshot reconciliation", () => {
 
     const employee = state.employees[0];
     assert.equal(employee.jobTitle, "Staff");
-    assert.equal(employee.jenjangLabel, "4. Jenjang III");
+    assert.equal(employee.jenjangLabel, "5. Jenjang IV");
     assert.equal(employee.sourceKodeDolog, "01");
     assert.equal(employee.sourceKodeSubdolog, "00");
     assert.equal(employee.sourceKodeKansilog, "01");
@@ -851,7 +851,7 @@ describe("atomic Employee snapshot reconciliation", () => {
     assert.equal(
       shouldDeactivateLinkedPicUser(existingPic, {
         unitId: "unit-new",
-        jenjang: "4",
+        jenjang: "5",
         kodeStatpeg: "01",
         statKepeg: "02",
         isPresentInSource: true,
@@ -862,12 +862,23 @@ describe("atomic Employee snapshot reconciliation", () => {
     assert.equal(
       shouldDeactivateLinkedPicUser(existingPic, {
         unitId: "unit-old",
-        jenjang: "4",
+        jenjang: "5",
         kodeStatpeg: "01",
         statKepeg: "02",
         isPresentInSource: true,
       }),
       false,
+    );
+
+    assert.equal(
+      shouldDeactivateLinkedPicUser(existingPic, {
+        unitId: "unit-old",
+        jenjang: "4",
+        kodeStatpeg: "01",
+        statKepeg: "02",
+        isPresentInSource: true,
+      }),
+      true,
     );
   });
 });
