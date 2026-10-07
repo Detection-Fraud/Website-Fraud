@@ -63,7 +63,7 @@ export default function TableCompliance({
     {
       key: "wilayah",
       className:
-        "left-36 w-22 min-w-22 sm:left-72 sm:w-48 sm:min-w-48 !px-1 sm:!px-4 border-r border-slate-200 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.35)]",
+        "left-36 w-22 min-w-22 sm:left-72 sm:w-48 sm:min-w-48 !px-1 sm:!px-4 border-r border-slate-200",
     },
   ];
 
