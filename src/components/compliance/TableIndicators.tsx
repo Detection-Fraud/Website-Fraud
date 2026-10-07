@@ -1,12 +1,30 @@
-import { ProgramInfo } from "@/types/compliance.types";
+import { ProgramInfo, QuarterFilter } from "@/types/compliance.types";
 import { Card } from "@heroui/react";
 import { FiTarget } from "react-icons/fi";
 
 interface TableIndicatorsProps {
   data: ProgramInfo;
+  year: number;
+  tw: QuarterFilter;
 }
-export default function TableIndicators({ data }: TableIndicatorsProps) {
+const TW_LABELS: Record<Exclude<QuarterFilter, "ALL">, string> = {
+  "1": "TW I",
+  "2": "TW II",
+  "3": "TW III",
+  "4": "TW IV",
+};
+
+export default function TableIndicators({
+  data,
+  year,
+  tw,
+}: TableIndicatorsProps) {
   if (!data) return null;
+
+  const targetLabel =
+    tw === "ALL"
+      ? `Target terdaftar ${year}`
+      : `Target ${TW_LABELS[tw]}`;
 
   return (
     <Card className="rounded-2xl bg-gradient-to-br from-[#0369a1] to-[#0284c7]">
@@ -19,8 +37,8 @@ export default function TableIndicators({ data }: TableIndicatorsProps) {
             {data.name}
           </Card.Title>
           <Card.Description className="text-gray-200 text-xs">
-            Target Frekuensi: <span>{data.frequency}x</span> per tahun
-            <span> · Rumus: Approved ÷ {data.frequency} x 100%</span>
+            {targetLabel}: <span>{data.frequency} laporan</span>
+            <span> · Rumus: Approved ÷ {data.frequency} × 100%</span>
           </Card.Description>
         </div>
       </Card.Header>

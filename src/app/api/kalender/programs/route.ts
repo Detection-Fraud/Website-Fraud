@@ -24,6 +24,7 @@ export async function GET(req: Request) {
         startDate: true,
         endDate: true,
         frequency: true,
+        tw: true,
         category: {
           select: {
             id: true,
@@ -43,6 +44,7 @@ export async function GET(req: Request) {
       startDate: p.startDate?.toISOString(),
       endDate: p.endDate?.toISOString(),
       frequency: p.frequency || 0,
+      tw: p.tw,
       color: p.category?.color || PROGRAM_COLORS[index % PROGRAM_COLORS.length],
       categoryName: p.category?.name || "Umum",
       categoryId: p.category?.id || null,

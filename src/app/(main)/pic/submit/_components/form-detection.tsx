@@ -1,4 +1,8 @@
 import { useFormDetectionLogic, type ProgramWithCategory } from "@/hooks/useFormDetectionLogic";
+import { useReportSubmission } from "@/hooks/useReportSubmission";
+import { isProgramUploadOpen } from "@/lib/program-period";
+import ModalConfirmAction from "@/components/ui/ModalConfirmAction";
+import type { ReportFormData } from "@/types/report.types";
 import { ProgramCategory } from "@generated/prisma";
 import {
   Button,
@@ -9,10 +13,13 @@ import {
   Label,
   ListBox,
   Select,
+  Spinner,
   TextArea,
   TextField,
 } from "@heroui/react";
 import CalendarPicker from "../../../../../components/ui/calendar-picker";
+import { useMemo, useState } from "react";
+import { FiCheckCircle, FiInfo } from "react-icons/fi";
 
 export interface InitialData {
   activityName?: string;
@@ -22,11 +29,6 @@ export interface InitialData {
   description?: string;
   updatedAt?: string;
 }
-
-import { useReportSubmission } from "@/hooks/useReportSubmission";
-import { isProgramUploadOpen } from "@/lib/program-period";
-import { useMemo } from "react";
-import { FiCheckCircle, FiInfo } from "react-icons/fi";
 
 interface PropTypes {
   programs: ProgramWithCategory[];
@@ -41,6 +43,7 @@ export default function FormDetection({
   const { state, actions } = useReportSubmission(reportId, undefined, initialData?.updatedAt);
   const {
     loadingText,
+    isSubmitting,
     adaGambarIdle,
     adaGambarFraud,
     adaGambarLoading,
@@ -49,6 +52,19 @@ export default function FormDetection({
   } = state;
 
   const { handleCheckFraud, tanganiSubmitFinal } = actions;
+  const [pendingSubmission, setPendingSubmission] =
+    useState<ReportFormData | null>(null);
+  const requestSubmitConfirmation = (formData: ReportFormData) => {
+    setPendingSubmission(formData);
+  };
+  const confirmSubmit = () => {
+    if (!pendingSubmission) return;
+    const formData = pendingSubmission;
+    setPendingSubmission(null);
+    tanganiSubmitFinal(formData);
+  };
+  const cancelSubmit = () => setPendingSubmission(null);
+
   const {
     selectedProgramId,
     setSelectedProgramId,
@@ -64,7 +80,7 @@ export default function FormDetection({
     isNoAiMode,
   } = useFormDetectionLogic({
     initialData,
-    tanganiSubmitFinal,
+    tanganiSubmitFinal: requestSubmitConfirmation,
     programs,
   });
 
@@ -93,6 +109,15 @@ export default function FormDetection({
   const activeSelectedProgram = safePrograms.find(
     (p) => p.id === selectedProgramId,
   );
+  const pendingProgramName = safePrograms.find(
+    (program) => program.id === pendingSubmission?.programId,
+  )?.name;
+  const pendingDateLabel = pendingSubmission?.tanggalKegiatan
+    ? new Intl.DateTimeFormat("id-ID", {
+        dateStyle: "long",
+        timeZone: "UTC",
+      }).format(new Date(`${pendingSubmission.tanggalKegiatan}T00:00:00Z`))
+    : "-";
 
   return (
     <Card variant="default" className="shadow-sm">
@@ -296,7 +321,7 @@ export default function FormDetection({
                   onPress={handleCheckFraud}
                   variant="primary"
                   isDisabled={
-                    !adaGambarIdle || adaGambarLoading || totalGambar === 0
+                    isSubmitting || !adaGambarIdle || adaGambarLoading || totalGambar === 0
                   }
                   className="w-full font-semibold"
                 >
@@ -308,6 +333,7 @@ export default function FormDetection({
                   type="submit" // Akan memicu handleSubmit() di tag <Form> atas
                   variant={semuaLulus ? "primary" : "secondary"}
                   isDisabled={
+                    isSubmitting ||
                     !semuaLulus ||
                     adaGambarFraud ||
                     adaGambarLoading ||
@@ -315,7 +341,13 @@ export default function FormDetection({
                   }
                   className="w-full font-semibold shadow-sm"
                 >
-                  Submit
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner size="sm" /> Mengirim...
+                    </span>
+                  ) : (
+                    "Submit"
+                  )}
                 </Button>
               </>
             ) : (
@@ -323,16 +355,99 @@ export default function FormDetection({
                 type="submit"
                 variant="primary"
                 isDisabled={
-                  totalGambar < 1 || totalGambar > 2 || isDateDisabled
+                  isSubmitting || totalGambar < 1 || totalGambar > 2 || isDateDisabled
                 }
                 className="col-span-2 w-full font-semibold shadow-sm"
               >
-                Kirim Bukti Foto (Siap diunggah)
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner size="sm" /> Mengirim...
+                  </span>
+                ) : (
+                  "Kirim Bukti Foto (Siap diunggah)"
+                )}
               </Button>
             )}
           </div>
         </Form>
       </Card.Content>
+      <ModalConfirmAction
+        isOpen={pendingSubmission !== null}
+        onClose={cancelSubmit}
+        onConfirm={confirmSubmit}
+        title="Konfirmasi Submit Laporan"
+        confirmText="Ya, Submit Laporan"
+        isLoading={isSubmitting}
+        description={
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-slate-600">
+              Periksa kembali ringkasan sebelum laporan dikirim.
+            </p>
+
+            <section
+              aria-label="Nama kegiatan"
+              className="rounded-r-lg border-l-4 border-blue-600 bg-blue-50/70 px-4 py-3"
+            >
+              <p className="text-xs font-semibold text-blue-800">
+                Nama kegiatan
+              </p>
+              <p className="mt-1 break-words text-base font-semibold leading-6 text-slate-900">
+                {pendingSubmission?.activityName || "-"}
+              </p>
+            </section>
+
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg bg-slate-50 px-4 py-3 text-sm sm:grid-cols-2">
+              <div className="min-w-0">
+                <dt className="text-xs font-medium text-slate-600">
+                  Program budaya
+                </dt>
+                <dd className="mt-1 break-words font-medium text-slate-800">
+                  {pendingProgramName ?? "-"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-slate-600">
+                  Tanggal kegiatan
+                </dt>
+                <dd className="mt-1 font-medium text-slate-800">
+                  {pendingDateLabel}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs font-medium text-slate-600">Lokasi</dt>
+                <dd className="mt-1 break-words font-medium text-slate-800">
+                  {pendingSubmission?.lokasi || "-"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-slate-600">
+                  Bukti foto
+                </dt>
+                <dd className="mt-1 font-medium text-slate-800">
+                  {totalGambar} foto
+                </dd>
+              </div>
+            </dl>
+
+            <section aria-labelledby="submit-description-heading">
+              <h3
+                id="submit-description-heading"
+                className="text-xs font-semibold text-slate-600"
+              >
+                Deskripsi
+              </h3>
+              <div
+                role="region"
+                aria-labelledby="submit-description-heading"
+                tabIndex={0}
+                className="mt-1 max-h-28 overflow-y-auto overscroll-contain whitespace-pre-wrap break-words rounded-md border border-slate-200 px-3 py-2 text-sm leading-5 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+              >
+                {pendingSubmission?.description || "-"}
+              </div>
+            </section>
+          </div>
+        }
+      />
     </Card>
   );
 }

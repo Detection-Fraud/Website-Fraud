@@ -4,6 +4,7 @@ import CalendarGrid from "@/components/kalendar/CalendarGrid";
 import SidebarProgress from "@/components/kalendar/SidebarProgress";
 import AppBar from "@/components/layout/Appbar";
 import { useCalendarPrograms } from "@/hooks/useCalendarPrograms";
+import { useCalendarQuarterProgress } from "@/hooks/useCalendarQuarterProgress";
 import { useCalendarSubmissions } from "@/hooks/useCalendarSubmissions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ProgramBand } from "@/types/calendar.types";
@@ -27,12 +28,26 @@ export default function PicKalendarView() {
   };
 
   const { programs, isLoading: loadProg } = useCalendarPrograms(1, 2026);
+  const quarterNumber = Math.floor(currentDate.getMonth() / 3) + 1;
+  const quarterlyPrograms = programs.filter(
+    (program) =>
+      program.tw === quarterNumber &&
+      new Date(program.startDate).getUTCFullYear() === currentDate.getFullYear(),
+  );
   const { submissions, isLoading: loadSub } = useCalendarSubmissions({
     month: currentDate.getMonth(),
     year: currentDate.getFullYear(),
     kanwilId: "ALL",
     kancabId: "ALL",
     divisiId: "ALL",
+  });
+  const {
+    progress,
+    isLoading: loadProgress,
+    isError: progressLoadError,
+  } = useCalendarQuarterProgress({
+    month: currentDate.getMonth(),
+    year: currentDate.getFullYear(),
   });
 
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>(
@@ -112,8 +127,11 @@ export default function PicKalendarView() {
         {/* SIDEBAR WIDGETS */}
         <div className="w-full lg:w-80 shrink-0 flex flex-col gap-4">
           <SidebarProgress
-            programs={programs}
-            submissions={submissions}
+            programs={quarterlyPrograms}
+            progress={progress}
+            isLoading={loadProgress}
+            hasLoadError={progressLoadError}
+            isQuarterly
             showProgress={user?.role === "PIC"}
           />
         </div>

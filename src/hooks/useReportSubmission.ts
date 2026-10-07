@@ -7,14 +7,17 @@ import {
 import { ReportFormData } from "@/types/report.types";
 import { toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export function useReportSubmission(reportId?: string, onSuccess?: () => void, expectedUpdatedAt?: string) {
   const imageStore = useReportStore();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [loadingText, setLoadingText] = useState("");
+  const [isSubmitLocked, setIsSubmitLocked] = useState(false);
+  const submitStarted = useRef(false);
   const { uploadFile, deleteUploadedFile } = useUploadMutation();
 
   // --- Mutation 1: Fraud Check ---
@@ -52,10 +55,22 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void, e
       });
     },
     onError: (error: any, imagesToCheck) => {
-      const message =
-        error?.response?.status === 429
-          ? "Analisis sedang penuh. Silakan coba lagi beberapa saat."
-          : "Terjadi kesalahan saat mengecek fraud. Silakan coba lagi.";
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      let message = "Pemeriksaan foto gagal. Silakan coba lagi.";
+
+      if (axios.isAxiosError(error) && !error.response) {
+        message = "Tidak dapat terhubung ke aplikasi. Periksa koneksi internet Anda, lalu coba lagi.";
+      } else if (status === 429) {
+        message = "Pemeriksaan sedang sibuk. Silakan coba lagi beberapa saat.";
+      } else if (status !== undefined && status >= 500) {
+        message = "Layanan pemeriksaan foto sedang tidak tersedia. Silakan coba lagi beberapa saat.";
+      } else if (status === 400 || status === 413) {
+        const apiMessage = error.response?.data?.message;
+        if (typeof apiMessage === "string" && apiMessage.trim()) {
+          message = apiMessage;
+        }
+      }
+
       toast.danger(message);
       imagesToCheck.forEach((img) =>
         imageStore.updateImageStatus(img.id, "IDLE"),
@@ -136,6 +151,8 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void, e
       imageStore.resetStore();
     },
     onError: (error: any) => {
+      submitStarted.current = false;
+      setIsSubmitLocked(false);
       const message =
         error?.response?.data?.message ||
         (error instanceof Error
@@ -163,6 +180,7 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void, e
   };
 
   const tanganiSubmitFinal = async (dataForm: ReportFormData) => {
+    if (submitStarted.current) return;
     if (
       !dataForm.activityName ||
       !dataForm.programId ||
@@ -173,6 +191,8 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void, e
       toast.danger("Data belum lengkap! Harap isi semua informasi laporan.");
       return;
     }
+    submitStarted.current = true;
+    setIsSubmitLocked(true);
     submitMutation.mutate(dataForm);
   };
 
@@ -193,6 +213,7 @@ export function useReportSubmission(reportId?: string, onSuccess?: () => void, e
     state: {
       images: imageStore.images,
       loadingText,
+      isSubmitting: isSubmitLocked || submitMutation.isPending,
       adaGambarIdle,
       adaGambarFraud,
       adaGambarLoading,

@@ -30,6 +30,7 @@ interface UseReportListOptions {
   defaultStatus?: ReportStatusFilter;
   purpose?: "EVIDENCE" | "ALL";
   sortMode?: "APPROVAL";
+  sortOrder?: "asc" | "desc";
 }
 
 export interface PaginationInfo {
@@ -91,6 +92,7 @@ export function useReportList({
   defaultStatus = "ALL",
   purpose = "ALL",
   sortMode,
+  sortOrder,
 }: UseReportListOptions = {}) {
   const {
     updateParams,
@@ -139,6 +141,7 @@ export function useReportList({
     status: statusFilter,
     purpose,
     ...(sortMode ? { sortMode } : {}),
+    ...(sortOrder ? { sortOrder } : {}),
     categoryId: categoryFilter !== "ALL" ? categoryFilter : undefined,
     programId: programFilter !== "ALL" ? programFilter : undefined,
     kanwilId,

@@ -15,7 +15,7 @@ import {
 } from "@heroui/react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { BsEye, BsEyeSlash } from "react-icons/bs";
 import { CiCircleInfo, CiLock, CiLogin } from "react-icons/ci";
 import { FaRegUser } from "react-icons/fa";
@@ -50,7 +50,18 @@ type LoginFormMode = "sso" | "admin";
 export default function LoginForm({ mode }: { mode: LoginFormMode }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isSsoRedirecting, setIsSsoRedirecting] = useState(false);
+  const ssoRedirectStarted = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const resetSsoRedirect = () => {
+      ssoRedirectStarted.current = false;
+      setIsSsoRedirecting(false);
+    };
+    window.addEventListener("pageshow", resetSsoRedirect);
+    return () => window.removeEventListener("pageshow", resetSsoRedirect);
+  }, []);
 
   const searchParams = useSearchParams();
   const ssoError = searchParams.get("error");
@@ -222,18 +233,31 @@ export default function LoginForm({ mode }: { mode: LoginFormMode }) {
             size="lg"
             variant="outline"
             className="border border-white/20 text-white bg-white/5 hover:bg-white/10 font-medium transition-all"
+            isDisabled={isSsoRedirecting}
             onPress={() => {
+              if (ssoRedirectStarted.current) return;
+              ssoRedirectStarted.current = true;
+              setIsSsoRedirecting(true);
               window.location.href = "/api/auth/sso/login";
             }}
           >
-            <Image
-              src="/assets/images/logo-bulog.png"
-              width={20}
-              height={20}
-              className="object-contain mr-2"
-              alt="Bulog"
-            />
-            Masuk dengan SSO
+            {isSsoRedirecting ? (
+              <>
+                <Spinner size="sm" className="mr-2 text-white" />
+                Menghubungkan ke SSO...
+              </>
+            ) : (
+              <>
+                <Image
+                  src="/assets/images/logo-bulog.png"
+                  width={20}
+                  height={20}
+                  className="object-contain mr-2"
+                  alt="Bulog"
+                />
+                Masuk dengan SSO
+              </>
+            )}
           </Button>
         )}
       </Card.Content>

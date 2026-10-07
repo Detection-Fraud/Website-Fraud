@@ -140,7 +140,11 @@ export default function ComplianceReportView() {
 
       <div className="space-y-4">
         {filters.programId !== "ALL" && selectedProgram && (
-          <TableIndicators data={selectedProgram} />
+          <TableIndicators
+            data={selectedProgram}
+            year={filters.year}
+            tw={filters.tw}
+          />
         )}
         <TableCompliance
           data={data}

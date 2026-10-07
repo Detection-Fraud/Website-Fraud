@@ -63,6 +63,8 @@ opencode.jsonc
 brainstorm-skill.txt
 caveman-skill-output.txt
 
+
+outputs/
 .opencode/
 opencode.json
 prompts/

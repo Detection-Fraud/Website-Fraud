@@ -9,6 +9,9 @@ import { pathToFileURL } from "url";
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
+const PYTHON_UNAVAILABLE_MESSAGE =
+  "Layanan pemeriksaan foto sedang tidak tersedia. Silakan coba lagi beberapa saat.";
+const PYTHON_TIMEOUT_MS = 60_000;
 
 async function readBoundedFormData(request: Request): Promise<FormData> {
   if (!request.body) throw new ApiError("Foto baru wajib diisi", 400);
@@ -130,32 +133,30 @@ export async function POST(request: Request) {
 
     const PYTHON_API_URL = process.env.PYTHON_API_URL;
 
-    if (!PYTHON_API_URL) {
-      return NextResponse.json(
-        errorResponse("Konfigurasi Python API URL tidak ditemukan", 500),
-        {
-          status: 500,
-        },
-      );
-    }
-
     const PYTHON_API_KEY = process.env.PYTHON_API_KEY;
-    if (!PYTHON_API_KEY) {
+    if (!PYTHON_API_URL || !PYTHON_API_KEY) {
       return NextResponse.json(
-        errorResponse("Konfigurasi Python API Key tidak ditemukan", 500),
-        {
-          status: 500,
-        },
+        errorResponse(PYTHON_UNAVAILABLE_MESSAGE, 503),
+        { status: 503 },
       );
     }
 
-    const pythonResponse = await fetch(PYTHON_API_URL, {
-      method: "POST",
-      headers: {
-        "X-API-Key": PYTHON_API_KEY,
-      },
-      body: pythonFormData,
-    });
+    let pythonResponse: Response;
+    try {
+      pythonResponse = await fetch(PYTHON_API_URL, {
+        method: "POST",
+        headers: {
+          "X-API-Key": PYTHON_API_KEY,
+        },
+        body: pythonFormData,
+        signal: AbortSignal.timeout(PYTHON_TIMEOUT_MS),
+      });
+    } catch {
+      return NextResponse.json(
+        errorResponse(PYTHON_UNAVAILABLE_MESSAGE, 503),
+        { status: 503 },
+      );
+    }
 
     if (!pythonResponse.ok) {
       const headers = new Headers();
@@ -166,34 +167,65 @@ export async function POST(request: Request) {
         }
       }
 
-      return NextResponse.json(
-        errorResponse(
-          "Gagal memproses data di Python AI",
-          pythonResponse.status,
-        ),
-        {
-          status: pythonResponse.status,
-          headers,
-        },
-      );
-    }
+      const status = pythonResponse.status === 429 ? 429 : 503;
+      const message =
+        status === 429
+          ? "Layanan pemeriksaan foto sedang sibuk. Silakan coba lagi beberapa saat."
+          : PYTHON_UNAVAILABLE_MESSAGE;
 
-    const result = await pythonResponse.json();
-
-    // Map the file:/// URLs back to the original relative URLs
-    if (result && Array.isArray(result.detail_gambar)) {
-      result.detail_gambar = result.detail_gambar.map((item: any) => {
-        if (
-          item.url_referensi_pelaku &&
-          urlMapping[item.url_referensi_pelaku]
-        ) {
-          item.url_referensi_pelaku = urlMapping[item.url_referensi_pelaku];
-        }
-        return item;
+      return NextResponse.json(errorResponse(message, status), {
+        status,
+        headers,
       });
     }
 
-    return NextResponse.json(successResponse(result, "Data berhasil dicek"), {
+    let result: unknown;
+    try {
+      result = await pythonResponse.json();
+    } catch {
+      return NextResponse.json(errorResponse(PYTHON_UNAVAILABLE_MESSAGE, 503), {
+        status: 503,
+      });
+    }
+
+    if (
+      !result ||
+      typeof result !== "object" ||
+      Array.isArray(result) ||
+      !("detail_gambar" in result) ||
+      !Array.isArray(result.detail_gambar) ||
+      !result.detail_gambar.every(
+        (item) =>
+          item !== null &&
+          typeof item === "object" &&
+          !Array.isArray(item) &&
+          "nama_file" in item &&
+          typeof item.nama_file === "string" &&
+          item.nama_file.length > 0 &&
+          "status" in item &&
+          typeof item.status === "string" &&
+          item.status.length > 0,
+      )
+    ) {
+      return NextResponse.json(errorResponse(PYTHON_UNAVAILABLE_MESSAGE, 503), {
+        status: 503,
+      });
+    }
+
+    // Map the file:/// URLs back to the original relative URLs
+    const validResult = result as {
+      detail_gambar: Array<Record<string, unknown>>;
+      [key: string]: unknown;
+    };
+    validResult.detail_gambar = validResult.detail_gambar.map((item) => {
+      const referenceUrl = item.url_referensi_pelaku;
+      if (typeof referenceUrl === "string" && urlMapping[referenceUrl]) {
+        item.url_referensi_pelaku = urlMapping[referenceUrl];
+      }
+      return item;
+    });
+
+    return NextResponse.json(successResponse(validResult, "Data berhasil dicek"), {
       status: 200,
     });
   } catch (error) {

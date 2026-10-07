@@ -6,12 +6,18 @@ export interface CalendarSubmission {
   unitId: string | null;
 }
 
+export interface CalendarProgramProgress {
+  programId: string;
+  approvedCount: number;
+}
+
 export interface ProgramBand {
   id: string;
   name: string;
   startDate: string;
   endDate: string;
   frequency: number;
+  tw?: number | null;
   color: string;
   categoryName?: string;
   categoryId?: string | null;

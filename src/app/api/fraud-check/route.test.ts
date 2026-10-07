@@ -39,7 +39,7 @@ mock.module("@/lib/api/rate-limit", {
   namedExports: {
     checkRateLimit: checkRateLimitMock,
     getTrustedClientIdentity: () => "same-ingress",
-    rateLimitResponse: () => Response.json({}, { status: 429 }),
+    rateLimitResponse: () => Response.json({}, { status: 429, headers: { "Retry-After": "9" } }),
   },
 });
 mock.module("@/lib/api/unit-scope", {
@@ -87,6 +87,17 @@ test("uses separate authenticated user quotas for users sharing an ingress", asy
   requireAuthMock.mock.mockImplementation(async () => ({ user: { id: "user-2", role: "PIC", authProvider: "LOCAL" } }));
   assert.equal((await POST(request())).status, 200);
   assert.equal(fetchMock.mock.calls.length, 6);
+});
+
+test("preserves authentication failures before calling Python", async () => {
+  requireAuthMock.mock.mockImplementationOnce(async () => {
+    throw new ApiError("Unauthorized", 401);
+  });
+
+  const response = await POST(request());
+
+  assert.equal(response.status, 401);
+  assert.equal(fetchMock.mock.calls.length, 0);
 });
 
 test("rejects invalid file counts and oversized files before DB access or Python", async () => {
@@ -165,10 +176,120 @@ test("maps Python 429 and forwards Retry-After without retrying", async () => {
   assert.deepEqual(body, {
     status: 429,
     error: true,
-    message: "Gagal memproses data di Python AI",
+    message: "Layanan pemeriksaan foto sedang sibuk. Silakan coba lagi beberapa saat.",
     data: null,
   });
   assert.equal(fetchMock.mock.calls.length, 1);
+});
+
+test("returns the app rate-limit response with its Retry-After header", async () => {
+  checkRateLimitMock.mock.mockImplementationOnce(() => ({ success: false, resetAt: Date.now() + 9_000 }));
+
+  const response = await POST(request());
+
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Retry-After"), "9");
+  assert.equal(fetchMock.mock.calls.length, 0);
+});
+
+test("maps Python transport failures to a safe service-unavailable response", async () => {
+  fetchMock.mock.mockImplementationOnce(async () => {
+    throw new Error("connect ECONNREFUSED http://internal-python-service:8000");
+  });
+
+  const response = await POST(request());
+  const body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(body, {
+    status: 503,
+    error: true,
+    message: "Layanan pemeriksaan foto sedang tidak tersedia. Silakan coba lagi beberapa saat.",
+    data: null,
+  });
+  assert.equal(JSON.stringify(body).includes("internal-python-service"), false);
+  assert.equal(fetchMock.mock.calls.length, 1);
+});
+
+test("maps a Python timeout or abort to the safe service-unavailable response", async () => {
+  fetchMock.mock.mockImplementationOnce(async (_input, init) => {
+    assert.ok(init?.signal instanceof AbortSignal);
+    throw new DOMException("Python request timed out", "TimeoutError");
+  });
+
+  const response = await POST(request());
+  const body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.equal(body.message, "Layanan pemeriksaan foto sedang tidak tersedia. Silakan coba lagi beberapa saat.");
+  assert.equal(JSON.stringify(body).includes("timed out"), false);
+});
+
+test("does not expose missing Python service configuration", async () => {
+  const originalUrl = process.env.PYTHON_API_URL;
+  const originalKey = process.env.PYTHON_API_KEY;
+  try {
+    for (const missing of ["url", "key"] as const) {
+      process.env.PYTHON_API_URL = missing === "url" ? "" : "http://127.0.0.1:8000/api/analyze-batch";
+      process.env.PYTHON_API_KEY = missing === "key" ? "" : "test-key";
+
+      const response = await POST(request());
+      const body = await response.json();
+
+      assert.equal(response.status, 503);
+      assert.equal(body.message, "Layanan pemeriksaan foto sedang tidak tersedia. Silakan coba lagi beberapa saat.");
+      assert.equal(JSON.stringify(body).includes("PYTHON_API_"), false);
+    }
+  } finally {
+    if (originalUrl === undefined) delete process.env.PYTHON_API_URL;
+    else process.env.PYTHON_API_URL = originalUrl;
+    if (originalKey === undefined) delete process.env.PYTHON_API_KEY;
+    else process.env.PYTHON_API_KEY = originalKey;
+  }
+  assert.equal(fetchMock.mock.calls.length, 0);
+});
+
+test("maps malformed Python success responses to the safe service-unavailable response", async () => {
+  const invalidResponses = [
+    new Response("not-json", { status: 200 }),
+    Response.json({}),
+    Response.json({ detail_gambar: null }),
+    Response.json({ detail_gambar: [null] }),
+    Response.json({ detail_gambar: [{ status: "FRAUD" }] }),
+    Response.json({ detail_gambar: [{ nama_file: "foto.jpg", status: "" }] }),
+  ];
+
+  for (const invalidResponse of invalidResponses) {
+    fetchMock.mock.mockImplementationOnce(async () => invalidResponse);
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    assert.equal(response.status, 503);
+    assert.equal(body.message, "Layanan pemeriksaan foto sedang tidak tersedia. Silakan coba lagi beberapa saat.");
+    assert.equal(JSON.stringify(body).includes("foto.jpg"), false);
+  }
+  assert.equal(fetchMock.mock.calls.length, invalidResponses.length);
+});
+
+test("maps Python 5xx and unexpected 4xx responses to a safe 503", async () => {
+  for (const upstreamStatus of [500, 503, 401, 418]) {
+    fetchMock.mock.mockImplementationOnce(async () =>
+      new Response(JSON.stringify({ detail: "private upstream diagnostic" }), {
+        status: upstreamStatus,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    assert.equal(response.status, 503);
+    assert.equal(body.status, 503);
+    assert.equal(body.message, "Layanan pemeriksaan foto sedang tidak tersedia. Silakan coba lagi beberapa saat.");
+    assert.equal(JSON.stringify(body).includes("private upstream diagnostic"), false);
+  }
+  assert.equal(fetchMock.mock.calls.length, 4);
 });
 
 test("omits invalid Python Retry-After values", async () => {

@@ -36,7 +36,11 @@ export default function PicView() {
     handleStatusChange,
     handleKancabChange,
     handlePageChange,
-  } = useReportList({ defaultStatus: "ALL", purpose: "EVIDENCE" });
+  } = useReportList({
+    defaultStatus: "ALL",
+    purpose: "EVIDENCE",
+    sortOrder: "desc",
+  });
 
   const { user } = useCurrentUser();
   const isKanwil = user?.unitType === "KANTOR_WILAYAH";

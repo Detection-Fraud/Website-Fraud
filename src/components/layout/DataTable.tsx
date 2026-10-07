@@ -14,6 +14,11 @@ export interface PaginationInfo {
   totalPages: number;
 }
 
+export interface StickyColumn {
+  key: string;
+  className: string;
+}
+
 type TableRowKey = string | number;
 
 interface DataTableProps<T> {
@@ -38,6 +43,7 @@ interface DataTableProps<T> {
   selectedRowKey?: TableRowKey | null;
   onRowSelectionChange?: (key: TableRowKey | null) => void;
   isPaginationDisabled?: boolean;
+  stickyColumns?: StickyColumn[];
 }
 
 export default function DataTable<T>({
@@ -62,8 +68,12 @@ export default function DataTable<T>({
   selectedRowKey,
   onRowSelectionChange,
   isPaginationDisabled = false,
+  stickyColumns = [],
 }: DataTableProps<T>) {
   const showPagination = pagination && pagination.totalPages > 0;
+  const stickyColumnClasses = new Map(
+    stickyColumns.map(({ key, className }) => [key, className]),
+  );
 
   const getPageNumbers = () => {
     if (!pagination) return [];
@@ -100,6 +110,7 @@ export default function DataTable<T>({
     <Table className={`rounded-none p-0 ${className ?? ""}`}>
       <Table.ScrollContainer>
         <Table.Content
+          className={stickyColumns.length > 0 ? "min-w-max table-fixed" : undefined}
           aria-label={ariaLabel || "Tabel Data"}
           selectionMode={onRowSelectionChange ? "single" : undefined}
           selectedKeys={
@@ -119,7 +130,7 @@ export default function DataTable<T>({
           <Table.Header className="sticky top-0 z-10">
             {column.map((col, idx) => (
               <Table.Column
-                className="whitespace-nowrap bg-[#f8fafc] px-6 py-3.5"
+                className={`whitespace-nowrap bg-[#f8fafc] px-6 py-3.5 ${stickyColumnClasses.get(col.key) ?? ""} ${stickyColumnClasses.has(col.key) ? "sticky top-0 z-30 bg-[#f8fafc]" : ""}`}
                 key={col.key}
                 isRowHeader={idx === 0}
               >
@@ -158,7 +169,7 @@ export default function DataTable<T>({
                 >
                   {column.map((col) => (
                     <Table.Cell
-                      className="whitespace-nowrap rounded-none px-6 text-start"
+                      className={`whitespace-nowrap rounded-none px-6 text-start ${stickyColumnClasses.get(col.key) ?? ""} ${stickyColumnClasses.has(col.key) ? "sticky z-20 bg-white" : ""}`}
                       key={col.key}
                     >
                       {renderCell

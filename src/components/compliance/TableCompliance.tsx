@@ -49,6 +49,24 @@ export default function TableCompliance({
     { key: "avg", label: "Rata-Rata" },
   ];
 
+  const stickyColumns = [
+    {
+      key: "rank",
+      className:
+        "left-0 w-14 min-w-14 sm:w-16 sm:min-w-16 !px-1 sm:!px-2",
+    },
+    {
+      key: "unit",
+      className:
+        "left-14 w-40 min-w-40 sm:left-16 sm:w-56 sm:min-w-56 !px-3 sm:!px-4",
+    },
+    {
+      key: "wilayah",
+      className:
+        "left-[13.5rem] w-36 min-w-36 sm:left-72 sm:w-48 sm:min-w-48 !px-3 sm:!px-4 border-r border-slate-200 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.35)]",
+    },
+  ];
+
   const renderCell = (item: UnitComplianceRow, columnKey: string) => {
     if (columnKey === "rank") {
       const isTop3 = item.rank <= 3 && item.avg > 0;
@@ -75,7 +93,7 @@ export default function TableCompliance({
     }
     if (columnKey === "unit") {
       return (
-        <div className="min-w-56 max-w-72 whitespace-normal wrap-break-word">
+        <div className="w-full min-w-0 max-w-72 whitespace-normal wrap-break-word">
           <p className="font-semibold text-slate-800">{item.unit.name}</p>
           <p className="text-xs text-slate-400">{item.unit.type}</p>
         </div>
@@ -83,7 +101,7 @@ export default function TableCompliance({
     }
     if (columnKey === "wilayah") {
       return (
-        <div className="min-w-48 max-w-64 whitespace-normal wrap-break-word">
+        <div className="w-full min-w-0 max-w-64 whitespace-normal wrap-break-word">
           <span className="text-sm text-slate-600 ">{item.unit.wilayah}</span>
         </div>
       );
@@ -171,6 +189,7 @@ export default function TableCompliance({
             column={columns}
             data={paginatedData}
             renderCell={renderCell}
+            stickyColumns={stickyColumns}
             pagination={{
               total,
               page,
