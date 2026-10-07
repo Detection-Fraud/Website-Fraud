@@ -53,17 +53,17 @@ export default function TableCompliance({
     {
       key: "rank",
       className:
-        "left-0 w-14 min-w-14 sm:w-16 sm:min-w-16 !px-1 sm:!px-2",
+        "left-0 w-12 min-w-12 sm:w-16 sm:min-w-16 !px-1 sm:!px-2",
     },
     {
       key: "unit",
       className:
-        "left-14 w-40 min-w-40 sm:left-16 sm:w-56 sm:min-w-56 !px-3 sm:!px-4",
+        "left-12 w-24 min-w-24 sm:left-16 sm:w-56 sm:min-w-56 !px-1 sm:!px-4",
     },
     {
       key: "wilayah",
       className:
-        "left-[13.5rem] w-36 min-w-36 sm:left-72 sm:w-48 sm:min-w-48 !px-3 sm:!px-4 border-r border-slate-200 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.35)]",
+        "left-36 w-22 min-w-22 sm:left-72 sm:w-48 sm:min-w-48 !px-1 sm:!px-4 border-r border-slate-200 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.35)]",
     },
   ];
 
@@ -71,16 +71,16 @@ export default function TableCompliance({
     if (columnKey === "rank") {
       const isTop3 = item.rank <= 3 && item.avg > 0;
       return (
-        <div className="flex items-center gap-2 tabular-nums font-semibold">
+        <div className="flex items-center gap-1 text-xs tabular-nums font-semibold sm:gap-2 sm:text-sm">
           {isTop3 && (
             <FaCrown
-              className={
+              className={`h-3 w-3 shrink-0 sm:h-4 sm:w-4 ${
                 item.rank === 1
                   ? "text-yellow-400"
                   : item.rank === 2
                     ? "text-slate-400"
                     : "text-amber-600"
-              }
+              }`}
             />
           )}
           <span
