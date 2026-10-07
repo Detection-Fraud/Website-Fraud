@@ -14,6 +14,7 @@ import {
 import { GoDotFill } from "react-icons/go";
 import { LuBuilding2 } from "react-icons/lu";
 import CardCaraousel from "./CardCaraousel";
+import RejectionReasonModal from "./RejectionReasonModal";
 
 interface CardApprovalProps {
   report: ActivityReportItem;
@@ -50,6 +51,12 @@ export default function CardApproval({
   const [isDescriptionTruncated, setIsDescriptionTruncated] = useState(false);
   const descriptionPreviewRef = useRef<HTMLParagraphElement>(null);
   const descriptionTriggerRef = useRef<HTMLButtonElement>(null);
+  const rejectionReason =
+    status === "REJECTED" && notes?.trim() ? notes : "";
+  const [isRejectionReasonModalOpen, setIsRejectionReasonModalOpen] = useState(false);
+  const [isRejectionReasonTruncated, setIsRejectionReasonTruncated] = useState(false);
+  const rejectionReasonPreviewRef = useRef<HTMLParagraphElement>(null);
+  const rejectionReasonTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const preview = descriptionPreviewRef.current;
@@ -71,10 +78,37 @@ export default function CardApproval({
     };
   }, [descriptionText]);
 
+  useEffect(() => {
+    const preview = rejectionReasonPreviewRef.current;
+    if (!rejectionReason || !preview) {
+      setIsRejectionReasonTruncated(false);
+      return;
+    }
+
+    const measureOverflow = () => {
+      setIsRejectionReasonTruncated(preview.scrollHeight > preview.clientHeight + 1);
+    };
+    const frame = window.requestAnimationFrame(measureOverflow);
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(preview);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [rejectionReason]);
+
   const handleDescriptionModalChange = (isOpen: boolean) => {
     setIsDescriptionModalOpen(isOpen);
     if (!isOpen) {
       window.requestAnimationFrame(() => descriptionTriggerRef.current?.focus());
+    }
+  };
+
+  const handleRejectionReasonModalChange = (isOpen: boolean) => {
+    setIsRejectionReasonModalOpen(isOpen);
+    if (!isOpen) {
+      window.requestAnimationFrame(() => rejectionReasonTriggerRef.current?.focus());
     }
   };
 
@@ -228,16 +262,29 @@ export default function CardApproval({
               </span>
             </div>
 
-            {status === "REJECTED" && notes && (
-              <div className="mt-1">
-                <div className="bg-rose-50/90 border-l-3 border-rose-500 p-2.5 rounded-r-xl">
-                  <p className="text-rose-700 text-xs font-bold mb-0.5">
-                    Catatan Admin:
-                  </p>
-                  <p className="text-xs text-slate-700 leading-relaxed">
-                    {notes}
-                  </p>
-                </div>
+            {rejectionReason && (
+              <div className="mt-1 rounded-r-xl border-l-3 border-rose-500 bg-rose-50/90 px-2.5 py-2">
+                <p className="mb-0.5 text-xs font-bold text-rose-700">
+                  Alasan penolakan
+                </p>
+                <p
+                  ref={rejectionReasonPreviewRef}
+                  className="line-clamp-2 whitespace-pre-line break-words text-xs leading-relaxed text-slate-700 [overflow-wrap:anywhere]"
+                >
+                  {rejectionReason}
+                </p>
+                {isRejectionReasonTruncated && (
+                  <Button
+                    ref={rejectionReasonTriggerRef}
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Baca alasan penolakan lengkap untuk ${activityName}`}
+                    className="-ml-2 mt-1 min-h-11 px-2 text-xs font-semibold text-rose-800 hover:bg-rose-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:scale-[0.98]"
+                    onPress={() => setIsRejectionReasonModalOpen(true)}
+                  >
+                    Baca selengkapnya
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -348,6 +395,14 @@ export default function CardApproval({
           </Modal.Container>
         </Modal.Backdrop>
       </Modal>
+      {rejectionReason && (
+        <RejectionReasonModal
+          isOpen={isRejectionReasonModalOpen}
+          onOpenChange={handleRejectionReasonModalChange}
+          activityName={activityName}
+          notes={rejectionReason}
+        />
+      )}
     </>
   );
 }

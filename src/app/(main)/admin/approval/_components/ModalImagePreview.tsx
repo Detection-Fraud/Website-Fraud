@@ -11,12 +11,14 @@ import {
   FiDownload,
   FiExternalLink,
   FiFolder,
+  FiMessageSquare,
   FiMapPin,
   FiUser,
   FiX,
 } from "react-icons/fi";
 import { GoDotFill } from "react-icons/go";
 import { LuBuilding2 } from "react-icons/lu";
+import RejectionReasonModal from "./RejectionReasonModal";
 
 interface ModalImagePreviewProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ export default function ModalImagePreview({
   initialIndex = 0,
 }: ModalImagePreviewProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [isRejectionReasonModalOpen, setIsRejectionReasonModalOpen] = useState(false);
 
   // Sync index whenever modal opens or initialIndex changes
   useEffect(() => {
@@ -43,10 +46,14 @@ export default function ModalImagePreview({
   const photos = report?.photos || [];
   const totalPhotos = photos.length;
   const currentPhoto = photos[currentIndex] || photos[0];
+  const rejectionReason =
+    report?.status === "REJECTED" && report.notes?.trim()
+      ? report.notes
+      : "";
 
   // Keyboard navigation: Left/Right arrows to flip photos, Escape to close
   useEffect(() => {
-    if (!isOpen || totalPhotos <= 1) return;
+    if (!isOpen || totalPhotos <= 1 || isRejectionReasonModalOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") {
@@ -60,7 +67,7 @@ export default function ModalImagePreview({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, totalPhotos]);
+  }, [isOpen, totalPhotos, isRejectionReasonModalOpen]);
 
   if (!report || totalPhotos === 0 || !currentPhoto) return null;
 
@@ -292,32 +299,43 @@ export default function ModalImagePreview({
             )}
 
             {/* FOOTER INFO BAR */}
-            <div className="px-4 sm:px-6 py-3 border-t border-white/10 bg-slate-900/60 backdrop-blur-sm text-xs text-slate-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="font-mono text-[11px] text-slate-300 truncate max-w-xs sm:max-w-md">
+            <div className="flex shrink-0 flex-col gap-3 border-t border-white/10 bg-slate-900/60 px-4 py-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                <span className="max-w-full truncate font-mono text-[11px] text-slate-300 sm:max-w-md">
                   {currentPhoto.originalName || "Foto Kegiatan"}
                 </span>
                 {report.createdBy?.name && (
-                  <span className="inline-flex items-center gap-1 text-slate-400 shrink-0">
-                    <FiUser className="w-3.5 h-3.5 text-slate-500" />
-                    {report.createdBy.name}
+                  <span className="inline-flex min-w-0 items-center gap-1 text-slate-400 sm:shrink-0">
+                    <FiUser aria-hidden="true" className="size-3.5 shrink-0 text-slate-500" />
+                    <span className="truncate">{report.createdBy.name}</span>
                   </span>
                 )}
               </div>
 
-              {/* Rejection Notes callout if rejected */}
-              {report.status === "REJECTED" && report.notes && (
-                <div className="w-full sm:w-auto text-rose-300 bg-rose-950/60 border border-rose-800/60 px-3 py-1.5 rounded-lg text-xs leading-relaxed">
-                  <span className="font-semibold text-rose-400 mr-1.5">
-                    Alasan Tolak:
-                  </span>
-                  {report.notes}
-                </div>
+              {rejectionReason && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Buka alasan penolakan laporan ${report.activityName}`}
+                  className="min-h-11 shrink-0 self-start justify-center gap-2 px-3 text-rose-200 hover:bg-rose-950/70 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300 sm:justify-start"
+                  onPress={() => setIsRejectionReasonModalOpen(true)}
+                >
+                  <FiMessageSquare aria-hidden="true" className="size-4" />
+                  Alasan penolakan
+                </Button>
               )}
             </div>
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
+      {rejectionReason && (
+        <RejectionReasonModal
+          isOpen={isRejectionReasonModalOpen}
+          onOpenChange={setIsRejectionReasonModalOpen}
+          activityName={report.activityName}
+          notes={rejectionReason}
+        />
+      )}
     </Modal>
   );
 }
