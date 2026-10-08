@@ -25,7 +25,7 @@ const approvedReport = {
 
 type ExistingRow = {
   id: string;
-  percentage: number | null;
+  percentage: Prisma.Decimal | null;
   updatedAt: Date;
   evidenceReportId: string | null;
   importedAt: Date | null;
@@ -49,12 +49,15 @@ type WriteArgs = {
 function directRow(overrides: Partial<ExistingRow> = {}): ExistingRow {
   return {
     id: "participation-1",
-    percentage: 50,
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     evidenceReportId: "report-1",
     importedAt: new Date("2026-08-30T00:00:00.000Z"),
     importedById: null,
     ...overrides,
+    percentage:
+      overrides.percentage === null
+        ? null
+        : new Prisma.Decimal(overrides.percentage ?? 50),
   };
 }
 
@@ -185,7 +188,7 @@ describe("assessParticipationScore", () => {
         categoryId: createArgs.data.categoryId,
         tw: createArgs.data.tw,
         year: createArgs.data.year,
-        percentage: createArgs.data.percentage,
+        percentage: (createArgs.data.percentage as Prisma.Decimal).toNumber(),
         evidenceReportId: createArgs.data.evidenceReportId,
         assessedById: createArgs.data.assessedById,
       },
@@ -209,7 +212,7 @@ describe("assessParticipationScore", () => {
       categoryId: "category-1",
       action: "CREATED",
       previousPercentage: null,
-      newPercentage: 0,
+      newPercentage: new Prisma.Decimal(0),
       actorId: "admin-1",
       actorName: "Admin Satu",
     });
@@ -228,7 +231,7 @@ describe("assessParticipationScore", () => {
 
   it("returns UNCHANGED before reason/version checks and performs no write", async () => {
     const setup = createAssessmentDatabase({
-      existing: directRow({ percentage: 75 }),
+      existing: directRow({ percentage: new Prisma.Decimal(75) }),
     });
 
     const result = await assessParticipationScore(input(75), setup.database);
@@ -247,7 +250,7 @@ describe("assessParticipationScore", () => {
 
   it("updates with trimmed reason, displayed version, and one UPDATED history", async () => {
     const setup = createAssessmentDatabase({
-      existing: directRow({ percentage: 50 }),
+      existing: directRow({ percentage: new Prisma.Decimal(50) }),
     });
 
     const result = await assessParticipationScore(
@@ -276,7 +279,10 @@ describe("assessParticipationScore", () => {
       id: "participation-1",
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     });
-    assert.equal(updateArgs.data.percentage, 80);
+    assert.equal(
+      (updateArgs.data.percentage as Prisma.Decimal).toNumber(),
+      80,
+    );
     assert.equal(updateArgs.data.assessedById, "admin-1");
     assert.equal(updateArgs.data.assessedAt instanceof Date, true);
 
@@ -287,8 +293,8 @@ describe("assessParticipationScore", () => {
       evidenceReportId: "report-1",
       categoryId: "category-1",
       action: "UPDATED",
-      previousPercentage: 50,
-      newPercentage: 80,
+      previousPercentage: new Prisma.Decimal(50),
+      newPercentage: new Prisma.Decimal(80),
       changeReason: "Koreksi berdasarkan daftar peserta terbaru",
       actorId: "admin-1",
       actorName: "Admin Satu",
@@ -455,7 +461,7 @@ describe("assessParticipationScore", () => {
   it("rejects same-value Excel-origin data with 409 before idempotency", async () => {
     const setup = createAssessmentDatabase({
       existing: directRow({
-        percentage: 50,
+        percentage: new Prisma.Decimal(50),
         importedById: "admin-importer",
       }),
     });
@@ -473,7 +479,10 @@ describe("assessParticipationScore", () => {
 
   it("rejects unknown provenance with 409 before idempotency", async () => {
     const setup = createAssessmentDatabase({
-      existing: directRow({ percentage: 50, evidenceReportId: null }),
+      existing: directRow({
+        percentage: new Prisma.Decimal(50),
+        evidenceReportId: null,
+      }),
     });
 
     await assert.rejects(
@@ -489,7 +498,10 @@ describe("assessParticipationScore", () => {
 
   it("rejects a different evidence report with 409 before idempotency", async () => {
     const setup = createAssessmentDatabase({
-      existing: directRow({ percentage: 50, evidenceReportId: "report-2" }),
+      existing: directRow({
+        percentage: new Prisma.Decimal(50),
+        evidenceReportId: "report-2",
+      }),
     });
 
     await assert.rejects(
@@ -506,7 +518,7 @@ describe("assessParticipationScore", () => {
   it("allows same-report UNCHANGED with populated importedAt", async () => {
     const setup = createAssessmentDatabase({
       existing: directRow({
-        percentage: 75,
+        percentage: new Prisma.Decimal(75),
         evidenceReportId: "report-1",
         importedAt: new Date("2026-08-30T00:00:00.000Z"),
       }),
@@ -526,7 +538,7 @@ describe("assessParticipationScore", () => {
   it("allows same-report update with populated importedAt", async () => {
     const setup = createAssessmentDatabase({
       existing: directRow({
-        percentage: 50,
+        percentage: new Prisma.Decimal(50),
         evidenceReportId: "report-1",
         importedAt: new Date("2026-08-30T00:00:00.000Z"),
       }),

@@ -280,3 +280,13 @@ export async function assessParticipationScore(
     };
   });
 }
+
+export function assessParticipationScoreInTransaction(
+  input: AssessmentInput,
+  tx: Prisma.TransactionClient,
+): Promise<AssessmentResult> {
+  return assessParticipationScore(input, {
+    activityReport: tx.activityReport,
+    $transaction: (callback) => callback(tx),
+  });
+}

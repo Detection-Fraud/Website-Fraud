@@ -1,5 +1,6 @@
 "use client";
 
+import { useApproval } from "@/hooks/useApproval";
 import {
   ParticipationScoreData,
   useParticipationScore,
@@ -23,6 +24,7 @@ interface ParticipationScoreModalProps {
   reportId: string | null;
   reportName?: string;
   onClose: () => void;
+  mode?: "approval" | "manage";
 }
 
 type ApiError = {
@@ -57,6 +59,7 @@ export default function ParticipationScoreModal({
   reportId,
   reportName,
   onClose,
+  mode = "manage",
 }: ParticipationScoreModalProps) {
   const {
     scoreData,
@@ -65,7 +68,9 @@ export default function ParticipationScoreModal({
     isLoadingScore,
     saveScore,
     isSavingScore,
-  } = useParticipationScore(reportId ?? "");
+  } = useParticipationScore(mode === "approval" ? "" : reportId ?? "");
+  const { handleApprove, isLoading: isApproving } = useApproval();
+  const isSubmitting = mode === "approval" ? isApproving : isSavingScore;
   const assessment = currentAssessment(scoreData);
   const currentPercentage = assessment?.percentage ?? null;
   const assessmentVersion = assessment?.updatedAt ?? scoreData?.scoreStatus;
@@ -73,21 +78,37 @@ export default function ParticipationScoreModal({
   const [reason, setReason] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hasConflict, setHasConflict] = useState(false);
-  const openedReportRef = useRef<string | null>(null);
+  const [showDiscardConfirmation, setShowDiscardConfirmation] = useState(false);
+  const openedSessionRef = useRef<{
+    reportId: string | null;
+    mode: "approval" | "manage";
+  } | null>(null);
+  const continueEditingRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
-      openedReportRef.current = null;
+      openedSessionRef.current = null;
       return;
     }
 
-    if (openedReportRef.current === reportId) return;
+    if (
+      openedSessionRef.current?.reportId === reportId &&
+      openedSessionRef.current.mode === mode
+    ) {
+      return;
+    }
 
-    openedReportRef.current = reportId;
+    openedSessionRef.current = { reportId, mode };
     setHasConflict(false);
     setReason("");
     setSubmitError(null);
-  }, [isOpen, reportId]);
+    setShowDiscardConfirmation(false);
+    setValue("");
+  }, [isOpen, reportId, mode]);
+
+  useEffect(() => {
+    if (showDiscardConfirmation) continueEditingRef.current?.focus();
+  }, [showDiscardConfirmation]);
 
   useEffect(() => {
     if (!isOpen || scoreData === undefined) return;
@@ -120,11 +141,38 @@ export default function ParticipationScoreModal({
     percentageIsValid &&
     (currentPercentage === null || changed) &&
     reasonIsValid &&
-    !isSavingScore &&
+    !isSubmitting &&
     !hasConflict;
+
+  const approvalCanSubmit =
+    mode === "approval" &&
+    reportId !== null &&
+    percentageIsValid &&
+    !isSubmitting;
+
+  const requestClose = () => {
+    if (isSubmitting) return;
+    if (mode === "approval" && value.trim() !== "") {
+      setShowDiscardConfirmation(true);
+      return;
+    }
+    onClose();
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (mode === "approval") {
+      if (!approvalCanSubmit || percentage === null || reportId === null) return;
+      setSubmitError(null);
+      try {
+        await handleApprove(reportId, percentage);
+        onClose();
+      } catch (error) {
+        setSubmitError(getErrorMessage(error));
+      }
+      return;
+    }
+
     if (!canSubmit || percentage === null || reportId === null) return;
 
     const payload: ParticipationScoreInput = { percentage };
@@ -156,8 +204,10 @@ export default function ParticipationScoreModal({
     <Modal.Backdrop
       className="bg-slate-950/40 dark:bg-slate-950/60"
       isOpen={isOpen}
+      isDismissable={!isSubmitting}
+      isKeyboardDismissDisabled={isSubmitting}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) requestClose();
       }}
     >
       <Modal.Container placement="auto" scroll="inside">
@@ -166,7 +216,9 @@ export default function ParticipationScoreModal({
           aria-labelledby="score-title"
           className="w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[var(--surface-shadow-md)] sm:w-full sm:max-w-[40rem]"
         >
-          <Modal.CloseTrigger className="min-h-11 min-w-11" />
+          {!isSubmitting && !showDiscardConfirmation && (
+            <Modal.CloseTrigger className="min-h-11 min-w-11" />
+          )}
           <Modal.Header className="border-b border-slate-100 px-5 py-5 pr-16 sm:px-7 sm:py-6 sm:pr-20">
             <div className="flex min-w-0 items-start gap-3">
               <div
@@ -177,32 +229,65 @@ export default function ParticipationScoreModal({
               </div>
               <div className="min-w-0">
                 <Modal.Heading id="score-title" className="line-clamp-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">
-                  {currentPercentage === null
-                    ? "Isi Nilai Partisipasi"
-                    : "Ubah Nilai Partisipasi"}
+                  {showDiscardConfirmation
+                    ? "Batalkan persetujuan?"
+                    : mode === "approval"
+                      ? "Nilai Partisipasi"
+                      : currentPercentage === null
+                        ? "Isi Nilai Partisipasi"
+                        : "Ubah Nilai Partisipasi"}
                 </Modal.Heading>
                 <p id="score-description" className="line-clamp-2 text-sm leading-5 text-muted">
-                  {reportName ?? "Laporan disetujui"}
+                  {reportName ??
+                    (mode === "approval"
+                      ? "Laporan menunggu persetujuan"
+                      : "Laporan disetujui")}
                 </p>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-3.5 py-3 text-sm">
-              <span className="text-muted">Nilai tersimpan</span>
-              <span className="font-semibold tabular-nums text-[var(--brand-navy-900)]">
-                {scoreError
-                  ? "Tidak tersedia"
-                  : isLoadingScore || scoreData === undefined
-                    ? "Memuat..."
-                    : currentPercentage === null
-                      ? "Belum dinilai"
-                      : `${currentPercentage}%`}
-              </span>
-            </div>
+            {mode === "manage" && !showDiscardConfirmation && (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-3.5 py-3 text-sm">
+                <span className="text-muted">Nilai tersimpan</span>
+                <span className="font-semibold tabular-nums text-[var(--brand-navy-900)]">
+                  {scoreError
+                    ? "Tidak tersedia"
+                    : isLoadingScore || scoreData === undefined
+                      ? "Memuat..."
+                      : currentPercentage === null
+                        ? "Belum dinilai"
+                        : `${currentPercentage}%`}
+                </span>
+              </div>
+            )}
           </Modal.Header>
 
-          <Form className="contents" onSubmit={submit}>
+          {showDiscardConfirmation ? (
+            <>
+              <Modal.Body role="alert" className="space-y-3 px-5 py-5 sm:px-7 sm:py-6">
+                <p className="font-semibold text-foreground">Nilai belum disimpan. Batalkan persetujuan?</p>
+                <p className="text-sm leading-5 text-muted">Nilai yang sudah diisi akan dihapus jika persetujuan dibatalkan.</p>
+              </Modal.Body>
+              <Modal.Footer className="flex w-full flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+                <Button ref={continueEditingRef} type="button" variant="secondary" onPress={() => setShowDiscardConfirmation(false)}>
+                  Lanjut Isi
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onPress={() => {
+                    setShowDiscardConfirmation(false);
+                    setValue("");
+                    onClose();
+                  }}
+                >
+                  Batalkan Persetujuan
+                </Button>
+              </Modal.Footer>
+            </>
+          ) : (
+            <Form className="contents" onSubmit={submit}>
             <Modal.Body className="space-y-6 px-5 py-5 sm:px-7 sm:py-6">
-              {isLoadingScore ? (
+              {mode === "manage" && isLoadingScore ? (
                 <div className="space-y-6">
                   <div
                     aria-hidden="true"
@@ -220,7 +305,7 @@ export default function ParticipationScoreModal({
                     Memuat data nilai...
                   </p>
                 </div>
-              ) : scoreError ? (
+              ) : mode === "manage" && scoreError ? (
                 <div
                   className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-4"
                   role="alert"
@@ -310,7 +395,7 @@ export default function ParticipationScoreModal({
                     </div>
                   )}
 
-                  {currentPercentage !== null && !changed && (
+                  {mode === "manage" && currentPercentage !== null && !changed && (
                     <p className="rounded-xl bg-surface-secondary px-4 py-3 text-sm text-muted">
                       Ubah nilai untuk mengaktifkan penyimpanan dan alasan
                       perubahan.
@@ -354,7 +439,7 @@ export default function ParticipationScoreModal({
                     </div>
                   ) : null}
 
-                  <section aria-labelledby="score-history-title">
+                  {mode === "manage" && <section aria-labelledby="score-history-title">
                     <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-slate-100 pt-6">
                       <h3
                         id="score-history-title"
@@ -421,7 +506,7 @@ export default function ParticipationScoreModal({
                         ))}
                       </ol>
                     )}
-                  </section>
+                  </section>}
                 </>
               )}
             </Modal.Body>
@@ -431,23 +516,26 @@ export default function ParticipationScoreModal({
                 className="min-h-11 w-full rounded-xl font-semibold active:scale-[0.98] sm:w-auto"
                 type="button"
                 variant="secondary"
-                onPress={onClose}
-                isDisabled={isSavingScore}
+                onPress={requestClose}
+                isDisabled={isSubmitting}
               >
                 Batal
               </Button>
               <Button
                 className="min-h-11 w-full rounded-xl font-semibold active:scale-[0.98] sm:w-auto"
                 type="submit"
-                isDisabled={!canSubmit}
-                isPending={isSavingScore}
+                isDisabled={mode === "approval" ? !approvalCanSubmit : !canSubmit}
+                isPending={isSubmitting}
               >
-                {currentPercentage === null
-                  ? "Simpan Nilai"
-                  : "Simpan Perubahan"}
+                {mode === "approval"
+                  ? "Simpan Nilai & Setujui"
+                  : currentPercentage === null
+                    ? "Simpan Nilai"
+                    : "Simpan Perubahan"}
               </Button>
             </Modal.Footer>
-          </Form>
+            </Form>
+          )}
         </Modal.Dialog>
       </Modal.Container>
     </Modal.Backdrop>

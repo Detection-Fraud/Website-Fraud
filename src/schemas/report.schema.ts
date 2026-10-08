@@ -28,6 +28,7 @@ export const reviewReportSchema = z
       message: "Status harus APPROVED atau REJECTED",
     }),
     notes: z.string().optional().nullable(),
+    percentage: z.number().int().min(0).max(100).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.status === "REJECTED") {

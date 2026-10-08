@@ -10,6 +10,7 @@ interface ApprovalPayload {
   id: string;
   status: ReviewStatus;
   notes?: string;
+  percentage?: number;
 }
 
 interface ApprovalErrorBody {
@@ -19,10 +20,7 @@ interface ApprovalErrorBody {
 export interface ApprovalResult {
   reportId: string;
   status: ReviewStatus;
-  nextAction: {
-    type: "ENTER_PARTICIPATION_SCORE";
-    reportId: string;
-  } | null;
+  nextAction: null;
 }
 
 export function useApproval() {
@@ -33,10 +31,10 @@ export function useApproval() {
     AxiosError<ApprovalErrorBody>,
     ApprovalPayload
   >({
-    mutationFn: async ({ id, status, notes }) => {
+    mutationFn: async ({ id, status, notes, percentage }) => {
       const response = await api.patch<ApprovalResult>(
         `/reports/${id}/status`,
-        { status, notes },
+        { status, notes, percentage },
       );
       return response.data;
     },
@@ -56,8 +54,8 @@ export function useApproval() {
     },
   });
 
-  const handleApprove = (id: string) =>
-    mutation.mutateAsync({ id, status: "APPROVED" });
+  const handleApprove = (id: string, percentage?: number) =>
+    mutation.mutateAsync({ id, status: "APPROVED", percentage });
 
   const handleReject = (id: string, notes: string) =>
     mutation.mutateAsync({ id, status: "REJECTED", notes });

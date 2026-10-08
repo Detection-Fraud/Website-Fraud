@@ -1,6 +1,7 @@
 import { ApiError, handleApiError, requireAdmin } from "@/lib/api/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { usesDirectAdminScore } from "@/lib/program-capabilities";
+import { assessParticipationScoreInTransaction } from "@/lib/participation-assessment";
 import { errorResponse, formatZodError, successResponse } from "@/lib/response";
 import { reviewReportSchema } from "@/schemas/report.schema";
 import { NextRequest, NextResponse } from "next/server";
@@ -27,7 +28,7 @@ export async function PATCH(
       );
     }
 
-    const { status, notes } = parsedData.data;
+    const { status, notes, percentage } = parsedData.data;
     const reviewNotes = status === "REJECTED" ? notes?.trim() ?? null : null;
 
     const report = await prisma.$transaction(async (tx) => {
@@ -42,17 +43,6 @@ export async function PATCH(
           409,
         );
       }
-
-      await tx.activityLog.create({
-        data: {
-          reportId: id,
-          action: status,
-          notes: reviewNotes,
-          actorId: session.user.id,
-          actorName: session.user.name,
-          actorRole: session.user.role,
-        },
-      });
 
       const transitionedReport = await tx.activityReport.findUnique({
         where: { id },
@@ -77,18 +67,41 @@ export async function PATCH(
         throw new Error("Laporan hasil transisi tidak ditemukan");
       }
 
+      const requiresScore =
+        status === "APPROVED" &&
+        transitionedReport.program?.category &&
+        usesDirectAdminScore(transitionedReport.program.category);
+      if (requiresScore) {
+        if (percentage === undefined) {
+          throw new ApiError("Nilai partisipasi wajib diisi sebelum menyetujui laporan", 400);
+        }
+        await assessParticipationScoreInTransaction({
+          reportId: id,
+          actorId: session.user.id,
+          actorName: session.user.name,
+          percentage,
+        }, tx);
+      } else if (percentage !== undefined) {
+        throw new ApiError("Nilai partisipasi tidak berlaku untuk laporan ini", 400);
+      }
+
+      await tx.activityLog.create({
+        data: {
+          reportId: id,
+          action: status,
+          notes: reviewNotes,
+          actorId: session.user.id,
+          actorName: session.user.name,
+          actorRole: session.user.role,
+        },
+      });
+
       return transitionedReport;
     });
 
-    const category = report.program?.category;
-    const nextAction =
-      status === "APPROVED" && category && usesDirectAdminScore(category)
-        ? { type: "ENTER_PARTICIPATION_SCORE" as const, reportId: report.id }
-        : null;
-
     return NextResponse.json(
       successResponse(
-        { reportId: report.id, status: report.status, nextAction },
+        { reportId: report.id, status: report.status, nextAction: null },
         "Laporan berhasil diperbarui",
       ),
     );

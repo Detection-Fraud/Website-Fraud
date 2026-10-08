@@ -33,6 +33,10 @@ let reportLastSubmittedAt: Date;
 let categoryCapability: CategoryCapability;
 let transitionCount: number;
 let logs: Array<Record<string, unknown>>;
+let scores: Array<Record<string, unknown>>;
+let histories: Array<Record<string, unknown>>;
+let assessmentError: unknown;
+let logError: unknown;
 
 const authMock = mock.fn<(...args: any[]) => Promise<any>>(
   async () => adminSession,
@@ -63,6 +67,7 @@ const updateManyMock = mock.fn<(...args: any[]) => Promise<any>>(async (args: an
   return { count: 1 };
 });
 const logCreateMock = mock.fn<(...args: any[]) => Promise<any>>(async (args: any) => {
+  if (logError) throw logError;
   const log = { id: `log-${logs.length + 1}`, ...args.data };
   logs.push(log);
   return log;
@@ -72,15 +77,52 @@ const findUniqueMock = mock.fn<(...args: any[]) => Promise<any>>(async () => ({
   status: reportStatus,
   program: { category: categoryCapability },
 }));
+const assessInTransactionMock = mock.fn(async (input: any, tx: any) => {
+  if (assessmentError) throw assessmentError;
+  const score = { reportId: input.reportId, percentage: input.percentage };
+  const history = { reportId: input.reportId, percentage: input.percentage };
+  tx.scores.push(score);
+  tx.histories.push(history);
+  return { status: "CREATED", participationDataId: "participation-1", percentage: input.percentage };
+});
 const transactionMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async (callback: any) =>
-    callback({
+  async (callback: any) => {
+    let didTransition = false;
+    const previous = {
+      reportStatus,
+      reportNotes,
+      transitionCount,
+      logs: [...logs],
+      scores: [...scores],
+      histories: [...histories],
+    };
+    const tx = {
       activityReport: {
-        updateMany: updateManyMock,
+        updateMany: async (args: any) => {
+          const result = await updateManyMock(args);
+          didTransition = didTransition || result.count === 1;
+          return result;
+        },
         findUnique: findUniqueMock,
       },
       activityLog: { create: logCreateMock },
-    }),
+      scores,
+      histories,
+    };
+    try {
+      return await callback(tx);
+    } catch (error) {
+      if (didTransition) {
+        reportStatus = previous.reportStatus;
+        reportNotes = previous.reportNotes;
+        transitionCount = previous.transitionCount;
+        logs = previous.logs;
+        scores = previous.scores;
+        histories = previous.histories;
+      }
+      throw error;
+    }
+  },
 );
 
 mock.module("@/auth", { namedExports: { auth: authMock } });
@@ -105,6 +147,15 @@ mock.module("@/lib/api/auth-guard", {
 mock.module("@/lib/prisma", {
   namedExports: { prisma: { $transaction: transactionMock } },
 });
+mock.module("@/lib/program-capabilities", {
+  namedExports: { usesDirectAdminScore: (capability: CategoryCapability) =>
+    capability.targetUnit === "PARTISIPASI_PERSEN" &&
+    capability.evidenceMode === "PHOTO_WITHOUT_AI" &&
+    capability.scoreInputMode === "DIRECT_ADMIN" },
+});
+mock.module("@/lib/participation-assessment", {
+  namedExports: { assessParticipationScoreInTransaction: assessInTransactionMock },
+});
 
 let PATCH: (
   request: NextRequest,
@@ -121,6 +172,7 @@ beforeEach(() => {
   updateManyMock.mock.resetCalls();
   logCreateMock.mock.resetCalls();
   findUniqueMock.mock.resetCalls();
+  assessInTransactionMock.mock.resetCalls();
   transactionMock.mock.resetCalls();
   authMock.mock.mockImplementation(async () => adminSession);
   reportStatus = "PENDING";
@@ -129,6 +181,10 @@ beforeEach(() => {
   categoryCapability = directAdminCapability;
   transitionCount = 0;
   logs = [];
+  scores = [];
+  histories = [];
+  assessmentError = undefined;
+  logError = undefined;
 });
 
 function request(body: unknown) {
@@ -169,19 +225,22 @@ describe("PATCH /api/reports/[id]/status", () => {
     assert.equal(transactionMock.mock.callCount(), 0);
   });
 
-  it("menghasilkan exact nextAction hanya untuk capability direct-admin", async () => {
+  it("mewajibkan nilai untuk capability direct-admin dan membuat score/status/log dalam satu transaksi", async () => {
+    const missing = await run({ status: "APPROVED" });
+    assert.equal(missing.status, 400);
+    assert.equal(reportStatus, "PENDING");
+    assert.equal(transitionCount, 0);
+    assert.equal(logs.length, 0);
+
     const originalLastSubmittedAt = reportLastSubmittedAt;
-    const response = await run({ status: "APPROVED" });
+    const response = await run({ status: "APPROVED", percentage: 0 });
     const body = await responseBody(response);
 
     assert.equal(response.status, 200);
     assert.deepEqual(body.data, {
       reportId: "report-1",
       status: "APPROVED",
-      nextAction: {
-        type: "ENTER_PARTICIPATION_SCORE",
-        reportId: "report-1",
-      },
+      nextAction: null,
     });
     assert.deepEqual((updateManyMock.mock.calls as any)[0].arguments[0], {
       where: { id: "report-1", status: "PENDING" },
@@ -190,6 +249,9 @@ describe("PATCH /api/reports/[id]/status", () => {
     assert.equal(reportLastSubmittedAt, originalLastSubmittedAt);
     assert.equal(transitionCount, 1);
     assert.equal(logs.length, 1);
+    assert.deepEqual(scores, [{ reportId: "report-1", percentage: 0 }]);
+    assert.deepEqual(histories, [{ reportId: "report-1", percentage: 0 }]);
+    assert.equal(assessInTransactionMock.mock.callCount(), 1);
   });
 
   it("tidak mengirim nextAction untuk capability non-direct-admin", async () => {
@@ -218,7 +280,51 @@ describe("PATCH /api/reports/[id]/status", () => {
       const body = await responseBody(response);
       assert.equal(response.status, 200);
       assert.equal(body.data.nextAction, null);
+      assert.equal(assessInTransactionMock.mock.callCount(), 0);
     }
+  });
+
+  it("menolak nilai di luar rentang, pecahan, dan tipe selain number sebelum transaksi", async () => {
+    for (const percentage of [-1, 101, 1.5, "50", null]) {
+      const response = await run({ status: "APPROVED", percentage });
+      assert.equal(response.status, 400, `percentage=${String(percentage)}`);
+      assert.equal(reportStatus, "PENDING");
+    }
+    assert.equal(transactionMock.mock.callCount(), 0);
+    assert.equal(assessInTransactionMock.mock.callCount(), 0);
+  });
+
+  it("menerima nilai batas 100", async () => {
+    const response = await run({ status: "APPROVED", percentage: 100 });
+
+    assert.equal(response.status, 200);
+    assert.equal(reportStatus, "APPROVED");
+    assert.deepEqual(scores, [{ reportId: "report-1", percentage: 100 }]);
+    assert.equal(logs.length, 1);
+  });
+
+  it("mengembalikan status, nilai, log, dan history jika penilaian gagal", async () => {
+    assessmentError = new TestApiError("Konflik sumber kanonik", 409);
+    const response = await run({ status: "APPROVED", percentage: 50 });
+
+    assert.equal(response.status, 409);
+    assert.equal(reportStatus, "PENDING");
+    assert.equal(transitionCount, 0);
+    assert.deepEqual(logs, []);
+    assert.deepEqual(scores, []);
+    assert.deepEqual(histories, []);
+  });
+
+  it("mengembalikan status, nilai, dan history jika activity log gagal", async () => {
+    logError = new Error("log write failed");
+    const response = await run({ status: "APPROVED", percentage: 50 });
+
+    assert.equal(response.status, 500);
+    assert.equal(reportStatus, "PENDING");
+    assert.equal(transitionCount, 0);
+    assert.deepEqual(logs, []);
+    assert.deepEqual(scores, []);
+    assert.deepEqual(histories, []);
   });
 
   it("menyimpan rejection note pada satu transisi dan satu log", async () => {
@@ -251,7 +357,7 @@ describe("PATCH /api/reports/[id]/status", () => {
 
   it("memberi satu sukses dan satu 409 untuk approval/rejection paralel", async () => {
     const responses = await Promise.all([
-      run({ status: "APPROVED" }),
+      run({ status: "APPROVED", percentage: 50 }),
       run({
         status: "REJECTED",
         notes: "Bukti kegiatan belum memenuhi ketentuan yang berlaku",
@@ -273,8 +379,28 @@ describe("PATCH /api/reports/[id]/status", () => {
     assert.equal(conflictBody.data, null);
   });
 
+  it("memberi satu sukses dan satu 409 untuk dua approval direct-admin paralel tanpa menggandakan score atau audit", async () => {
+    const responses = await Promise.all([
+      run({ status: "APPROVED", percentage: 40 }),
+      run({ status: "APPROVED", percentage: 80 }),
+    ]);
+
+    assert.deepEqual(
+      responses.map((response) => response.status).sort(),
+      [200, 409],
+    );
+    assert.equal(reportStatus, "APPROVED");
+    assert.equal(transitionCount, 1);
+    assert.equal(assessInTransactionMock.mock.callCount(), 1);
+    assert.equal(scores.length, 1);
+    assert.equal(histories.length, 1);
+    assert.equal(logs.length, 1);
+    assert.equal(scores[0].percentage, histories[0].percentage);
+    assert.equal(logs[0].action, "APPROVED");
+  });
+
   it("menjaga APPROVED tetap final pada transisi berikutnya", async () => {
-    const approved = await run({ status: "APPROVED" });
+    const approved = await run({ status: "APPROVED", percentage: 50 });
     const repeated = await run({
       status: "REJECTED",
       notes: "Percobaan mengubah approval final harus selalu ditolak",

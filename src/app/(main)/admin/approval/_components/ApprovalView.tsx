@@ -12,6 +12,7 @@ import SummaryCards from "@/components/ui/SummaryCard";
 import { useApproval } from "@/hooks/useApproval";
 import { useReportList } from "@/hooks/useReportList";
 import { api } from "@/lib/api";
+import { usesDirectAdminScore } from "@/lib/program-capabilities";
 import { Button, Card, toast, useOverlayState } from "@heroui/react";
 
 import FilterProgram from "@/components/ui/FilterProgram";
@@ -81,6 +82,7 @@ export default function ApprovalView() {
   const [selectedLogsReport, setSelectedLogsReport] =
     useState<ActivityReportItem | null>(null);
   const [scoreReportId, setScoreReportId] = useState<string | null>(null);
+  const [scoreMode, setScoreMode] = useState<"approval" | "manage">("manage");
   const [scoreReportName, setScoreReportName] = useState<string | undefined>();
   const scoreReturnFocusRef = useRef<HTMLButtonElement | null>(null);
 
@@ -129,17 +131,18 @@ export default function ApprovalView() {
     id: string,
     trigger: HTMLButtonElement,
   ) => {
-    try {
-      const result = await handleApprove(id);
-      if (result.nextAction?.type !== "ENTER_PARTICIPATION_SCORE") return;
-
+    const report = reports.find((item) => item.id === id);
+    if (report?.program?.category && usesDirectAdminScore(report.program.category)) {
+      setScoreMode("approval");
       scoreReturnFocusRef.current = trigger;
-      setScoreReportId(result.nextAction.reportId);
-      setScoreReportName(
-        reports.find((report) => report.id === id)?.activityName,
-      );
+      setScoreReportId(id);
+      setScoreReportName(report.activityName);
+      return;
+    }
+    try {
+      await handleApprove(id);
     } catch {
-      // useApproval owns error feedback; do not compensate a committed approval.
+      // useApproval owns error feedback.
     }
   };
 
@@ -401,6 +404,7 @@ export default function ApprovalView() {
               report={report}
               onApprove={handleApproveReport}
               onOpenScore={(id, trigger) => {
+                setScoreMode("manage");
                 scoreReturnFocusRef.current = trigger;
                 setScoreReportId(id);
                 setScoreReportName(report.activityName);
@@ -446,6 +450,7 @@ export default function ApprovalView() {
 
       <ParticipationScoreModal
         isOpen={scoreReportId !== null}
+        mode={scoreMode}
         reportId={scoreReportId}
         reportName={scoreReportName}
         onClose={closeScoreModal}
