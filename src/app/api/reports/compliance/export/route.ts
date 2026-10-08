@@ -5,6 +5,10 @@ import {
   groupComplianceUnits,
   type ComplianceExportUnitGroup,
 } from "@/lib/compliance-export-order";
+import {
+  averageCompliancePercent,
+  calculateProgramCompliancePercent,
+} from "@/lib/compliance-metrics";
 import { prisma } from "@/lib/prisma";
 import { programYearBounds } from "@/lib/program-period";
 import { errorResponse } from "@/lib/response";
@@ -371,22 +375,44 @@ function buildSheet(workbook: ExcelJS.Workbook, params: BuildSheetParams) {
             ),
           );
           const totalRealisasi = monthlyValues.reduce((a, b) => a + b, 0);
-          const pctRealisasi = target > 0 ? totalRealisasi / target : 0;
+          const programPercentages = (twNumber != null
+            ? cat.programs.filter((program) => program.tw === twNumber)
+            : semesterTWList
+              ? cat.programs.filter(
+                  (program) =>
+                    program.tw != null && semesterTWList.includes(program.tw),
+                )
+              : cat.programs
+          ).map((program) => {
+            const programSubmitted = months.reduce(
+              (sum, month) =>
+                sum + getSubmissionCount(submissionMap, unit.id, program.id, month),
+              0,
+            );
+            return calculateProgramCompliancePercent(
+              programSubmitted,
+              program.frequency,
+            );
+          });
+          const pctRealisasi =
+            averageCompliancePercent(programPercentages) / 100;
           return {
             name: cat.name,
             target,
             monthlyValues,
             totalRealisasi,
             pctRealisasi,
+            programPercentages,
           };
         })
         .filter((x): x is NonNullable<typeof x> => x !== null);
 
       const avgPct =
-        programComplianceList.length > 0
-          ? programComplianceList.reduce((sum, p) => sum + p.pctRealisasi, 0) /
-            programComplianceList.length
-          : 0;
+        averageCompliancePercent(
+          programComplianceList.flatMap((program) =>
+            program.programPercentages.map((percentage) => percentage / 100),
+          ),
+        );
 
       const targetKinerja = 1;
       const pctCapaian = targetKinerja > 0 ? avgPct / targetKinerja : 0;

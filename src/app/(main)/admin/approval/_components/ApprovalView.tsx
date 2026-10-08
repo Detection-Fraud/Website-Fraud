@@ -13,7 +13,15 @@ import { useApproval } from "@/hooks/useApproval";
 import { useReportList } from "@/hooks/useReportList";
 import { api } from "@/lib/api";
 import { usesDirectAdminScore } from "@/lib/program-capabilities";
-import { Button, Card, toast, useOverlayState } from "@heroui/react";
+import {
+  Button,
+  Card,
+  Label,
+  ListBox,
+  Select,
+  toast,
+  useOverlayState,
+} from "@heroui/react";
 
 import FilterProgram from "@/components/ui/FilterProgram";
 import { ActivityReportItem } from "@/types/report.types";
@@ -57,10 +65,14 @@ export default function ApprovalView() {
     programFilter,
     categoryList,
     scopeFilter,
+    yearFilter,
+    twFilter,
     handleStatusChange,
     handleCategoryChange,
     handleProgramChange,
     handleScopeChange,
+    handleYearChange,
+    handleTwChange,
     handleKanwilChange,
     handleKancabChange,
     handleDivisiChange,
@@ -69,7 +81,13 @@ export default function ApprovalView() {
     defaultStatus: "PENDING",
     purpose: "EVIDENCE",
     sortMode: "APPROVAL",
+    approvalPeriodFilters: true,
   });
+  const currentYear = new Date().getFullYear();
+  const approvalYearOptions = Array.from(
+    { length: currentYear - 2000 + 6 },
+    (_, index) => currentYear + 5 - index,
+  );
 
   const { handleApprove } = useApproval();
 
@@ -243,9 +261,9 @@ export default function ApprovalView() {
   // UPDATED: Summary Cards with Slate tokens & calibrated status colors
   const summaryCards = [
     {
-      title: "Total Upload",
+      title: "Total Laporan Masuk",
       value: summary.total,
-      description: "Semua Unggahan",
+      description: "Kegiatan & partisipasi dengan evidence",
       icon: FiImage,
       style: "text-blue-600 bg-blue-50 border border-blue-100",
       textColor: "text-blue-700",
@@ -289,7 +307,7 @@ export default function ApprovalView() {
     <div className="space-y-6 mb-10">
       <AppBar
         title="Admin Approval"
-        description="Daftar foto kegiatan yang telah diupload oleh Kanwil, Kancab, dan Divisi"
+        description="Laporan kegiatan dan partisipasi dengan evidence dari Kanwil, Kancab, dan Divisi"
         showAddButton={false}
       />
 
@@ -316,6 +334,64 @@ export default function ApprovalView() {
             className="w-full xl:w-56"
             onChange={handleProgramChange}
           />
+
+          <Select
+            aria-label="Filter tahun program"
+            value={yearFilter}
+            onChange={(key) => handleYearChange((key ?? "ALL").toString())}
+            className="w-full xl:w-44"
+          >
+            <Label>Tahun Program</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="ALL" textValue="Semua Tahun">
+                  <ListBox.ItemIndicator />
+                  Semua Tahun
+                </ListBox.Item>
+                {approvalYearOptions.map((year) => (
+                  <ListBox.Item
+                    key={year}
+                    id={String(year)}
+                    textValue={String(year)}
+                  >
+                    <ListBox.ItemIndicator />
+                    {year}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+
+          <Select
+            aria-label="Filter triwulan program"
+            value={twFilter}
+            onChange={(key) => handleTwChange((key ?? "ALL").toString())}
+            className="w-full xl:w-44"
+          >
+            <Label>Triwulan Program</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="ALL" textValue="Semua Triwulan">
+                  <ListBox.ItemIndicator />
+                  Semua Triwulan
+                </ListBox.Item>
+                {[1, 2, 3, 4].map((tw) => (
+                  <ListBox.Item key={tw} id={String(tw)} textValue={`TW ${tw}`}>
+                    <ListBox.ItemIndicator />
+                    TW {tw}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
 
           {/* 3. Tipe Unit Scope */}
           <SelectUnitType

@@ -1,6 +1,11 @@
 import { handleApiError, requireAuth } from "@/lib/api/auth-guard";
 import { PROGRAM_COLORS } from "@/lib/api/constants";
 import { resolveScope } from "@/lib/api/unit-scope";
+import {
+  averageCompliancePercent,
+  calculateProgramCompliancePercent,
+  classifyCompliancePercent,
+} from "@/lib/compliance-metrics";
 import { prisma } from "@/lib/prisma";
 import { programYearBounds } from "@/lib/program-period";
 import { errorResponse, successResponse } from "@/lib/response";
@@ -92,7 +97,7 @@ export async function GET(req: Request) {
       id: cat.id,
       name: cat.name,
       programIds: cat.programs.map((p) => p.id),
-      frequency: cat.programs.reduce((s, p) => s + p.frequency, 0) || 1,
+      frequency: cat.programs.reduce((sum, program) => sum + program.frequency, 0),
       color: PROGRAM_COLORS[i % PROGRAM_COLORS.length],
     }));
 
@@ -104,13 +109,7 @@ export async function GET(req: Request) {
       ]),
     );
 
-    const getUnitSubmissions = (unitId: string, progIds: string[]) =>
-      progIds.reduce(
-        (sum, id) => sum + (submissionMap.get(`${unitId}:${id}`) ?? 0),
-        0,
-      );
-
-    if (submissions.length === 0) {
+    if (periodPrograms.length === 0) {
       return NextResponse.json(
         successResponse(
           {
@@ -132,35 +131,49 @@ export async function GET(req: Request) {
 
     // 3. Kalkulasi compliance per unit
     const tableData = activeUnits.map((unit) => {
-      const programCompliance = programInfoList.map((prog) => {
-        const submitted = getUnitSubmissions(unit.id, prog.programIds);
-        const target = prog.frequency || 1;
-        const rawPct = Math.round((submitted / target) * 100);
-        const pct = Math.min(rawPct, 120);
+      const allProgramPercentages: number[] = [];
+      const programCompliance = periodPrograms.map((category) => {
+        const categoryProgramPercentages = category.programs.map((program) => {
+          const submitted =
+            submissionMap.get(`${unit.id}:${program.id}`) ?? 0;
+          const pct = calculateProgramCompliancePercent(
+            submitted,
+            program.frequency,
+          );
+          allProgramPercentages.push(pct);
+          return { submitted, frequency: program.frequency, pct };
+        });
+        const submitted = categoryProgramPercentages.reduce(
+          (sum, program) => sum + program.submitted,
+          0,
+        );
+        const target = categoryProgramPercentages.reduce(
+          (sum, program) => sum + program.frequency,
+          0,
+        );
+        const rawPct = averageCompliancePercent(
+          category.programs.map((program, index) => {
+            if (program.frequency <= 0) return 0;
+            return (
+              (categoryProgramPercentages[index].submitted /
+                program.frequency) *
+              100
+            );
+          }),
+        );
+
         return {
-          programId: prog.id,
-          pct,
+          programId: category.id,
+          pct: averageCompliancePercent(
+            categoryProgramPercentages.map((program) => program.pct),
+          ),
           rawPct,
           submitted,
           target,
         };
       });
 
-      const relevantPct =
-        programId === "ALL"
-          ? programCompliance.map((p) => p.pct)
-          : programCompliance
-              .filter((p) => p.programId === programId)
-              .map((p) => p.pct);
-
-      const avg =
-        relevantPct.length > 0
-          ? Number(
-              (
-                relevantPct.reduce((a, b) => a + b, 0) / relevantPct.length
-              ).toFixed(1),
-            )
-          : 0;
+      const avg = averageCompliancePercent(allProgramPercentages);
 
       return {
         rank: 0,
@@ -170,33 +183,24 @@ export async function GET(req: Request) {
       };
     });
 
-    const filteredTableData = tableData.filter((u) =>
-      u.programCompliance.some((p) => p.submitted > 0),
-    );
-
-    filteredTableData.sort((a, b) => b.avg - a.avg);
-    filteredTableData.forEach((row, index) => {
+    tableData.sort((a, b) => b.avg - a.avg);
+    tableData.forEach((row, index) => {
       row.rank = index + 1;
     });
 
     // 4. Hitung statistik keseluruhan
-    const reportedUnitsCount = filteredTableData.filter((u) =>
-      u.programCompliance.some((p) => p.submitted > 0),
-    ).length;
-    const totalUnit = reportedUnitsCount;
-    const avgCompliance =
-      totalUnit > 0
-        ? Math.round(
-            filteredTableData.reduce((sum, u) => sum + u.avg, 0) / totalUnit,
-          )
-        : 0;
+    const totalUnit = activeUnits.length;
+    const avgCompliance = averageCompliancePercent(
+      tableData.map((unit) => unit.avg),
+    );
 
-    const unitOnTrack = filteredTableData.filter((u) => u.avg >= 50).length;
-    const waspada = filteredTableData.filter(
-      (u) => u.avg >= 25 && u.avg < 50,
-    ).length;
-    const perluPerhatian = filteredTableData.filter(
-      (u) => u.avg < 25 && u.programCompliance.some((p) => p.submitted > 0),
+    const statuses = tableData.map((unit) =>
+      classifyCompliancePercent(unit.avg),
+    );
+    const unitOnTrack = statuses.filter((status) => status === "ON_TRACK").length;
+    const waspada = statuses.filter((status) => status === "WATCH").length;
+    const perluPerhatian = statuses.filter(
+      (status) => status === "AT_RISK",
     ).length;
 
     return NextResponse.json(
@@ -210,7 +214,7 @@ export async function GET(req: Request) {
             perluPerhatian,
           },
           programs: programInfoList,
-          tableData: filteredTableData,
+          tableData,
         },
         "Berhasil memuat data compliance",
       ),

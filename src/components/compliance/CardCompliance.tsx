@@ -42,7 +42,7 @@ export default function CardCompliance({ data }: CardComplianceProps) {
     {
       title: "Total Unit",
       value: totalUnit,
-      description: "unit dilaporkan",
+      description: "unit dalam cakupan monitoring",
       haveProgressBar: false,
       icon: <LuUsers />,
       style: "bg-sky-50/80 text-sky-700 ring-1 ring-sky-200/50",
@@ -51,7 +51,7 @@ export default function CardCompliance({ data }: CardComplianceProps) {
     {
       title: "Avg Compliance",
       value: `${avgCompliance}%`,
-      description: "rata-rata seluruh unit",
+      description: "rata-rata compliance unit per program",
       haveProgressBar: true,
       valueProgressBar: avgCompliance,
       icon: <LuTarget />,

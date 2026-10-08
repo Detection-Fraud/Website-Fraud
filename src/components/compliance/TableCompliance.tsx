@@ -135,27 +135,19 @@ export default function TableCompliance({
             ? "text-amber-600"
             : "text-rose-600";
 
-      if (selectedProgramId !== "ALL") {
-        return (
-          <div className="min-w-30 tabular-nums">
-            <ProgressBar value={progData.pct} color={pctColor} size="md">
-              <ProgressBar.Output />
-              <ProgressBar.Track>
-                <ProgressBar.Fill />
-              </ProgressBar.Track>
-            </ProgressBar>
-          </div>
-        );
-      }
-      
       return (
         <div className="flex flex-col w-40 tabular-nums">
           <span className={`font-bold text-sm ${textColor}`}>
             {progData.pct}%
           </span>
           <span className="text-[10px] text-slate-400 font-medium">
-            {progData.submitted} / {progData.target}
+            {progData.submitted} approved / {progData.target} target
           </span>
+          <ProgressBar value={progData.pct} color={pctColor} size="sm">
+            <ProgressBar.Track>
+              <ProgressBar.Fill />
+            </ProgressBar.Track>
+          </ProgressBar>
         </div>
       );
     }
@@ -180,7 +172,7 @@ export default function TableCompliance({
               Compliance Program
             </Card.Title>
             <Card.Description className="text-xs text-slate-400 mt-0.5">
-              {data?.cards.totalUnit} unit diurutkan berdasarkan avg compliance
+              {data?.cards.totalUnit} unit · persentase adalah rata-rata capaian per program; angka menunjukkan approved / target
             </Card.Description>
           </div>
         </Card.Header>

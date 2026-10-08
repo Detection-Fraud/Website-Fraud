@@ -80,7 +80,13 @@ async function responseBody(response: Response) {
     message: string;
     data: {
       data: Array<Record<string, unknown>>;
-      pagination: { page: number; limit: number };
+      summary: {
+        total: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+      };
+      pagination: { page: number; limit: number; total: number };
     };
   }>;
 }
@@ -221,4 +227,102 @@ test("preserves legacy createdAt ordering for consumers without Approval sortMod
     { id: "desc" },
   ]);
   await assertOrderBy("", [{ createdAt: "asc" }, { id: "asc" }]);
+});
+
+test("applies year, TW, and unit type to summary and list scope", async () => {
+  const scopedWhere = {
+    program: {
+      category: { evidenceMode: { not: "NONE" } },
+      startDate: {
+        gte: new Date(Date.UTC(2026, 0, 1)),
+        lt: new Date(Date.UTC(2027, 0, 1)),
+      },
+      tw: 2,
+    },
+    unit: { is: { type: { in: ["KANTOR_WILAYAH", "KANTOR_CABANG"] } } },
+  };
+  groupByMock.mock.mockImplementationOnce(async (args: { where: unknown }) => {
+    assert.deepEqual(args.where, scopedWhere);
+    return [{ status: "PENDING", _count: 2 }];
+  });
+  countMock.mock.mockImplementationOnce(async (args: { where: unknown }) => {
+    assert.deepEqual(args.where, scopedWhere);
+    return 2;
+  });
+  findManyMock.mock.mockImplementationOnce(
+    async (args: { where: unknown }) => {
+      assert.deepEqual(args.where, scopedWhere);
+      return [];
+    },
+  );
+
+  const response = await GET(
+    request("purpose=EVIDENCE&year=2026&tw=2&unitType=WILAYAH_AND_CABANG"),
+  );
+  const body = await responseBody(response);
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.data.summary, {
+    total: 2,
+    pending: 2,
+    approved: 0,
+    rejected: 0,
+  });
+});
+
+test("status and search narrow only the list, not its summary", async () => {
+  const summaryWhere = {
+    program: { category: { evidenceMode: { not: "NONE" } } },
+  };
+  const listWhere = {
+    ...summaryWhere,
+    OR: [
+      { activityName: { contains: "beras", mode: "insensitive" } },
+      { lokasi: { contains: "beras", mode: "insensitive" } },
+      { description: { contains: "beras", mode: "insensitive" } },
+      { program: { name: { contains: "beras", mode: "insensitive" } } },
+      { createdBy: { name: { contains: "beras", mode: "insensitive" } } },
+    ],
+    status: "PENDING",
+  };
+  groupByMock.mock.mockImplementationOnce(async (args: { where: unknown }) => {
+    assert.deepEqual(args.where, summaryWhere);
+    return [{ status: "PENDING", _count: 3 }, { status: "APPROVED", _count: 1 }];
+  });
+  countMock.mock.mockImplementationOnce(async (args: { where: unknown }) => {
+    assert.deepEqual(args.where, listWhere);
+    return 3;
+  });
+  findManyMock.mock.mockImplementationOnce(async (args: { where: unknown }) => {
+    assert.deepEqual(args.where, listWhere);
+    return [];
+  });
+
+  const response = await GET(
+    request("purpose=EVIDENCE&status=PENDING&search=beras"),
+  );
+  const body = await responseBody(response);
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.data.summary, {
+    total: 4,
+    pending: 3,
+    approved: 1,
+    rejected: 0,
+  });
+  assert.equal(body.data.pagination.total, 3);
+});
+
+test("rejects invalid Approval period and unit type filters before querying", async () => {
+  for (const query of [
+    "year=2026.5",
+    "year=2101",
+    "tw=5",
+    "unitType=UNKNOWN",
+  ]) {
+    const response = await GET(request(query));
+    assert.equal(response.status, 400, query);
+  }
+  assert.equal(resolveScopeMock.mock.callCount(), 0);
+  assert.equal(groupByMock.mock.callCount(), 0);
+  assert.equal(countMock.mock.callCount(), 0);
+  assert.equal(findManyMock.mock.callCount(), 0);
 });

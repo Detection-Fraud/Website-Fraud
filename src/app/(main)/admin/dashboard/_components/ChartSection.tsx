@@ -58,10 +58,10 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
   return (
     <div className="space-y-6 mb-12">
       {/* =========================================
-          ROW 1: Grafik Kegiatan & Top 5 Unit
+          ROW 1: Grafik Laporan & Top 5 Unit
           ========================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
-        {/* CARD: GRAFIK KEGIATAN PER BULAN */}
+        {/* CARD: GRAFIK LAPORAN PER BULAN */}
 
         <Card className="p-6 bg-white border border-slate-200/60 shadow-[--surface-shadow] hover:shadow-(--surface-shadow-md) transition-all duration-200 rounded-2xl lg:col-span-3">
           {/* Tabs membungkus SELURUH isi Card */}
@@ -70,10 +70,10 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
             <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <div>
                 <h2 className="font-bold text-slate-900">
-                  Grafik Kegiatan per Bulan
+                  Grafik Laporan per Bulan
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Jumlah laporan yang masuk setiap bulannya
+                  Laporan kegiatan dan partisipasi dengan evidence, berdasarkan tanggal kegiatan
                 </p>
               </div>
               {/* Tab buttons di sini, sejajar dengan title */}
@@ -107,15 +107,15 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           </Tabs>
         </Card>
 
-        {/* CARD: TOP 5 UNIT TERAKTIF */}
+        {/* CARD: TOP 5 UNIT DENGAN LAPORAN EVIDENCE */}
         <Card className="p-6 bg-white border border-slate-100 shadow-sm rounded-2xl lg:col-span-2">
           <Card.Header className="flex flex-row justify-between items-center">
             <div>
               <Card.Title className="font-bold text-slate-900">
-                Top 5 Unit Teraktif
+                Top 5 Unit dengan Laporan
               </Card.Title>
               <Card.Description className="text-xs text-slate-400 mt-0.5">
-                Berdasarkan jumlah kegiatan
+                Berdasarkan jumlah laporan kegiatan dan partisipasi dengan evidence
               </Card.Description>
             </div>
             <GoTrophy className="w-5 h-5 text-yellow-400" />
@@ -155,7 +155,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
 
           <Card.Footer className="flex flex-row justify-between items-center">
             <p className="text-xs text-slate-400 mt-0.5">
-              Total Unit : {summary?.totalUnitAktif}
+              Unit yang melapor : {summary?.totalUnitAktif}
             </p>
             <Link
               href={"/admin/analytics"}
@@ -185,7 +185,7 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
               Distribusi Program
             </Card.Title>
             <Card.Description className="text-xs text-slate-400 mt-0.5">
-              Presentase program budaya kegiatan
+              Distribusi laporan kegiatan dan partisipasi dengan evidence
             </Card.Description>
           </Card.Header>
           <Card.Content>
@@ -198,10 +198,10 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           <Card.Header className="flex flex-row justify-between items-center">
             <div>
               <Card.Title className="font-bold text-slate-900">
-                Ranking Unit Kerja per Wilayah
+                Peringkat Kinerja Kegiatan per Wilayah
               </Card.Title>
               <Card.Description className="text-xs text-slate-400 mt-0.5">
-                Diurutkan berdasarkan tingkat persetujuan tertinggi
+                Khusus program dengan target kegiatan
               </Card.Description>
             </div>
             <MdOutlineShield className="w-5 h-5 text-blue-500" />
@@ -281,10 +281,10 @@ export default function ChartSection({ charts, summary }: ChartSectionProps) {
           <Card.Header className="flex flex-row justify-between items-center">
             <div>
               <Card.Title className="font-bold text-slate-900">
-                Top 10 Culture Catalyst
+                Top 10 Culture Catalyst Kegiatan
               </Card.Title>
               <Card.Description className="text-xs text-slate-400 mt-0.5">
-                Culture Catalyst dengan performa approval terbaik
+                Capaian program dengan target kegiatan
               </Card.Description>
             </div>
             <FaUser className="w-4 h-4 text-blue-500" />

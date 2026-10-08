@@ -43,13 +43,13 @@ export default function AnalyticTableRanking({
             <div>
               <Card.Title className="text-md font-bold">
                 {activeTab === "unit"
-                  ? "Ranking Lengkap Unit Kerja per Wilayah"
-                  : "Ranking Culture Catalyst (CC)"}
+                  ? "Peringkat Kinerja Kegiatan per Wilayah"
+                  : "Peringkat Culture Catalyst untuk Kegiatan"}
               </Card.Title>
               <Card.Description className="text-xs font-light">
                 {activeTab === "unit"
-                  ? "Diurutkan berdasarkan tingkat persetujuan tertinggi"
-                  : "Capaian tertinggi; jika seri, yang lebih dulu mencapai jumlah disetujui (target untuk ≥100%)."}
+                  ? "Khusus program dengan target kegiatan; diurutkan berdasarkan persetujuan"
+                  : "Khusus program dengan target kegiatan; capaian tertinggi lebih dulu."}
               </Card.Description>
             </div>
 

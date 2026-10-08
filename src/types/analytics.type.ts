@@ -39,6 +39,7 @@ export interface DashboardSummary {
   totalApproved: number;
   totalPending: number;
   totalRejected: number;
+  totalTahunLalu: number | null;
   totalUnitAktif: number;
   laporanBulanIni: number;
   laporanBulanLalu: number;

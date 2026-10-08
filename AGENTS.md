@@ -408,13 +408,17 @@ Across Reports and Calendar, preserve:
 per program per unit
 = (approved_submissions / program.frequency) * 100
 
-When filter = all programs:
+For each applicable program, cap the calculated percentage at 120% before
+averaging. Each program has equal weight, regardless of its frequency. Programs
+that are now inactive remain applicable when viewing their historical year/TW.
 
-average percentage across active programs
-
-When filter = one program:
-
-that program's percentage only
+When filter = all categories, average the applicable program percentages per
+unit. When a category is selected, average only its applicable programs. A
+category column is the mean of its own programs, while the unit's overall
+average is calculated directly across programs. Include every in-scope Unit
+with an active SSO PIC, even with zero approved submissions; such a Unit has
+0% and is At Risk. If no program applies to the selected period, show an empty
+compliance result.
 
 Status:
 
@@ -422,9 +426,14 @@ On Track >= 50%
 Behind   = 25–49%
 At Risk  < 25%
 
-Over-achievement is allowed.
+Over-achievement is allowed up to the 120% cap per program. Use unrounded
+percentages for averaging and status classification; round only for display.
 
-Do not clamp percentages to 100%.
+Dashboard and Analytics report-volume metrics cover the same evidence-bearing
+reports as Admin Approval: activity reports and direct-admin participation
+reports with evidence. The selected year/TW refers to program start date/TW.
+Approval defaults to all periods. Activity and CC compliance/ranking remain
+scoped to activity programs.
 
 11. Backend safety
 

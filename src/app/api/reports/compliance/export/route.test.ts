@@ -199,9 +199,9 @@ test("exports deterministically ordered units with 100% target on each sheet", a
   assert.equal(tw1.getCell("J3").value, 0.5);
   assert.equal(tw1.getCell("K3").value, 1);
   assert.equal(tw1.getCell("L3").value, 0.5);
-  assert.equal(tw1.getCell("J9").value, 1.5);
+  assert.equal(tw1.getCell("J9").value, 1.2);
   assert.equal(tw1.getCell("K9").value, 1);
-  assert.equal(tw1.getCell("L9").value, 1.5);
+  assert.equal(tw1.getCell("L9").value, 1.2);
 
   for (const sheet of workbook.worksheets) {
     const expectedUnitNumbers =
@@ -233,4 +233,93 @@ test("exports deterministically ordered units with 100% target on each sheet", a
     where: { id: { in: activeUnits.map(({ id }) => id) } },
     select: { id: true, kodeDolog: true, kodeSubdolog: true, kodeOrg: true },
   });
+});
+
+test("export averages capped percentages per program for quarter and semester sheets", async () => {
+  categoryFindManyMock.mock.mockImplementationOnce(async () => [
+    {
+      id: "category-weighted",
+      name: "Kategori Bobot Setara",
+      programs: [
+        {
+          id: "program-target-1",
+          tw: 1,
+          frequency: 1,
+          startDate: new Date("2026-01-01T12:00:00.000Z"),
+          endDate: new Date("2026-03-31T12:00:00.000Z"),
+        },
+        {
+          id: "program-target-3",
+          tw: 1,
+          frequency: 3,
+          startDate: new Date("2026-01-01T12:00:00.000Z"),
+          endDate: new Date("2026-03-31T12:00:00.000Z"),
+        },
+      ],
+    },
+    {
+      id: "category-overachievement",
+      name: "Kategori Lebih Target",
+      programs: [
+        {
+          id: "program-target-120",
+          tw: 2,
+          frequency: 1,
+          startDate: new Date("2026-04-01T12:00:00.000Z"),
+          endDate: new Date("2026-06-30T12:00:00.000Z"),
+        },
+      ],
+    },
+  ]);
+  queryRawMock.mock.mockImplementationOnce(async () => [
+    {
+      unitId: "kanwil-2",
+      programId: "program-target-1",
+      bulan: 1,
+      jumlah: 1,
+    },
+    {
+      unitId: "kanwil-2",
+      programId: "program-target-120",
+      bulan: 4,
+      jumlah: 3,
+    },
+  ]);
+
+  const response = await GET(
+    new Request("http://localhost/api/reports/compliance/export?year=2026"),
+  );
+  assert.equal(response.status, 200);
+
+  const ExcelJS = (await import("exceljs")).default;
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(Buffer.from(await response.arrayBuffer()) as never);
+  const tw1 = workbook.getWorksheet("TW I")!;
+  const headerValues = tw1.getRow(1).values as unknown[];
+  const actualPctColumn = headerValues.indexOf("% REALISASI");
+  const averagePctColumn = headerValues.indexOf("% RATA-RATA");
+  const targetColumn = headerValues.indexOf("TARGET KINERJA");
+  const achievementColumn = headerValues.indexOf("% CAPAIAN KINERJA");
+
+  // TW I: (100% + 0%) / 2 = 50%; approved / aggregate target would be 25%.
+  assert.equal(tw1.getCell(3, actualPctColumn).value, 0.5);
+  assert.equal(tw1.getCell(3, averagePctColumn).value, 0.5);
+  assert.equal(tw1.getCell(3, 4).value, 4);
+  assert.equal(tw1.getCell(3, targetColumn).value, 1);
+  assert.equal(tw1.getCell(3, achievementColumn).value, 0.5);
+
+  const semester = workbook.getWorksheet("SEMESTER I")!;
+  const semesterHeaders = semester.getRow(1).values as unknown[];
+  const semesterActualPctColumn = semesterHeaders.indexOf("% REALISASI");
+  const semesterAveragePctColumn = semesterHeaders.indexOf("% RATA-RATA");
+  const semesterTargetColumn = semesterHeaders.indexOf("TARGET KINERJA");
+  const semesterAchievementColumn = semesterHeaders.indexOf(
+    "% CAPAIAN KINERJA",
+  );
+  // Semester I averages [100%, 0%, 120%] = 73.33% after capping each program.
+  // Capping only after averaging would yield 120%; aggregate target would yield 100%.
+  assert.ok(Math.abs(Number(semester.getCell(3, semesterAveragePctColumn).value) - 220 / 300) < 1e-12);
+  assert.equal(semester.getCell(4, semesterActualPctColumn).value, 1.2);
+  assert.equal(semester.getCell(3, semesterTargetColumn).value, 1);
+  assert.ok(Math.abs(Number(semester.getCell(3, semesterAchievementColumn).value) - 220 / 300) < 1e-12);
 });

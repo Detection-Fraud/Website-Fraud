@@ -58,10 +58,10 @@ export default function AnalyticChart({
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <Card.Header>
             <Card.Title className="font-bold text-md">
-              Tren Kegiatan Per {formatTitle()}
+              Tren Laporan Per {formatTitle()}
             </Card.Title>
             <Card.Description className="text-xs font-medium">
-              {report} Laporan · {formatTitle()}
+              {report} laporan kegiatan & partisipasi dengan evidence · berdasarkan tanggal kegiatan · {formatTitle()}
             </Card.Description>
           </Card.Header>
           <Chip size="md" color="accent" variant="primary">
@@ -81,7 +81,7 @@ export default function AnalyticChart({
             Distribusi Program
           </Card.Title>
           <Card.Description className="font-light text-xs">
-            Per jenis program budaya
+            Laporan kegiatan dan partisipasi dengan evidence
           </Card.Description>
         </Card.Header>
         <Card.Content>

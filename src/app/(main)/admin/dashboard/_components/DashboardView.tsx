@@ -11,9 +11,10 @@ import SummaryCard from "./SummaryCard";
 export default function DashboardView() {
   const { summary, charts, year } = useDashboardAnalytics();
 
+  const now = new Date();
   const currentMonthName = new Intl.DateTimeFormat("id-ID", {
     month: "long",
-  }).format(new Date());
+  }).format(now);
 
   const percentage = (
     ((summary?.totalApproved || 0) / (summary?.totalKegiatan || 1)) *
@@ -24,37 +25,37 @@ export default function DashboardView() {
     <div className="space-y-6">
       <AppBar
         title="Dashboard Monitoring"
-        description={`Pemantauan performa kegiatan budaya perusahaan tahun ${year}`}
+        description={`Pemantauan laporan kegiatan dan partisipasi dengan evidence tahun ${year}`}
         showAddButton={false}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <SummaryCard
-          title="Total Kegiatan"
+          title="Total Laporan"
           value={summary?.totalKegiatan || 0}
           icon={<PiPackage className="w-5 h-5" />}
-          description={`Sepanjang ${year}`}
+          description={`Kegiatan & partisipasi dengan evidence · ${year}`}
           color="blue"
         />
         <SummaryCard
-          title="Unit Aktif"
+          title="Unit yang Melapor"
           value={summary?.totalUnitAktif || 0}
           icon={<LuBuilding2 className="w-5 h-5" />}
           description={"Kanwil, Kancab, dan Divisi"}
           color="green"
         />
         <SummaryCard
-          title="Laporan Bulan Ini"
+          title="Upload Bulan Ini"
           value={summary?.laporanBulanIni || 0}
           icon={<LuCalendarDays className="w-5 h-5" />}
-          description={`Data bulan ${currentMonthName} ${year}`}
+          description={`Diunggah pada ${currentMonthName} ${now.getFullYear()}`}
           color="purple"
         />
         <SummaryCard
           title="Tingkat Persetujuan"
           value={`${percentage}%`}
           icon={<IoIosCheckmarkCircleOutline className="w-5 h-5" />}
-          description={"Tervalidasi (Approved)"}
+          description={"Laporan dengan evidence yang disetujui"}
           color="orange"
         />
       </div>

@@ -29,6 +29,7 @@ export type ReportScope = (typeof REPORT_SCOPES)[number];
 interface UseReportListOptions {
   defaultStatus?: ReportStatusFilter;
   purpose?: "EVIDENCE" | "ALL";
+  approvalPeriodFilters?: boolean;
   sortMode?: "APPROVAL";
   sortOrder?: "asc" | "desc";
 }
@@ -91,6 +92,7 @@ export function getCategoryUpdates(categoryId: string) {
 export function useReportList({
   defaultStatus = "ALL",
   purpose = "ALL",
+  approvalPeriodFilters = false,
   sortMode,
   sortOrder,
 }: UseReportListOptions = {}) {
@@ -113,6 +115,8 @@ export function useReportList({
   const kanwilId = getParam("kanwilId") || "ALL";
   const kancabId = getParam("kancabId") || "ALL";
   const divisiId = getParam("divisiId") || "ALL";
+  const yearFilter = getParam("year") || "ALL";
+  const twFilter = getParam("tw") || "ALL";
   const scopeFilter = resolveReportScope({
     scope: getParam("scope"),
     kanwilId,
@@ -142,6 +146,13 @@ export function useReportList({
     purpose,
     ...(sortMode ? { sortMode } : {}),
     ...(sortOrder ? { sortOrder } : {}),
+    ...(approvalPeriodFilters
+      ? {
+          year: yearFilter !== "ALL" ? yearFilter : undefined,
+          tw: twFilter !== "ALL" ? twFilter : undefined,
+          unitType: scopeFilter,
+        }
+      : {}),
     categoryId: categoryFilter !== "ALL" ? categoryFilter : undefined,
     programId: programFilter !== "ALL" ? programFilter : undefined,
     kanwilId,
@@ -177,6 +188,14 @@ export function useReportList({
 
   const handleScopeChange = (scope: ReportScope) => {
     updateParams(getScopeUpdates(scope));
+  };
+
+  const handleYearChange = (year: string) => {
+    updateParams({ year: year === "ALL" ? "" : year, page: "1" });
+  };
+
+  const handleTwChange = (tw: string) => {
+    updateParams({ tw: tw === "ALL" ? "" : tw, page: "1" });
   };
 
   const handleKanwilChange = (value: string) => {
@@ -235,6 +254,8 @@ export function useReportList({
     categoryFilter,
     programFilter,
     scopeFilter,
+    yearFilter,
+    twFilter,
     kanwilId,
     kancabId,
     divisiId,
@@ -248,6 +269,8 @@ export function useReportList({
     handleCategoryChange,
     handleProgramChange,
     handleScopeChange,
+    handleYearChange,
+    handleTwChange,
     handleKanwilChange,
     handleKancabChange,
     handleDivisiChange,

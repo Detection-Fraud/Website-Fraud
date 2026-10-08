@@ -27,7 +27,6 @@ export default function AnalyticsView() {
     setKancabId,
     year,
     pieChartData,
-    dynamicSummary,
     divisiId,
     setDivisiId,
     setRankingPage,
@@ -39,9 +38,15 @@ export default function AnalyticsView() {
     kancabList,
   } = useDashboardAnalytics();
 
-  const diff = dynamicSummary.currentValue - dynamicSummary.previousValue;
+  const currentTotal = summary?.totalKegiatan ?? 0;
+  const previousTotal = summary?.totalTahunLalu;
+  const diff = previousTotal == null ? null : currentTotal - previousTotal;
   const dynamicSubText =
-    diff >= 0 ? `+${diff} vs tahun lalu` : `${diff} vs tahun lalu`;
+    diff == null
+      ? "Perbandingan tahun lalu tidak tersedia"
+      : diff >= 0
+        ? `+${diff} vs periode setara tahun lalu`
+        : `${diff} vs periode setara tahun lalu`;
 
   const percentage = (
     ((summary?.totalApproved || 0) / (summary?.totalKegiatan || 1)) *
@@ -181,8 +186,8 @@ export default function AnalyticsView() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-7">
         <MiniCart
-          title="Total Kegiatan"
-          value={dynamicSummary.currentValue}
+          title="Total Laporan"
+          value={currentTotal}
           sub={dynamicSubText}
           color="bg-blue-50 text-blue-900"
         />
@@ -209,7 +214,7 @@ export default function AnalyticsView() {
       <AnalyticChart
         periode={periode}
         year={year}
-        report={dynamicSummary.currentValue}
+        report={currentTotal}
         areaChartData={areaChartData || []}
         pieChartData={pieChartData || []}
       />

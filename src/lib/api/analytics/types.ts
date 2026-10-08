@@ -6,6 +6,12 @@ export interface AnalyticsScope {
   programTarget: number;
 }
 
+export interface AnalyticsSummaryScope {
+  whereClause: Prisma.ActivityReportWhereInput;
+  previousYearWhereClause: Prisma.ActivityReportWhereInput | null;
+  year: number;
+}
+
 export interface RankingParams extends AnalyticsScope {
   kanwilId?: string;
   kancabId?: string;

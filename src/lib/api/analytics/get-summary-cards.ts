@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { AnalyticsScope } from "./types";
+import { AnalyticsSummaryScope } from "./types";
 
-export async function getSummaryCards(scope: AnalyticsScope) {
-  const { whereClause } = scope;
+export async function getSummaryCards(scope: AnalyticsSummaryScope) {
+  const { whereClause, previousYearWhereClause } = scope;
   const summaryWhereClause = whereClause;
 
   const now = new Date();
@@ -30,6 +30,7 @@ export async function getSummaryCards(scope: AnalyticsScope) {
     totalApproved,
     totalPending,
     totalRejected,
+    totalTahunLalu,
     laporanBulanIni,
     laporanBulanLalu,
   ] = await Promise.all([
@@ -43,6 +44,9 @@ export async function getSummaryCards(scope: AnalyticsScope) {
     prisma.activityReport.count({
       where: { ...summaryWhereClause, status: "REJECTED" },
     }),
+    previousYearWhereClause
+      ? prisma.activityReport.count({ where: previousYearWhereClause })
+      : Promise.resolve(null),
     prisma.activityReport.count({
       where: {
         ...whereClause,
@@ -59,7 +63,9 @@ export async function getSummaryCards(scope: AnalyticsScope) {
 
   const totalUnitAktifRaw = await prisma.activityReport.groupBy({
     by: ["unitId"],
-    where: { ...summaryWhereClause, unitId: { not: null } },
+    where: {
+      AND: [summaryWhereClause, { unitId: { not: null } }],
+    },
   });
 
   return {
@@ -67,6 +73,7 @@ export async function getSummaryCards(scope: AnalyticsScope) {
     totalApproved,
     totalPending,
     totalRejected,
+    totalTahunLalu,
     totalUnitAktif: totalUnitAktifRaw.length,
     laporanBulanIni,
     laporanBulanLalu,

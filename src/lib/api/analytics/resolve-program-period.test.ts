@@ -4,22 +4,52 @@ import { mock, test } from "node:test";
 
 const findManyMock = mock.fn<(...args: any[]) => Promise<any>>(
   async (args: { where: Record<string, unknown> }) => {
-    assert.deepEqual(args.where.category, { targetUnit: "KEGIATAN" });
+    const isEvidence = JSON.stringify(args.where.category) ===
+      JSON.stringify({ evidenceMode: { not: "NONE" } });
+    assert.deepEqual(
+      args.where.category,
+      isEvidence
+        ? { evidenceMode: { not: "NONE" } }
+        : { targetUnit: "KEGIATAN" },
+    );
     if (args.where.id === "toga-program") return [];
     const yearBounds = args.where.startDate as { gte: Date; lt: Date };
     const year = yearBounds.gte.getUTCFullYear();
-    return year === 2026
-      ? [
-          {
-            id: "activity-program",
-            name: "Kegiatan",
-            frequency: 3,
-            tw: 1,
-            startDate: new Date("2026-01-01T00:00:00.000Z"),
-            endDate: new Date("2026-03-31T00:00:00.000Z"),
-          },
-        ]
-      : [];
+    if (year !== 2026) return [];
+
+    const programFixture = [
+      {
+        id: "activity-program",
+        targetUnit: "KEGIATAN",
+        evidenceMode: "PHOTO_WITH_AI",
+      },
+      {
+        id: "participation-program",
+        targetUnit: "PARTISIPASI_PERSEN",
+        evidenceMode: "PHOTO_WITHOUT_AI",
+      },
+      {
+        id: "no-evidence-program",
+        targetUnit: "KEGIATAN",
+        evidenceMode: "NONE",
+      },
+    ];
+
+    return programFixture
+      .filter((program) =>
+        isEvidence
+          ? program.evidenceMode !== "NONE"
+          : program.targetUnit === "KEGIATAN",
+      )
+      .filter((program) => !args.where.id || args.where.id === program.id)
+      .map((program) => ({
+        id: program.id,
+        name: program.id,
+        frequency: 3,
+        tw: 1,
+        startDate: new Date("2026-01-01T00:00:00.000Z"),
+        endDate: new Date("2026-03-31T00:00:00.000Z"),
+      }));
   },
 );
 const authMock = mock.fn<(...args: any[]) => Promise<any>>(async () => ({
@@ -29,10 +59,16 @@ const resolveScopeMock = mock.fn<(...args: any[]) => Promise<any>>(
   async () => ({ whereClause: {} }),
 );
 const summaryMock = mock.fn<(...args: any[]) => Promise<any>>(
-  async (scope: { whereClause: Record<string, unknown>; programTarget: number }) => {
-    assert.deepEqual(scope.whereClause.programId, { in: ["activity-program"] });
-    assert.equal(scope.programTarget, 3);
-    return { totalKegiatan: 1 };
+  async (scope: {
+    whereClause: Record<string, unknown>;
+    previousYearWhereClause: Record<string, unknown>;
+    programTarget: number;
+  }) => {
+    assert.deepEqual(scope.whereClause.programId, {
+      in: ["activity-program", "participation-program"],
+    });
+    assert.deepEqual(scope.previousYearWhereClause.programId, { in: [] });
+    return { totalKegiatan: 1, totalTahunLalu: 0 };
   },
 );
 const trendMock = mock.fn<(...args: any[]) => Promise<any>>(
@@ -40,7 +76,9 @@ const trendMock = mock.fn<(...args: any[]) => Promise<any>>(
     current: Record<string, unknown>,
     previous: Record<string, unknown>,
   ) => {
-    assert.deepEqual(current.programId, { in: ["activity-program"] });
+    assert.deepEqual(current.programId, {
+      in: ["activity-program", "participation-program"],
+    });
     assert.deepEqual(previous.programId, { in: [] });
     return {
       kegiatanPerBulan: [],
@@ -51,7 +89,9 @@ const trendMock = mock.fn<(...args: any[]) => Promise<any>>(
 );
 const distributionMock = mock.fn<(...args: any[]) => Promise<any>>(
   async (where: Record<string, unknown>) => {
-    assert.deepEqual(where.programId, { in: ["activity-program"] });
+    assert.deepEqual(where.programId, {
+      in: ["activity-program", "participation-program"],
+    });
     return [];
   },
 );
@@ -61,15 +101,17 @@ const rankingMock = mock.fn<(...args: any[]) => Promise<any>>(
     programTarget: number;
   }) => {
     assert.deepEqual(params.whereClause.programId, {
-      in: ["activity-program"],
+      in: ["activity-program", "no-evidence-program"],
     });
-    assert.equal(params.programTarget, 3);
+    assert.equal(params.programTarget, 6);
     return { rankingWilayah: [], rankingTotal: 0, rankingTotalPages: 1 };
   },
 );
 const topUnitsMock = mock.fn<(...args: any[]) => Promise<any>>(
   async ({ whereClause }: { whereClause: Record<string, unknown> }) => {
-    assert.deepEqual(whereClause.programId, { in: ["activity-program"] });
+    assert.deepEqual(whereClause.programId, {
+      in: ["activity-program", "participation-program"],
+    });
     return [];
   },
 );
@@ -79,9 +121,9 @@ const ccMock = mock.fn<(...args: any[]) => Promise<any>>(
     programTarget: number;
   }) => {
     assert.deepEqual(params.whereClause.programId, {
-      in: ["activity-program"],
+      in: ["activity-program", "no-evidence-program"],
     });
-    assert.equal(params.programTarget, 3);
+    assert.equal(params.programTarget, 6);
     return { rankingCC: [], rankingCCTotal: 0, rankingCCTotalPages: 0 };
   },
 );
@@ -147,7 +189,7 @@ test.before(async () => {
   ({ GET } = await import("@/app/api/analytics/dashboard/route"));
 });
 
-test("TOGA tidak mengubah IDs, target, dan scope seluruh consumer analytics", {
+test("report analytics includes activity and participation evidence; activity rankings stay activity-only", {
   concurrency: false,
 }, async () => {
   const result = await resolveProgramPeriod({
@@ -183,4 +225,24 @@ test("empty selection mengembalikan resolver kosong tanpa fallback", {
     (findManyMock.mock.calls as any)[0]?.arguments[0].where.category,
     { targetUnit: "KEGIATAN" },
   );
+});
+
+test("evidence report period resolves programs by approval evidence capability", {
+  concurrency: false,
+}, async () => {
+  findManyMock.mock.resetCalls();
+  const result = await resolveProgramPeriod({
+    year: 2026,
+    period: "TW1",
+    scope: "EVIDENCE",
+  });
+  assert.deepEqual(result.programIds, [
+    "activity-program",
+    "participation-program",
+  ]);
+  assert.deepEqual(
+    (findManyMock.mock.calls as any)[0]?.arguments[0].where.category,
+    { evidenceMode: { not: "NONE" } },
+  );
+  assert.equal(result.programIds.includes("no-evidence-program"), false);
 });

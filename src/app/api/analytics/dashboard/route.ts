@@ -90,30 +90,54 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [periodScope, previousPeriodScope] = await Promise.all([
-      resolveProgramPeriod({ year, period: rawPeriod, programId }),
-      resolveProgramPeriod({ year: year - 1, period: rawPeriod }),
-    ]);
+    const [reportPeriodScope, previousReportPeriodScope, activityPeriodScope] =
+      await Promise.all([
+        resolveProgramPeriod({
+          year,
+          period: rawPeriod,
+          programId,
+          scope: "EVIDENCE",
+        }),
+        resolveProgramPeriod({
+          year: year - 1,
+          period: rawPeriod,
+          programId,
+          scope: "EVIDENCE",
+        }),
+        resolveProgramPeriod({ year, period: rawPeriod, programId }),
+      ]);
 
-    whereClause.programId = { in: periodScope.programIds };
-    const previousWhereClause = {
+    const reportWhereClause: typeof whereClause = {
       ...whereClause,
-      programId: { in: previousPeriodScope.programIds },
+      programId: { in: reportPeriodScope.programIds },
+    };
+    const previousReportWhereClause = {
+      ...whereClause,
+      programId: { in: previousReportPeriodScope.programIds },
+    };
+    const activityWhereClause: typeof whereClause = {
+      ...whereClause,
+      programId: { in: activityPeriodScope.programIds },
     };
 
-    const scope = {
-      whereClause,
+    const reportScope = {
+      whereClause: reportWhereClause,
       year,
-      programTarget: periodScope.target,
+      previousYearWhereClause: programId ? null : previousReportWhereClause,
+    };
+    const activityScope = {
+      whereClause: activityWhereClause,
+      year,
+      programTarget: activityPeriodScope.target,
     };
 
     const [summary, trends, distribusi, ranking, topUnit, ccRanking] =
       await Promise.all([
-        getSummaryCards(scope),
-        getMonthlyTrend(whereClause, previousWhereClause, year),
-        getDistribusi(whereClause),
+        getSummaryCards(reportScope),
+        getMonthlyTrend(reportWhereClause, previousReportWhereClause, year),
+        getDistribusi(reportWhereClause),
         getRanking({
-          ...scope,
+          ...activityScope,
           kanwilId,
           kancabId,
           divisiId,
@@ -122,9 +146,9 @@ export async function GET(request: NextRequest) {
           rankingUnitId,
           user,
         }),
-        getTopUnits({ whereClause }),
+        getTopUnits({ whereClause: reportWhereClause }),
         getRankingCC({
-          ...scope,
+          ...activityScope,
           page: rankingCCPage,
           limit: 10,
           kanwilId,

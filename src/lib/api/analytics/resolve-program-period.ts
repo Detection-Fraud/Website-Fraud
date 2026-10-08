@@ -28,13 +28,18 @@ export async function resolveProgramPeriod(input: {
   year: number;
   period: AnalyticsPeriod;
   programId?: string;
+  scope?: "ACTIVITY" | "EVIDENCE";
 }) {
   const twValues = PERIOD_TW[input.period];
+  const category =
+    input.scope === "EVIDENCE"
+      ? { evidenceMode: { not: "NONE" as const } }
+      : { targetUnit: "KEGIATAN" as const };
   const programs = await prisma.programBudaya.findMany({
     where: {
       startDate: programYearBounds(input.year),
       tw: { in: twValues },
-      category: { targetUnit: "KEGIATAN" },
+      category,
       ...(input.programId ? { id: input.programId } : {}),
     },
     select: {

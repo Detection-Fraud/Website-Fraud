@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import {
   isActivityDateInsideProgram,
   isProgramUploadOpen,
+  programYearBounds,
 } from "@/lib/program-period";
 import {
   getCapabilityError,
@@ -33,6 +34,18 @@ import { resolveUploadReference } from "@/lib/api/upload-storage";
 import { Prisma, ReportStatus } from "@generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+
+const approvalReportFiltersSchema = z.object({
+  year: z.union([z.literal("ALL"), z.coerce.number().int().min(1900).max(2100)]),
+  tw: z.union([z.literal("ALL"), z.coerce.number().int().min(1).max(4)]),
+  unitType: z.enum([
+    "ALL",
+    "WILAYAH",
+    "WILAYAH_AND_CABANG",
+    "CABANG",
+    "DIVISI",
+  ]),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -69,6 +82,18 @@ export async function GET(request: NextRequest) {
     const divisiFilter = searchParams.get("divisiId") || "ALL";
     const categoryId = searchParams.get("categoryId") || "ALL";
     const programId = searchParams.get("programId") || "ALL";
+    const filtersResult = approvalReportFiltersSchema.safeParse({
+      year: searchParams.get("year") ?? "ALL",
+      tw: searchParams.get("tw") ?? "ALL",
+      unitType: searchParams.get("unitType") ?? "ALL",
+    });
+    if (!filtersResult.success) {
+      return NextResponse.json(
+        errorResponse("Filter periode atau tipe unit laporan tidak valid", 400),
+        { status: 400 },
+      );
+    }
+    const { year, tw, unitType } = filtersResult.data;
 
     const { whereClause: unitScope } = await resolveScope(user, {
       kanwilId: kanwilFilter,
@@ -81,15 +106,31 @@ export async function GET(request: NextRequest) {
             category: { evidenceMode: { not: "NONE" } },
             ...(categoryId !== "ALL" && { categoryId }),
             ...(programId !== "ALL" && { id: programId }),
+            ...(year !== "ALL" && { startDate: programYearBounds(year) }),
+            ...(tw !== "ALL" && { tw }),
           }
         : {
             category: { targetUnit: "KEGIATAN" },
             ...(categoryId !== "ALL" && { categoryId }),
             ...(programId !== "ALL" && { id: programId }),
+            ...(year !== "ALL" && { startDate: programYearBounds(year) }),
+            ...(tw !== "ALL" && { tw }),
           };
+    const unitTypesByFilter: Record<
+      Exclude<typeof unitType, "ALL">,
+      ("KANTOR_WILAYAH" | "KANTOR_CABANG" | "DIVISI")[]
+    > = {
+      WILAYAH: ["KANTOR_WILAYAH"],
+      WILAYAH_AND_CABANG: ["KANTOR_WILAYAH", "KANTOR_CABANG"],
+      CABANG: ["KANTOR_CABANG"],
+      DIVISI: ["DIVISI"],
+    };
     const whereClause: Prisma.ActivityReportWhereInput = {
       ...unitScope,
       program: programFilter,
+      ...(unitType !== "ALL" && {
+        unit: { is: { type: { in: unitTypesByFilter[unitType] } } },
+      }),
     };
     const baseWhereClause = { ...whereClause };
 
